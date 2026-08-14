@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AiServiceSummaryResponse",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "content_id",
+    "title",
+    "short_summary",
+    "key_points",
+    "tags",
+    "language",
+    "provider"
+  ],
+  "properties": {
+    "content_id": { "type": "string" },
+    "title": { "type": "string" },
+    "short_summary": { "type": "string" },
+    "key_points": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "language": { "type": "string" },
+    "provider": {
+      "type": "string",
+      "enum": ["fake"]
+    }
+  }
+}

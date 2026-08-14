@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+**/__pycache__/
+**/.pytest_cache/
+**/.venv/
+.env
+.idea/
+.vs/
+.vscode/
+.tmp/
