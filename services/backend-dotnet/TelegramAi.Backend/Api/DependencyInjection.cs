@@ -12,7 +12,6 @@ public static class DependencyInjection
         app.MapHealthEndpoints();
         app.MapContentEndpoints();
         app.MapSummaryEndpoints();
-        app.MapTelegramEndpoints();
 
         return app;
     }

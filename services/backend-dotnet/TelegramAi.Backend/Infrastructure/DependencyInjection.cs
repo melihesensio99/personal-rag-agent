@@ -3,6 +3,8 @@ using TelegramAi.Backend.Application.Abstractions;
 using TelegramAi.Backend.Infrastructure.AiService;
 using TelegramAi.Backend.Infrastructure.Persistence;
 using TelegramAi.Backend.Infrastructure.Telegram;
+using TelegramAi.Backend.Infrastructure.Telegram.TelegramApi;
+using Microsoft.EntityFrameworkCore;
 
 namespace TelegramAi.Backend.Infrastructure;
 
@@ -12,8 +14,18 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        services.AddSingleton<IContentRepository, InMemoryContentRepository>();
+        var connectionString = configuration.GetConnectionString("ApplicationDb")
+            ?? throw new InvalidOperationException("Connection string 'ApplicationDb' is not configured.");
+
+        services.AddDbContext<ApplicationDbContext>(options =>
+        {
+            options.UseNpgsql(connectionString);
+        });
+
+        services.AddScoped<IContentRepository, EfCoreContentRepository>();
+        services.AddHostedService<DatabaseMigrationHostedService>();
         services.AddHostedService<TelegramBotStartupDiagnosticsHostedService>();
+        services.AddHostedService<TelegramPollingHostedService>();
 
         services
             .AddOptions<AiServiceOptions>()
@@ -24,6 +36,12 @@ public static class DependencyInjection
         services
             .AddOptions<TelegramBotOptions>()
             .Bind(configuration.GetSection(TelegramBotOptions.SectionName));
+
+        services.AddHttpClient<ITelegramBotApiClient, TelegramBotApiClient>(httpClient =>
+        {
+            httpClient.BaseAddress = new Uri("https://api.telegram.org/");
+            httpClient.Timeout = TimeSpan.FromSeconds(20);
+        });
 
         services.AddHttpClient<IAiServiceClient, AiServiceClient>((serviceProvider, httpClient) =>
         {

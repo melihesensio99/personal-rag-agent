@@ -4,6 +4,10 @@ using TelegramAi.Backend.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.AddDebug();
+
 builder.Services.AddApi();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);

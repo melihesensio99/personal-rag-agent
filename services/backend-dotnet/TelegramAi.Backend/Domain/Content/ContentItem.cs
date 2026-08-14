@@ -2,6 +2,12 @@ namespace TelegramAi.Backend.Domain.Content;
 
 public sealed class ContentItem
 {
+    private ContentItem()
+    {
+        RawText = string.Empty;
+        Summary = null!;
+    }
+
     private ContentItem(
         Guid id,
         ContentSourceType sourceType,
@@ -16,11 +22,11 @@ public sealed class ContentItem
         CreatedAtUtc = createdAtUtc;
     }
 
-    public Guid Id { get; }
-    public ContentSourceType SourceType { get; }
-    public string RawText { get; }
-    public ContentSummary Summary { get; }
-    public DateTimeOffset CreatedAtUtc { get; }
+    public Guid Id { get; private set; }
+    public ContentSourceType SourceType { get; private set; }
+    public string RawText { get; private set; }
+    public ContentSummary Summary { get; private set; }
+    public DateTimeOffset CreatedAtUtc { get; private set; }
 
     public static ContentItem Create(
         Guid id,
