@@ -1,22 +1,25 @@
 using TelegramAi.Backend.Application.Content.Commands;
 using TelegramAi.Backend.Application.Content.Services;
+using TelegramAi.Backend.Application.Telegram.Classification;
 using TelegramAi.Backend.Application.Telegram.Commands;
 using TelegramAi.Backend.Application.Telegram.Results;
-using TelegramAi.Backend.Domain.Content;
 
 namespace TelegramAi.Backend.Application.Telegram.Services;
 
 public sealed class TelegramMessageApplicationService(
-    IContentApplicationService contentApplicationService) : ITelegramMessageApplicationService
+    IContentApplicationService contentApplicationService,
+    ITelegramContentSourceDetector contentSourceDetector) : ITelegramMessageApplicationService
 {
     public async Task<ProcessTelegramMessageResult> ProcessAsync(
         ProcessTelegramMessageCommand command,
         CancellationToken cancellationToken)
     {
+        var sourceType = contentSourceDetector.Detect(command.Text);
+
         var contentItem = await contentApplicationService.CreateAsync(
             new CreateContentCommand(
                 Text: command.Text,
-                SourceType: ContentSourceType.Telegram),
+                SourceType: sourceType),
             cancellationToken);
 
         return new ProcessTelegramMessageResult(

@@ -11,6 +11,7 @@ public sealed class TelegramMessageResponseFormatter : ITelegramMessageResponseF
 
         builder.AppendLine("Kaydettim.");
         builder.AppendLine();
+        builder.AppendLine($"Tur: {result.Content.SourceType}");
         builder.AppendLine($"Baslik: {result.Content.Summary.Title}");
         builder.AppendLine($"Ozet: {result.Content.Summary.ShortSummary}");
 

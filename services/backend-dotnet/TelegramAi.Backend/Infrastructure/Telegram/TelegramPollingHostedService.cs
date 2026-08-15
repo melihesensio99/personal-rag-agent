@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Options;
+using TelegramAi.Backend.Application.Content.Services;
 using TelegramAi.Backend.Application.Telegram.Commands;
 using TelegramAi.Backend.Application.Telegram.Formatting;
+using TelegramAi.Backend.Application.Telegram.Interpretation;
 using TelegramAi.Backend.Application.Telegram.Services;
 using TelegramAi.Backend.Infrastructure.Telegram.TelegramApi;
 
@@ -89,8 +91,26 @@ public sealed class TelegramPollingHostedService(
         }
 
         using var scope = serviceScopeFactory.CreateScope();
+        var contentApplicationService = scope.ServiceProvider.GetRequiredService<IContentApplicationService>();
         var telegramMessageApplicationService = scope.ServiceProvider.GetRequiredService<ITelegramMessageApplicationService>();
+        var telegramMessageIntentInterpreter = scope.ServiceProvider.GetRequiredService<ITelegramMessageIntentInterpreter>();
+        var searchResponseFormatter = scope.ServiceProvider.GetRequiredService<ITelegramContentSearchResponseFormatter>();
         var responseFormatter = scope.ServiceProvider.GetRequiredService<ITelegramMessageResponseFormatter>();
+        var intent = telegramMessageIntentInterpreter.Interpret(text);
+
+        if (intent is SearchContentsIntent searchIntent)
+        {
+            var contents = await contentApplicationService.SearchAsync(
+                searchIntent.Query,
+                cancellationToken);
+
+            await telegramBotApiClient.SendTextMessageAsync(
+                message.Chat.Id,
+                searchResponseFormatter.Format(searchIntent.Query, contents),
+                cancellationToken);
+
+            return;
+        }
 
         var result = await telegramMessageApplicationService.ProcessAsync(
             new ProcessTelegramMessageCommand(
