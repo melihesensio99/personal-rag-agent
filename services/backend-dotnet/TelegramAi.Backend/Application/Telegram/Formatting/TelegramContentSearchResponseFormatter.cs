@@ -11,26 +11,29 @@ public sealed class TelegramContentSearchResponseFormatter : ITelegramContentSea
     {
         if (contents.Count == 0)
         {
-            return "Aramana uygun bir kayit bulamadim.";
+            return "🔍 Aramana uygun bir kayıt bulamadım.";
         }
 
         var builder = new StringBuilder();
-        builder.AppendLine(contents.Count == 1 ? "Bunu buldum:" : "Bunlari buldum:");
+        builder.AppendLine(contents.Count == 1 ? "🔍 Bunu buldum" : "🔍 Bunları buldum");
         builder.AppendLine();
 
         foreach (var content in contents)
         {
-            builder.AppendLine($"- {content.Summary.Title}");
-            builder.AppendLine($"  Kaynak: {content.SourceType}");
-            builder.AppendLine($"  Tarih: {content.CreatedAtUtc.ToLocalTime():dd.MM.yyyy HH:mm}");
-            builder.AppendLine($"  Ozet: {content.Summary.ShortSummary}");
-            builder.AppendLine($"  Icerik: {BuildRawContentPreview(content.RawText)}");
+            builder.AppendLine("────────────────");
+            builder.AppendLine($"📌 {content.Summary.Title}");
+            builder.AppendLine($"📎 Tür: {content.SourceType}");
+            builder.AppendLine($"🕒 Tarih: {content.CreatedAtUtc.ToLocalTime():dd.MM.yyyy HH:mm}");
+            builder.AppendLine("📝 Özet");
+            builder.AppendLine(content.Summary.ShortSummary);
+            builder.AppendLine("🔗 İçerik");
+            builder.AppendLine(BuildRawContentPreview(content.RawText));
             builder.AppendLine();
         }
 
         if (query.Keywords.Count > 0)
         {
-            builder.AppendLine($"Filtre: {string.Join(", ", query.Keywords)}");
+            builder.AppendLine($"🏷️ Filtre: {string.Join(", ", query.Keywords)}");
         }
 
         return builder.ToString().Trim();

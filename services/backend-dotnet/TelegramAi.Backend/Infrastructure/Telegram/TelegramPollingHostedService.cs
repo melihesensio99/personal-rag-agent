@@ -4,6 +4,8 @@ using TelegramAi.Backend.Application.Telegram.Commands;
 using TelegramAi.Backend.Application.Telegram.Formatting;
 using TelegramAi.Backend.Application.Telegram.Interpretation;
 using TelegramAi.Backend.Application.Telegram.Services;
+using TelegramAi.Backend.Domain.Content;
+using TelegramAi.Backend.Infrastructure.AiService;
 using TelegramAi.Backend.Infrastructure.Telegram.TelegramApi;
 
 namespace TelegramAi.Backend.Infrastructure.Telegram;
@@ -93,10 +95,10 @@ public sealed class TelegramPollingHostedService(
         using var scope = serviceScopeFactory.CreateScope();
         var contentApplicationService = scope.ServiceProvider.GetRequiredService<IContentApplicationService>();
         var telegramMessageApplicationService = scope.ServiceProvider.GetRequiredService<ITelegramMessageApplicationService>();
-        var telegramMessageIntentInterpreter = scope.ServiceProvider.GetRequiredService<ITelegramMessageIntentInterpreter>();
+        var aiServiceClient = scope.ServiceProvider.GetRequiredService<IAiServiceClient>();
         var searchResponseFormatter = scope.ServiceProvider.GetRequiredService<ITelegramContentSearchResponseFormatter>();
         var responseFormatter = scope.ServiceProvider.GetRequiredService<ITelegramMessageResponseFormatter>();
-        var intent = telegramMessageIntentInterpreter.Interpret(text);
+        var intent = await ResolveIntentAsync(text, aiServiceClient, cancellationToken);
 
         if (intent is SearchContentsIntent searchIntent)
         {
@@ -123,5 +125,95 @@ public sealed class TelegramPollingHostedService(
             message.Chat.Id,
             responseFormatter.Format(result),
             cancellationToken);
+    }
+
+    private static async Task<TelegramMessageIntent> ResolveIntentAsync(
+        string text,
+        IAiServiceClient aiServiceClient,
+        CancellationToken cancellationToken)
+    {
+        if (LooksLikeDirectContentInput(text))
+        {
+            return new SaveContentIntent(text);
+        }
+
+        var aiIntent = await aiServiceClient.ClassifyIntentAsync(
+            new Api.Contracts.Intents.ClassifyIntentRequest(
+                Message: text,
+                CurrentDate: DateOnly.FromDateTime(DateTime.UtcNow).ToString("yyyy-MM-dd")),
+            cancellationToken);
+
+        if (aiIntent.Intent.Equals("search", StringComparison.OrdinalIgnoreCase))
+        {
+            var sourceType = ParseSourceType(aiIntent.SourceType);
+            var (fromUtc, toUtc) = ParseTimeFilter(aiIntent.TimeFilter);
+
+            return new SearchContentsIntent(
+                text,
+                new Application.Content.Queries.SearchContentsQuery(
+                    Keywords: aiIntent.Keywords,
+                    SourceType: sourceType,
+                    FromUtc: fromUtc,
+                    ToUtc: toUtc));
+        }
+
+        return new SaveContentIntent(text);
+    }
+
+    private static bool LooksLikeDirectContentInput(string text)
+    {
+        var trimmed = text.Trim();
+
+        if (Uri.TryCreate(trimmed, UriKind.Absolute, out _))
+        {
+            return true;
+        }
+
+        return trimmed.Contains("http://", StringComparison.OrdinalIgnoreCase) ||
+               trimmed.Contains("https://", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static ContentSourceType? ParseSourceType(string? sourceType)
+    {
+        return Enum.TryParse<ContentSourceType>(sourceType, ignoreCase: true, out var parsed)
+            ? parsed
+            : null;
+    }
+
+    private static (DateTimeOffset? FromUtc, DateTimeOffset? ToUtc) ParseTimeFilter(string timeFilter)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var localNow = TimeZoneInfo.ConvertTime(now, ResolveTurkeyTimeZone());
+
+        return timeFilter switch
+        {
+            "today" => BuildDayRange(localNow),
+            "yesterday" => BuildDayRange(localNow.AddDays(-1)),
+            "two_days_ago" => BuildDayRange(localNow.AddDays(-2)),
+            _ => (null, null),
+        };
+    }
+
+    private static (DateTimeOffset FromUtc, DateTimeOffset ToUtc) BuildDayRange(DateTimeOffset localDateTime)
+    {
+        var timeZone = ResolveTurkeyTimeZone();
+        var dayStart = localDateTime.Date;
+        var dayEnd = dayStart.AddDays(1);
+
+        return (
+            TimeZoneInfo.ConvertTimeToUtc(dayStart, timeZone),
+            TimeZoneInfo.ConvertTimeToUtc(dayEnd, timeZone));
+    }
+
+    private static TimeZoneInfo ResolveTurkeyTimeZone()
+    {
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("Turkey Standard Time");
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("Europe/Istanbul");
+        }
     }
 }

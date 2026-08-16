@@ -1,6 +1,18 @@
 from fastapi.testclient import TestClient
 
+from app.dependencies import get_summary_service
 from app.main import app
+from app.services.prompt_loader import PromptLoader
+from app.services.summary_providers.fake_summary_provider import FakeSummaryProvider
+from app.services.summary_service import SummaryService
+
+
+def _fake_summary_service() -> SummaryService:
+    prompt_loader = PromptLoader("app/prompts/content_summary_v1.txt")
+    return SummaryService(FakeSummaryProvider(prompt_loader))
+
+
+app.dependency_overrides[get_summary_service] = _fake_summary_service
 
 client = TestClient(app)
 

@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using TelegramAi.Backend.Api.Contracts.Health;
 using TelegramAi.Backend.Api.Contracts.Extractions;
+using TelegramAi.Backend.Api.Contracts.Intents;
 using TelegramAi.Backend.Api.Contracts.Summaries;
 using TelegramAi.Backend.Infrastructure.AiService.Contracts;
 
@@ -55,6 +56,36 @@ public sealed class AiServiceClient(HttpClient httpClient) : IAiServiceClient
                 ContentType: extraction.Metadata.ContentType,
                 FinalUrl: extraction.Metadata.FinalUrl,
                 Extra: extraction.Metadata.Extra));
+    }
+
+    public async Task<ClassifyIntentResponse> ClassifyIntentAsync(
+        ClassifyIntentRequest request,
+        CancellationToken cancellationToken)
+    {
+        var aiRequest = new AiServiceClassifyIntentRequest(
+            Message: request.Message,
+            CurrentDate: request.CurrentDate);
+
+        var httpResponse = await httpClient.PostAsJsonAsync(
+            "/api/v1/intents",
+            aiRequest,
+            cancellationToken);
+
+        httpResponse.EnsureSuccessStatusCode();
+
+        var intent = await httpResponse.Content.ReadFromJsonAsync<AiServiceClassifyIntentResponse>(cancellationToken);
+
+        if (intent is null)
+        {
+            throw new InvalidOperationException("AI service returned an empty intent response.");
+        }
+
+        return new ClassifyIntentResponse(
+            Intent: intent.Intent,
+            SourceType: intent.SourceType,
+            TimeFilter: intent.TimeFilter,
+            Keywords: intent.Keywords,
+            NeedsClarification: intent.NeedsClarification);
     }
 
     public async Task<CreateSummaryResponse> CreateSummaryAsync(

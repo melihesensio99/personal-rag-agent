@@ -5,6 +5,12 @@ class Settings(BaseSettings):
     service_name: str = "ai-service-python"
     service_version: str = "1.0"
     summary_prompt_path: str = "app/prompts/content_summary_v1.txt"
+    summary_provider: str = "fake"
+    intent_provider: str = "fake"
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-3.6-flash"
+    gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
+    gemini_timeout_seconds: int = 30
 
     model_config = SettingsConfigDict(
         env_prefix="AI_SERVICE_",

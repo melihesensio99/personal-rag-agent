@@ -19,4 +19,4 @@ class SummaryResponse(BaseModel):
     key_points: list[str]
     tags: list[str]
     language: str
-    provider: Literal["fake"]
+    provider: Literal["fake", "gemini"]
