@@ -3,6 +3,7 @@ namespace TelegramAi.Backend.Api.Contracts.Extractions;
 public sealed record CreateExtractionResponse(
     string ContentId,
     string SourceType,
+    string DetectedContentKind,
     string ExtractionStatus,
     string? Title,
     string ExtractedText,

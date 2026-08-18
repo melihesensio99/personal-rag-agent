@@ -100,31 +100,43 @@ public sealed class TelegramPollingHostedService(
         var responseFormatter = scope.ServiceProvider.GetRequiredService<ITelegramMessageResponseFormatter>();
         var intent = await ResolveIntentAsync(text, aiServiceClient, cancellationToken);
 
-        if (intent is SearchContentsIntent searchIntent)
+        try
         {
-            var contents = await contentApplicationService.SearchAsync(
-                searchIntent.Query,
+            if (intent is SearchContentsIntent searchIntent)
+            {
+                var contents = await contentApplicationService.SearchAsync(
+                    searchIntent.Query,
+                    cancellationToken);
+
+                await telegramBotApiClient.SendTextMessageAsync(
+                    message.Chat.Id,
+                    searchResponseFormatter.Format(searchIntent.Query, contents),
+                    cancellationToken);
+
+                return;
+            }
+
+            var result = await telegramMessageApplicationService.ProcessAsync(
+                new ProcessTelegramMessageCommand(
+                    ChatId: message.Chat.Id,
+                    Text: text,
+                    SenderDisplayName: message.From?.FirstName ?? message.From?.Username),
                 cancellationToken);
 
             await telegramBotApiClient.SendTextMessageAsync(
                 message.Chat.Id,
-                searchResponseFormatter.Format(searchIntent.Query, contents),
+                responseFormatter.Format(result),
                 cancellationToken);
-
-            return;
         }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Telegram message processing failed for chat {ChatId}.", message.Chat.Id);
 
-        var result = await telegramMessageApplicationService.ProcessAsync(
-            new ProcessTelegramMessageCommand(
-                ChatId: message.Chat.Id,
-                Text: text,
-                SenderDisplayName: message.From?.FirstName ?? message.From?.Username),
-            cancellationToken);
-
-        await telegramBotApiClient.SendTextMessageAsync(
-            message.Chat.Id,
-            responseFormatter.Format(result),
-            cancellationToken);
+            await telegramBotApiClient.SendTextMessageAsync(
+                message.Chat.Id,
+                "Bu mesaji islerken bir hata olustu. Logu kontrol edip tekrar deneyelim.",
+                cancellationToken);
+        }
     }
 
     private static async Task<TelegramMessageIntent> ResolveIntentAsync(
@@ -145,6 +157,7 @@ public sealed class TelegramPollingHostedService(
 
         if (aiIntent.Intent.Equals("search", StringComparison.OrdinalIgnoreCase))
         {
+            var contentKind = ParseContentKind(aiIntent.ContentKind);
             var sourceType = ParseSourceType(aiIntent.SourceType);
             var (fromUtc, toUtc) = ParseTimeFilter(aiIntent.TimeFilter);
 
@@ -152,6 +165,7 @@ public sealed class TelegramPollingHostedService(
                 text,
                 new Application.Content.Queries.SearchContentsQuery(
                     Keywords: aiIntent.Keywords,
+                    ContentKind: contentKind,
                     SourceType: sourceType,
                     FromUtc: fromUtc,
                     ToUtc: toUtc));
@@ -176,6 +190,13 @@ public sealed class TelegramPollingHostedService(
     private static ContentSourceType? ParseSourceType(string? sourceType)
     {
         return Enum.TryParse<ContentSourceType>(sourceType, ignoreCase: true, out var parsed)
+            ? parsed
+            : null;
+    }
+
+    private static ContentKind? ParseContentKind(string? contentKind)
+    {
+        return Enum.TryParse<ContentKind>(contentKind, ignoreCase: true, out var parsed)
             ? parsed
             : null;
     }

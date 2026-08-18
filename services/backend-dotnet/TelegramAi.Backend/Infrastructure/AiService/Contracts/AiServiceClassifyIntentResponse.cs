@@ -4,6 +4,7 @@ namespace TelegramAi.Backend.Infrastructure.AiService.Contracts;
 
 public sealed record AiServiceClassifyIntentResponse(
     [property: JsonPropertyName("intent")] string Intent,
+    [property: JsonPropertyName("content_kind")] string? ContentKind,
     [property: JsonPropertyName("source_type")] string? SourceType,
     [property: JsonPropertyName("time_filter")] string TimeFilter,
     [property: JsonPropertyName("keywords")] IReadOnlyList<string> Keywords,

@@ -20,6 +20,7 @@ class YouTubeExtractor:
             return ExtractionResponse(
                 content_id=request.content_id,
                 source_type=request.source_type,
+                detected_content_kind="video",
                 extraction_status="failed",
                 title=None,
                 extracted_text=request.text.strip() if request.text else "",
@@ -33,6 +34,7 @@ class YouTubeExtractor:
             return ExtractionResponse(
                 content_id=request.content_id,
                 source_type=request.source_type,
+                detected_content_kind="video",
                 extraction_status="failed",
                 title=None,
                 extracted_text=request.text.strip() if request.text else url,
@@ -53,6 +55,7 @@ class YouTubeExtractor:
             return ExtractionResponse(
                 content_id=request.content_id,
                 source_type=request.source_type,
+                detected_content_kind="video",
                 extraction_status="completed",
                 title=title,
                 extracted_text=extracted_text,
@@ -74,6 +77,7 @@ class YouTubeExtractor:
             return ExtractionResponse(
                 content_id=request.content_id,
                 source_type=request.source_type,
+                detected_content_kind="video",
                 extraction_status="failed",
                 title=None,
                 extracted_text=request.text.strip() if request.text else url,

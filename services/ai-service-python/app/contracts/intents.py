@@ -14,6 +14,7 @@ class IntentResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     intent: Literal["save", "search", "clarify"]
+    content_kind: Literal["text", "video", "image"] | None = None
     source_type: Literal["article", "youtube", "pdf", "image", "telegram"] | None = None
     time_filter: Literal["today", "yesterday", "two_days_ago", "none"] = "none"
     keywords: list[str] = Field(default_factory=list)

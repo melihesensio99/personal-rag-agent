@@ -32,6 +32,7 @@ class GeminiIntentProvider(IntentProvider):
 
         return IntentResponse(
             intent=parsed["intent"],
+            content_kind=parsed.get("content_kind"),
             source_type=parsed.get("source_type"),
             time_filter=parsed.get("time_filter", "none"),
             keywords=parsed.get("keywords", []),
@@ -46,9 +47,13 @@ class GeminiIntentProvider(IntentProvider):
             "Classify the user's message for a personal content assistant. "
             "Return only JSON. "
             "intent must be save, search, or clarify. "
+            "content_kind must be text, video, image, or null. "
             "source_type must be article, youtube, pdf, image, telegram, or null. "
             "time_filter must be today, yesterday, two_days_ago, or none. "
             "keywords should contain only meaningful topic words and should not include filler words like getir, listele, attığım, linkleri. "
+            "If the user asks for videos in general, set content_kind to video even when source_type is null. "
+            "If the user asks for articles, writings, PDFs, or text-like records in general, set content_kind to text unless a stricter source_type is clearly requested. "
+            "If the user asks for images, visuals, photos, or screenshots, set content_kind to image. "
             "If the user wants previously saved records, choose search. "
             "If the user sends content or a link to save, choose save.\n\n"
             f"User message: {request.message}"
@@ -69,12 +74,13 @@ class GeminiIntentProvider(IntentProvider):
                     "additionalProperties": False,
                     "properties": {
                         "intent": {"type": "string", "enum": ["save", "search", "clarify"]},
+                        "content_kind": {"type": ["string", "null"], "enum": ["text", "video", "image", None]},
                         "source_type": {"type": ["string", "null"], "enum": ["article", "youtube", "pdf", "image", "telegram", None]},
                         "time_filter": {"type": "string", "enum": ["today", "yesterday", "two_days_ago", "none"]},
                         "keywords": {"type": "array", "items": {"type": "string"}, "maxItems": 5},
                         "needs_clarification": {"type": "boolean"},
                     },
-                    "required": ["intent", "source_type", "time_filter", "keywords", "needs_clarification"],
+                    "required": ["intent", "content_kind", "source_type", "time_filter", "keywords", "needs_clarification"],
                 },
             },
         }

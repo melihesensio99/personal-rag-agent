@@ -1,5 +1,4 @@
 using TelegramAi.Backend.Application.Content.Services;
-using TelegramAi.Backend.Application.Telegram.Classification;
 using TelegramAi.Backend.Application.Telegram.Formatting;
 using TelegramAi.Backend.Application.Telegram.Interpretation;
 using TelegramAi.Backend.Application.Telegram.Services;
@@ -12,7 +11,6 @@ public static class DependencyInjection
     {
         services.AddScoped<IContentApplicationService, ContentApplicationService>();
         services.AddScoped<ITelegramMessageApplicationService, TelegramMessageApplicationService>();
-        services.AddSingleton<ITelegramContentSourceDetector, TelegramContentSourceDetector>();
         services.AddSingleton<ITelegramMessageResponseFormatter, TelegramMessageResponseFormatter>();
         services.AddSingleton<ITelegramContentSearchResponseFormatter, TelegramContentSearchResponseFormatter>();
         services.AddSingleton<ITelegramMessageIntentInterpreter, RuleBasedTelegramMessageIntentInterpreter>();

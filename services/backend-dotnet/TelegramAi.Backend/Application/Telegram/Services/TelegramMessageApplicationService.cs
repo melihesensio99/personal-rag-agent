@@ -1,20 +1,21 @@
 using TelegramAi.Backend.Application.Content.Commands;
 using TelegramAi.Backend.Application.Content.Services;
-using TelegramAi.Backend.Application.Telegram.Classification;
 using TelegramAi.Backend.Application.Telegram.Commands;
 using TelegramAi.Backend.Application.Telegram.Results;
+using TelegramAi.Backend.Domain.Content;
 
 namespace TelegramAi.Backend.Application.Telegram.Services;
 
 public sealed class TelegramMessageApplicationService(
-    IContentApplicationService contentApplicationService,
-    ITelegramContentSourceDetector contentSourceDetector) : ITelegramMessageApplicationService
+    IContentApplicationService contentApplicationService) : ITelegramMessageApplicationService
 {
     public async Task<ProcessTelegramMessageResult> ProcessAsync(
         ProcessTelegramMessageCommand command,
         CancellationToken cancellationToken)
     {
-        var sourceType = contentSourceDetector.Detect(command.Text);
+        ContentSourceType? sourceType = ContainsUrl(command.Text)
+            ? null
+            : ContentSourceType.Telegram;
 
         var contentItem = await contentApplicationService.CreateAsync(
             new CreateContentCommand(
@@ -29,5 +30,11 @@ public sealed class TelegramMessageApplicationService(
                 : command.SenderDisplayName.Trim(),
             ReceivedAtUtc: DateTimeOffset.UtcNow,
             Content: contentItem);
+    }
+
+    private static bool ContainsUrl(string text)
+    {
+        return text.Contains("http://", StringComparison.OrdinalIgnoreCase) ||
+               text.Contains("https://", StringComparison.OrdinalIgnoreCase);
     }
 }

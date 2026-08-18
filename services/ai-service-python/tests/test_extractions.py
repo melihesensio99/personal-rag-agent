@@ -41,10 +41,40 @@ def test_create_article_extraction_returns_cleaned_text(monkeypatch) -> None:
     body = response.json()
     assert body["content_id"] == "content-article-1"
     assert body["source_type"] == "article"
+    assert body["detected_content_kind"] == "text"
     assert body["extraction_status"] == "completed"
     assert body["title"] == "RAG Guide"
     assert "Retrieval augmented generation combines search and generation." in body["extracted_text"]
     assert body["metadata"]["domain"] == "example.com"
+
+
+def test_create_extraction_detects_source_type_when_not_provided(monkeypatch) -> None:
+    def fake_fetch_html(self: ArticleExtractor, url: str) -> dict[str, str | None]:
+        return {
+            "html": """
+                <html>
+                    <head><title>Daily Motion Clip</title><meta property="og:type" content="video.other" /></head>
+                    <body><div>Video page</div></body>
+                </html>
+            """,
+            "content_type": "text/html",
+            "final_url": url,
+        }
+
+    monkeypatch.setattr(ArticleExtractor, "_fetch_html", fake_fetch_html)
+
+    response = client.post(
+        "/api/v1/extractions",
+        json={
+            "content_id": "content-auto-1",
+            "url": "https://www.dailymotion.com/video/xayigze",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["source_type"] == "article"
+    assert body["detected_content_kind"] == "video"
 
 
 def test_create_youtube_extraction_returns_oembed_metadata(monkeypatch) -> None:
@@ -69,6 +99,7 @@ def test_create_youtube_extraction_returns_oembed_metadata(monkeypatch) -> None:
 
     assert response.status_code == 200
     body = response.json()
+    assert body["detected_content_kind"] == "video"
     assert body["extraction_status"] == "completed"
     assert body["title"] == "RAG vs Semantic Search"
     assert "Channel: Melih Labs." in body["extracted_text"]
@@ -81,7 +112,6 @@ def test_create_unsupported_extraction_falls_back_to_text() -> None:
         "/api/v1/extractions",
         json={
             "content_id": "content-image-1",
-            "source_type": "image",
             "url": "https://example.com/demo.png",
             "text": "https://example.com/demo.png",
         },
@@ -89,5 +119,6 @@ def test_create_unsupported_extraction_falls_back_to_text() -> None:
 
     assert response.status_code == 200
     body = response.json()
+    assert body["detected_content_kind"] == "image"
     assert body["extraction_status"] == "unsupported"
     assert body["extracted_text"] == "https://example.com/demo.png"

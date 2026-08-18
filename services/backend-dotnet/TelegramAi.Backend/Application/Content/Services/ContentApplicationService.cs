@@ -19,6 +19,8 @@ public sealed class ContentApplicationService(
         var contentId = Guid.NewGuid();
         var extraction = await TryExtractAsync(contentId, command, cancellationToken);
         var summaryInputText = ResolveSummaryInputText(command, extraction);
+        var contentKind = ResolveContentKind(command, extraction);
+        var sourceType = ResolveSourceType(command, extraction);
 
         var summary = await aiServiceClient.CreateSummaryAsync(
             new CreateSummaryRequest(
@@ -28,7 +30,8 @@ public sealed class ContentApplicationService(
 
         var contentItem = ContentItem.Create(
             id: contentId,
-            sourceType: command.SourceType,
+            sourceType: sourceType,
+            contentKind: contentKind,
             rawText: command.Text,
             summary: ContentSummary.Create(
                 title: summary.Title,
@@ -60,7 +63,9 @@ public sealed class ContentApplicationService(
         CreateContentCommand command,
         CancellationToken cancellationToken)
     {
-        if (command.SourceType is ContentSourceType.Telegram or ContentSourceType.Manual)
+        var url = TryExtractUrl(command.Text);
+
+        if (url is null || command.SourceType is ContentSourceType.Telegram or ContentSourceType.Manual)
         {
             return null;
         }
@@ -68,8 +73,8 @@ public sealed class ContentApplicationService(
         return await aiServiceClient.CreateExtractionAsync(
             new CreateExtractionRequest(
                 ContentId: contentId.ToString("N"),
-                SourceType: command.SourceType.ToString().ToLowerInvariant(),
-                Url: TryExtractUrl(command.Text),
+                SourceType: command.SourceType?.ToString().ToLowerInvariant(),
+                Url: url,
                 Text: command.Text),
             cancellationToken);
     }
@@ -91,6 +96,33 @@ public sealed class ContentApplicationService(
         }
 
         return command.Text.Trim();
+    }
+
+    private static ContentKind ResolveContentKind(
+        CreateContentCommand command,
+        CreateExtractionResponse? extraction)
+    {
+        if (extraction is not null)
+        {
+            return ContentKindMapper.FromDetectedContentKind(
+                extraction.DetectedContentKind,
+                command.SourceType ?? ContentSourceType.Telegram);
+        }
+
+        return ContentKindMapper.FromSourceType(command.SourceType ?? ContentSourceType.Telegram);
+    }
+
+    private static ContentSourceType ResolveSourceType(
+        CreateContentCommand command,
+        CreateExtractionResponse? extraction)
+    {
+        if (extraction is not null &&
+            Enum.TryParse<ContentSourceType>(extraction.SourceType, ignoreCase: true, out var extractedSourceType))
+        {
+            return extractedSourceType;
+        }
+
+        return command.SourceType ?? ContentSourceType.Telegram;
     }
 
     private static string? TryExtractUrl(string text)

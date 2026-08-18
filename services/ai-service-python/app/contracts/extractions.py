@@ -7,7 +7,7 @@ class ExtractionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     content_id: str = Field(min_length=1, max_length=200)
-    source_type: Literal["article", "youtube", "pdf", "image", "telegram"]
+    source_type: Literal["article", "youtube", "pdf", "image", "telegram", "instagram"] | None = None
     url: HttpUrl | None = None
     text: str | None = Field(default=None, min_length=1, max_length=50000)
 
@@ -26,6 +26,7 @@ class ExtractionResponse(BaseModel):
 
     content_id: str
     source_type: str
+    detected_content_kind: Literal["text", "video", "image", "unknown"] = "unknown"
     extraction_status: Literal["completed", "unsupported", "failed"]
     title: str | None = None
     extracted_text: str = ""

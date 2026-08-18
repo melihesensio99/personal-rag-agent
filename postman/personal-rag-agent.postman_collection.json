@@ -1,0 +1,318 @@
+{
+  "info": {
+    "_postman_id": "9f3fb2d4-54cb-48b2-aa25-6a49de922f96",
+    "name": "Personal RAG Agent",
+    "description": "Local Postman collection for backend-dotnet + ai-service-python. Use with the 'Personal RAG Agent - Local' environment.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01 - AI Service",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{ai_service_base_url}}/health",
+              "host": [
+                "{{ai_service_base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Python AI service health check."
+          }
+        },
+        {
+          "name": "Extraction - Auto detect source/content kind",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "var json = pm.response.json();",
+                  "if (json.content_id) {",
+                  "    pm.environment.set('content_id', json.content_id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content_id\": \"{{$guid}}\",\n  \"url\": \"{{sample_video_url}}\",\n  \"text\": \"{{sample_video_url}}\"\n}"
+            },
+            "url": {
+              "raw": "{{ai_service_base_url}}/api/v1/extractions",
+              "host": [
+                "{{ai_service_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "extractions"
+              ]
+            },
+            "description": "Lets Python decide source_type + detected_content_kind. Good request to inspect how Dailymotion/YouTube/article links are classified."
+          }
+        },
+        {
+          "name": "Intent - Search request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"bugün attığım videoları listele\",\n  \"current_date\": \"{{current_date}}\"\n}"
+            },
+            "url": {
+              "raw": "{{ai_service_base_url}}/api/v1/intents",
+              "host": [
+                "{{ai_service_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "intents"
+              ]
+            },
+            "description": "Inspect LLM intent classification output: intent, content_kind, source_type, time_filter, keywords."
+          }
+        },
+        {
+          "name": "Summary - Direct text",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content_id\": \"{{$guid}}\",\n  \"text\": \"RAG, retrieval ile generation adımlarını birleştirir. Embedding, benzer içeriği bulmaya yardım eder. Structured output ise backend tarafında parse etmeyi kolaylaştırır.\"\n}"
+            },
+            "url": {
+              "raw": "{{ai_service_base_url}}/api/v1/summaries",
+              "host": [
+                "{{ai_service_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "summaries"
+              ]
+            },
+            "description": "Directly inspect summary JSON from the Python AI service."
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - Backend",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{backend_base_url}}/health",
+              "host": [
+                "{{backend_base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Backend health check."
+          }
+        },
+        {
+          "name": "System Health (backend + ai-service)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{backend_base_url}}/api/v1/system/health",
+              "host": [
+                "{{backend_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "system",
+                "health"
+              ]
+            },
+            "description": "Checks backend plus dependency AI service health."
+          }
+        },
+        {
+          "name": "Create Content - Manual text",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "var json = pm.response.json();",
+                  "if (json.id) {",
+                  "    pm.environment.set('content_id', json.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"Prompt engineering, structured output ve RAG mimarisi arasındaki ilişkiyi anlamak istiyorum.\",\n  \"sourceType\": \"Manual\"\n}"
+            },
+            "url": {
+              "raw": "{{backend_base_url}}/api/v1/contents",
+              "host": [
+                "{{backend_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "contents"
+              ]
+            },
+            "description": "Creates a manual content record via backend. Response id is saved to environment as content_id."
+          }
+        },
+        {
+          "name": "Create Content - Article URL",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "var json = pm.response.json();",
+                  "if (json.id) {",
+                  "    pm.environment.set('content_id', json.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"{{sample_article_url}}\",\n  \"sourceType\": \"Article\"\n}"
+            },
+            "url": {
+              "raw": "{{backend_base_url}}/api/v1/contents",
+              "host": [
+                "{{backend_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "contents"
+              ]
+            },
+            "description": "Creates an article content record through backend orchestration."
+          }
+        },
+        {
+          "name": "Get Content By Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{backend_base_url}}/api/v1/contents/{{content_id}}",
+              "host": [
+                "{{backend_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "contents",
+                "{{content_id}}"
+              ]
+            },
+            "description": "Fetches the last created backend content using the environment variable content_id."
+          }
+        },
+        {
+          "name": "Summary Proxy (backend -> ai-service)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"contentId\": \"{{$guid}}\",\n  \"text\": \"Kullanıcının attığı içerikleri kaydedip özetleyen, sonra semantic search ile tekrar buldurmayı hedefleyen bir kişisel RAG ajanı geliştiriyoruz.\"\n}"
+            },
+            "url": {
+              "raw": "{{backend_base_url}}/api/v1/content/summaries",
+              "host": [
+                "{{backend_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "content",
+                "summaries"
+              ]
+            },
+            "description": "Calls summary through backend instead of directly hitting Python."
+          }
+        }
+      ]
+    }
+  ],
+  "variable": []
+}

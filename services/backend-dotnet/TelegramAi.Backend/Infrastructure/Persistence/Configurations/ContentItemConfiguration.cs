@@ -25,6 +25,11 @@ public sealed class ContentItemConfiguration : IEntityTypeConfiguration<ContentI
             .HasMaxLength(50)
             .IsRequired();
 
+        builder.Property(content => content.ContentKind)
+            .HasConversion<string>()
+            .HasMaxLength(30)
+            .IsRequired();
+
         builder.Property(content => content.RawText)
             .HasColumnType("text")
             .IsRequired();

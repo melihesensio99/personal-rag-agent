@@ -28,6 +28,11 @@ public sealed class EfCoreContentRepository(ApplicationDbContext dbContext) : IC
             .AsNoTracking()
             .AsQueryable();
 
+        if (query.ContentKind.HasValue)
+        {
+            dbQuery = dbQuery.Where(content => content.ContentKind == query.ContentKind.Value);
+        }
+
         if (query.SourceType.HasValue)
         {
             dbQuery = dbQuery.Where(content => content.SourceType == query.SourceType.Value);

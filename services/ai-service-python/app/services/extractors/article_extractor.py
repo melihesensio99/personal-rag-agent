@@ -19,6 +19,7 @@ class ArticleExtractor:
             return ExtractionResponse(
                 content_id=request.content_id,
                 source_type=request.source_type,
+                detected_content_kind="unknown",
                 extraction_status="failed",
                 title=None,
                 extracted_text="",
@@ -31,10 +32,17 @@ class ArticleExtractor:
             fetched = self._fetch_html(url)
             title = self._extract_title(fetched["html"])
             extracted_text = self._extract_text(fetched["html"])
+            detected_content_kind = self._detect_content_kind(
+                url=url,
+                final_url=fetched["final_url"] or url,
+                html=fetched["html"],
+                content_type=fetched["content_type"],
+            )
 
             return ExtractionResponse(
                 content_id=request.content_id,
                 source_type=request.source_type,
+                detected_content_kind=detected_content_kind,
                 extraction_status="completed",
                 title=title,
                 extracted_text=extracted_text,
@@ -49,6 +57,12 @@ class ArticleExtractor:
             return ExtractionResponse(
                 content_id=request.content_id,
                 source_type=request.source_type,
+                detected_content_kind=self._detect_content_kind(
+                    url=url,
+                    final_url=url,
+                    html=request.text or "",
+                    content_type=None,
+                ),
                 extraction_status="failed",
                 title=None,
                 extracted_text=request.text.strip() if request.text else "",
@@ -100,6 +114,63 @@ class ArticleExtractor:
             raise ValueError("article_text_empty")
 
         return normalized[:20000]
+
+    def _detect_content_kind(
+        self,
+        url: str,
+        final_url: str,
+        html: str,
+        content_type: str | None,
+    ) -> str:
+        normalized_html = html.lower()
+        candidate_url = final_url or url
+        parsed = urlparse(candidate_url)
+        host = parsed.netloc.lower()
+        path = parsed.path.lower()
+        content_type_lower = (content_type or "").lower()
+
+        if host.endswith("youtube.com") or host.endswith("youtu.be"):
+            return "video"
+
+        known_video_hosts = (
+            "dailymotion.com",
+            "vimeo.com",
+            "tiktok.com",
+            "twitch.tv",
+            "loom.com",
+            "wistia.com",
+            "jwplayer.com",
+        )
+
+        if any(video_host in host for video_host in known_video_hosts):
+            return "video"
+
+        if "instagram.com" in host and ("/reel/" in path or "/reels/" in path):
+            return "video"
+
+        if content_type_lower.startswith("image/"):
+            return "image"
+
+        metadata_video_signals = (
+            'property="og:type" content="video',
+            "property='og:type' content='video",
+            'name="twitter:player"',
+            "name='twitter:player'",
+            "<video",
+            "application/ld+json",
+            "videoobject",
+            "player.vimeo.com/video/",
+            "dailymotion.com/embed/video/",
+            "youtube.com/embed/",
+        )
+
+        if any(signal in normalized_html for signal in metadata_video_signals):
+            return "video"
+
+        if content_type_lower.startswith("text/html"):
+            return "text"
+
+        return "unknown"
 
     def _normalize_text(self, value: str) -> str:
         collapsed = re.sub(r"\s+", " ", unescape(value)).strip()

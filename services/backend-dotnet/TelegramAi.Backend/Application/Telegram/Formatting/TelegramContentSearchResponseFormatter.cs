@@ -23,6 +23,7 @@ public sealed class TelegramContentSearchResponseFormatter : ITelegramContentSea
             builder.AppendLine("────────────────");
             builder.AppendLine($"📌 {content.Summary.Title}");
             builder.AppendLine($"📎 Tür: {content.SourceType}");
+            builder.AppendLine($"🗂️ İçerik tipi: {content.ContentKind}");
             builder.AppendLine($"🕒 Tarih: {content.CreatedAtUtc.ToLocalTime():dd.MM.yyyy HH:mm}");
             builder.AppendLine("📝 Özet");
             builder.AppendLine(content.Summary.ShortSummary);

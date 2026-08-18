@@ -83,6 +83,7 @@ public sealed class RuleBasedTelegramMessageIntentInterpreter : ITelegramMessage
         }
 
         var sourceType = ExtractSourceType(lowered);
+        var contentKind = ExtractContentKind(lowered);
         var (fromUtc, toUtc) = ExtractDateRange(lowered);
         var keywords = ExtractKeywords(normalizedText);
 
@@ -90,6 +91,7 @@ public sealed class RuleBasedTelegramMessageIntentInterpreter : ITelegramMessage
             normalizedText,
             new SearchContentsQuery(
                 Keywords: keywords,
+                ContentKind: contentKind,
                 SourceType: sourceType,
                 FromUtc: fromUtc,
                 ToUtc: toUtc));
@@ -135,6 +137,40 @@ public sealed class RuleBasedTelegramMessageIntentInterpreter : ITelegramMessage
             lowered.Contains("mesaj", StringComparison.OrdinalIgnoreCase))
         {
             return ContentSourceType.Telegram;
+        }
+
+        return null;
+    }
+
+    private static ContentKind? ExtractContentKind(string lowered)
+    {
+        if (lowered.Contains("video", StringComparison.OrdinalIgnoreCase) ||
+            lowered.Contains("videolar", StringComparison.OrdinalIgnoreCase) ||
+            lowered.Contains("videolari", StringComparison.OrdinalIgnoreCase) ||
+            lowered.Contains("videoları", StringComparison.OrdinalIgnoreCase) ||
+            lowered.Contains("reel", StringComparison.OrdinalIgnoreCase) ||
+            lowered.Contains("short", StringComparison.OrdinalIgnoreCase))
+        {
+            return ContentKind.Video;
+        }
+
+        if (lowered.Contains("gorsel", StringComparison.OrdinalIgnoreCase) ||
+            lowered.Contains("görsel", StringComparison.OrdinalIgnoreCase) ||
+            lowered.Contains("resim", StringComparison.OrdinalIgnoreCase) ||
+            lowered.Contains("foto", StringComparison.OrdinalIgnoreCase) ||
+            lowered.Contains("image", StringComparison.OrdinalIgnoreCase))
+        {
+            return ContentKind.Image;
+        }
+
+        if (lowered.Contains("yazi", StringComparison.OrdinalIgnoreCase) ||
+            lowered.Contains("yazı", StringComparison.OrdinalIgnoreCase) ||
+            lowered.Contains("makale", StringComparison.OrdinalIgnoreCase) ||
+            lowered.Contains("pdf", StringComparison.OrdinalIgnoreCase) ||
+            lowered.Contains("dokuman", StringComparison.OrdinalIgnoreCase) ||
+            lowered.Contains("doküman", StringComparison.OrdinalIgnoreCase))
+        {
+            return ContentKind.Text;
         }
 
         return null;

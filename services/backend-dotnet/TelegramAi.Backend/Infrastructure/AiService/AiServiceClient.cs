@@ -34,7 +34,7 @@ public sealed class AiServiceClient(HttpClient httpClient) : IAiServiceClient
             aiRequest,
             cancellationToken);
 
-        httpResponse.EnsureSuccessStatusCode();
+        await EnsureSuccessWithDetailsAsync(httpResponse, cancellationToken);
 
         var extraction = await httpResponse.Content.ReadFromJsonAsync<AiServiceCreateExtractionResponse>(cancellationToken);
 
@@ -47,6 +47,7 @@ public sealed class AiServiceClient(HttpClient httpClient) : IAiServiceClient
         return new CreateExtractionResponse(
             ContentId: extraction.ContentId,
             SourceType: extraction.SourceType,
+            DetectedContentKind: extraction.DetectedContentKind,
             ExtractionStatus: extraction.ExtractionStatus,
             Title: extraction.Title,
             ExtractedText: extraction.ExtractedText,
@@ -71,7 +72,7 @@ public sealed class AiServiceClient(HttpClient httpClient) : IAiServiceClient
             aiRequest,
             cancellationToken);
 
-        httpResponse.EnsureSuccessStatusCode();
+        await EnsureSuccessWithDetailsAsync(httpResponse, cancellationToken);
 
         var intent = await httpResponse.Content.ReadFromJsonAsync<AiServiceClassifyIntentResponse>(cancellationToken);
 
@@ -82,6 +83,7 @@ public sealed class AiServiceClient(HttpClient httpClient) : IAiServiceClient
 
         return new ClassifyIntentResponse(
             Intent: intent.Intent,
+            ContentKind: intent.ContentKind,
             SourceType: intent.SourceType,
             TimeFilter: intent.TimeFilter,
             Keywords: intent.Keywords,
@@ -101,7 +103,7 @@ public sealed class AiServiceClient(HttpClient httpClient) : IAiServiceClient
             aiRequest,
             cancellationToken);
 
-        httpResponse.EnsureSuccessStatusCode();
+        await EnsureSuccessWithDetailsAsync(httpResponse, cancellationToken);
 
         var summary = await httpResponse.Content.ReadFromJsonAsync<AiServiceCreateSummaryResponse>(cancellationToken);
 
@@ -119,5 +121,20 @@ public sealed class AiServiceClient(HttpClient httpClient) : IAiServiceClient
             Tags: summary.Tags,
             Language: summary.Language,
             Provider: summary.Provider);
+    }
+
+    private static async Task EnsureSuccessWithDetailsAsync(
+        HttpResponseMessage httpResponse,
+        CancellationToken cancellationToken)
+    {
+        if (httpResponse.IsSuccessStatusCode)
+        {
+            return;
+        }
+
+        var responseBody = await httpResponse.Content.ReadAsStringAsync(cancellationToken);
+
+        throw new InvalidOperationException(
+            $"AI service request failed with status code {(int)httpResponse.StatusCode} ({httpResponse.StatusCode}). Response: {responseBody}");
     }
 }
