@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from urllib.parse import urlencode
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from app.contracts.intents import IntentRequest, IntentResponse
@@ -40,7 +40,7 @@ class GeminiIntentProvider(IntentProvider):
         )
 
     def _send_request(self, request: IntentRequest) -> dict[str, object]:
-        endpoint = f"{self._base_url}/interactions?{urlencode({'key': self._api_key})}"
+        endpoint = f"{self._base_url}/models/{self._model}:generateContent"
 
         prompt = (
             f"Today's date is {request.current_date}. "
@@ -60,40 +60,38 @@ class GeminiIntentProvider(IntentProvider):
         )
 
         body = {
-            "model": self._model,
-            "input": prompt,
-            "generation_config": {
-                "thinking_level": "low",
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [{"text": prompt}],
+                }
+            ],
+            "generationConfig": {
                 "temperature": 0.1,
-            },
-            "response_format": {
-                "type": "text",
-                "mime_type": "application/json",
-                "schema": {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "properties": {
-                        "intent": {"type": "string", "enum": ["save", "search", "clarify"]},
-                        "content_kind": {"type": ["string", "null"], "enum": ["text", "video", "image", None]},
-                        "source_type": {"type": ["string", "null"], "enum": ["article", "youtube", "pdf", "image", "telegram", None]},
-                        "time_filter": {"type": "string", "enum": ["today", "yesterday", "two_days_ago", "none"]},
-                        "keywords": {"type": "array", "items": {"type": "string"}, "maxItems": 5},
-                        "needs_clarification": {"type": "boolean"},
-                    },
-                    "required": ["intent", "content_kind", "source_type", "time_filter", "keywords", "needs_clarification"],
-                },
+                "responseMimeType": "application/json",
             },
         }
 
         http_request = Request(
             endpoint,
             data=json.dumps(body).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                "x-goog-api-key": self._api_key,
+            },
             method="POST",
         )
 
-        with urlopen(http_request, timeout=self._timeout_seconds) as response:
-            raw = response.read().decode("utf-8", errors="ignore")
+        try:
+            with urlopen(http_request, timeout=self._timeout_seconds) as response:
+                raw = response.read().decode("utf-8", errors="ignore")
+        except HTTPError as exception:
+            details = exception.read().decode("utf-8", errors="ignore")
+            raise RuntimeError(f"Gemini intent request failed with HTTP {exception.code}: {details}") from exception
+        except URLError as exception:
+            raise RuntimeError(f"Gemini intent request failed: {exception.reason}") from exception
+        except TimeoutError as exception:
+            raise RuntimeError("Gemini intent request timed out.") from exception
 
         parsed = json.loads(raw)
         if not isinstance(parsed, dict):
@@ -102,18 +100,24 @@ class GeminiIntentProvider(IntentProvider):
         return parsed
 
     def _extract_output_text(self, payload: dict[str, object]) -> str | None:
-        steps = payload.get("steps")
-        if not isinstance(steps, list):
+        candidates = payload.get("candidates")
+        if not isinstance(candidates, list):
             return None
 
-        for step in steps:
-            if not isinstance(step, dict) or step.get("type") != "model_output":
+        for candidate in candidates:
+            if not isinstance(candidate, dict):
                 continue
-            content = step.get("content")
-            if not isinstance(content, list):
+
+            content = candidate.get("content")
+            if not isinstance(content, dict):
                 continue
-            for item in content:
-                if isinstance(item, dict) and item.get("type") == "text" and isinstance(item.get("text"), str):
-                    return item["text"]
+
+            parts = content.get("parts")
+            if not isinstance(parts, list):
+                continue
+
+            for part in parts:
+                if isinstance(part, dict) and isinstance(part.get("text"), str):
+                    return part["text"]
 
         return None

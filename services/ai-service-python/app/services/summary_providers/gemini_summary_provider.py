@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from urllib.parse import urlencode
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from app.contracts.summaries import SummaryRequest, SummaryResponse
@@ -32,76 +32,66 @@ class GeminiSummaryProvider(SummaryProvider):
         if not isinstance(output_text, str) or not output_text.strip():
             raise ValueError("Gemini response did not include output_text.")
 
-        parsed = json.loads(output_text)
+        parsed = self._parse_json_output(output_text)
 
         return SummaryResponse(
             content_id=request.content_id,
-            title=parsed["title"].strip(),
-            short_summary=parsed["short_summary"].strip(),
-            key_points=[item.strip() for item in parsed["key_points"]],
-            tags=[item.strip() for item in parsed["tags"]],
-            language=parsed["language"].strip(),
+            title=self._read_text(parsed, "title", fallback="Basliksiz icerik"),
+            short_summary=self._read_text(parsed, "short_summary", fallback=normalized_text[:280]),
+            key_points=self._read_text_list(parsed, "key_points", fallback=[normalized_text[:140]]),
+            tags=self._read_text_list(parsed, "tags", fallback=self._build_fallback_tags(normalized_text)),
+            language=self._read_text(parsed, "language", fallback="tr"),
             provider="gemini",
         )
 
     def _send_request(self, normalized_text: str) -> dict[str, object]:
-        endpoint = f"{self._base_url}/interactions?{urlencode({'key': self._api_key})}"
+        endpoint = f"{self._base_url}/models/{self._model}:generateContent"
 
         body = {
-            "model": self._model,
-            "input": (
-                f"{self._prompt_loader.load()}\n\n"
-                "Summarize the saved content below. "
-                "Return only JSON matching the schema.\n\n"
-                f"Content:\n{normalized_text}"
-            ),
-            "generation_config": {
-                "thinking_level": "low",
-                "temperature": 0.2,
-            },
-            "response_format": {
-                "type": "text",
-                "mime_type": "application/json",
-                "schema": {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "properties": {
-                        "title": {"type": "string"},
-                        "short_summary": {"type": "string"},
-                        "key_points": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "minItems": 1,
-                            "maxItems": 5,
-                        },
-                        "tags": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "minItems": 1,
-                            "maxItems": 5,
-                        },
-                        "language": {"type": "string"},
-                    },
-                    "required": [
-                        "title",
-                        "short_summary",
-                        "key_points",
-                        "tags",
-                        "language",
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [
+                        {
+                            "text": (
+                                f"{self._prompt_loader.load()}\n\n"
+                                "Summarize the saved content below. "
+                                "Return only a JSON object with these exact fields: "
+                                "title, short_summary, key_points, tags, language. "
+                                "key_points and tags must be arrays of strings. "
+                                "language must be tr.\n\n"
+                                f"Content:\n{normalized_text}"
+                            )
+                        }
                     ],
-                },
+                }
+            ],
+            "generationConfig": {
+                "temperature": 0.2,
+                "responseMimeType": "application/json",
             },
         }
 
         request = Request(
             endpoint,
             data=json.dumps(body).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                "x-goog-api-key": self._api_key,
+            },
             method="POST",
         )
 
-        with urlopen(request, timeout=self._timeout_seconds) as response:
-            raw = response.read().decode("utf-8", errors="ignore")
+        try:
+            with urlopen(request, timeout=self._timeout_seconds) as response:
+                raw = response.read().decode("utf-8", errors="ignore")
+        except HTTPError as exception:
+            details = exception.read().decode("utf-8", errors="ignore")
+            raise RuntimeError(f"Gemini summary request failed with HTTP {exception.code}: {details}") from exception
+        except URLError as exception:
+            raise RuntimeError(f"Gemini summary request failed: {exception.reason}") from exception
+        except TimeoutError as exception:
+            raise RuntimeError("Gemini summary request timed out.") from exception
 
         parsed = json.loads(raw)
         if not isinstance(parsed, dict):
@@ -110,33 +100,75 @@ class GeminiSummaryProvider(SummaryProvider):
         return parsed
 
     def _extract_output_text(self, payload: dict[str, object]) -> str | None:
-        direct_output_text = payload.get("output_text")
-        if isinstance(direct_output_text, str) and direct_output_text.strip():
-            return direct_output_text
-
-        steps = payload.get("steps")
-        if not isinstance(steps, list):
+        candidates = payload.get("candidates")
+        if not isinstance(candidates, list):
             return None
 
-        for step in steps:
-            if not isinstance(step, dict):
+        for candidate in candidates:
+            if not isinstance(candidate, dict):
                 continue
 
-            if step.get("type") != "model_output":
+            content = candidate.get("content")
+            if not isinstance(content, dict):
                 continue
 
-            content = step.get("content")
-            if not isinstance(content, list):
+            parts = content.get("parts")
+            if not isinstance(parts, list):
                 continue
 
-            for item in content:
-                if not isinstance(item, dict):
-                    continue
-
-                if item.get("type") == "text" and isinstance(item.get("text"), str):
-                    return item["text"]
+            for part in parts:
+                if isinstance(part, dict) and isinstance(part.get("text"), str):
+                    return part["text"]
 
         return None
+
+    def _parse_json_output(self, output_text: str) -> dict[str, object]:
+        clean_text = output_text.strip()
+
+        if clean_text.startswith("```"):
+            clean_text = clean_text.removeprefix("```json").removeprefix("```").strip()
+            clean_text = clean_text.removesuffix("```").strip()
+
+        parsed = json.loads(clean_text)
+        if not isinstance(parsed, dict):
+            raise ValueError("Gemini summary JSON output was invalid.")
+
+        return parsed
+
+    def _read_text(self, parsed: dict[str, object], key: str, fallback: str) -> str:
+        value = parsed.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+
+        return fallback.strip()
+
+    def _read_text_list(self, parsed: dict[str, object], key: str, fallback: list[str]) -> list[str]:
+        value = parsed.get(key)
+        if isinstance(value, list):
+            items = [item.strip() for item in value if isinstance(item, str) and item.strip()]
+            if items:
+                return items
+
+        return fallback
+
+    def _build_fallback_tags(self, text: str) -> list[str]:
+        words = [
+            word.strip(".,:;!?()[]{}\"'").lower()
+            for word in text.split()
+            if len(word.strip(".,:;!?()[]{}\"'")) >= 4
+        ]
+        unique_words: list[str] = []
+
+        for word in words:
+            if word in unique_words:
+                continue
+
+            unique_words.append(word)
+
+            if len(unique_words) == 4:
+                break
+
+        return unique_words or ["genel"]
 
     def _normalize_whitespace(self, text: str) -> str:
         condensed = " ".join(text.split())

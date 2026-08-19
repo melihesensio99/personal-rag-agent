@@ -16,6 +16,7 @@ from app.services.summary_providers.gemini_summary_provider import GeminiSummary
 @lru_cache
 def get_summary_service() -> SummaryService:
     prompt_loader = PromptLoader(settings.summary_prompt_path)
+    fallback_provider = FakeSummaryProvider(prompt_loader)
     if settings.summary_provider.lower() == "gemini":
         if not settings.gemini_api_key.strip():
             raise ValueError("AI_SERVICE_GEMINI_API_KEY must be set when summary_provider=gemini.")
@@ -27,9 +28,9 @@ def get_summary_service() -> SummaryService:
             base_url=settings.gemini_base_url,
             timeout_seconds=settings.gemini_timeout_seconds,
         )
-        return SummaryService(provider)
+        return SummaryService(provider, fallback_provider)
 
-    return SummaryService(FakeSummaryProvider(prompt_loader))
+    return SummaryService(fallback_provider)
 
 
 @lru_cache
