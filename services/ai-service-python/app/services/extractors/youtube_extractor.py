@@ -10,16 +10,23 @@ from app.contracts.extractions import (
     ExtractionRequest,
     ExtractionResponse,
 )
+from app.services.extractors.youtube_transcript_provider import YouTubeTranscriptProvider
 
 
 class YouTubeExtractor:
     OEMBED_ENDPOINT = "https://www.youtube.com/oembed"
+    SUMMARY_TEXT_LIMIT = 18_000
+
+    def __init__(self, transcript_provider: YouTubeTranscriptProvider | None = None) -> None:
+        self._transcript_provider = transcript_provider or YouTubeTranscriptProvider()
 
     def extract(self, request: ExtractionRequest) -> ExtractionResponse:
+        source_type = request.source_type or "youtube"
+
         if request.url is None:
             return ExtractionResponse(
                 content_id=request.content_id,
-                source_type=request.source_type,
+                source_type=source_type,
                 detected_content_kind="video",
                 extraction_status="failed",
                 title=None,
@@ -33,7 +40,7 @@ class YouTubeExtractor:
         if not video_id:
             return ExtractionResponse(
                 content_id=request.content_id,
-                source_type=request.source_type,
+                source_type=source_type,
                 detected_content_kind="video",
                 extraction_status="failed",
                 title=None,
@@ -49,12 +56,13 @@ class YouTubeExtractor:
             metadata = self._fetch_oembed(url)
             title = metadata.get("title")
             author_name = metadata.get("author_name")
+            transcript = self._transcript_provider.fetch_transcript(video_id)
 
-            extracted_text = self._build_extracted_text(title, author_name, url, video_id)
+            extracted_text = self._build_extracted_text(title, author_name, url, video_id, transcript.text)
 
             return ExtractionResponse(
                 content_id=request.content_id,
-                source_type=request.source_type,
+                source_type=source_type,
                 detected_content_kind="video",
                 extraction_status="completed",
                 title=title,
@@ -69,14 +77,16 @@ class YouTubeExtractor:
                         "author_name": author_name,
                         "provider_name": metadata.get("provider_name"),
                         "thumbnail_url": metadata.get("thumbnail_url"),
-                        "transcript_status": "not_attempted",
+                        "transcript_status": transcript.status,
+                        "transcript_language": transcript.language,
+                        "transcript_reason": transcript.reason,
                     },
                 ),
             )
         except (HTTPError, URLError, TimeoutError, ValueError) as error:
             return ExtractionResponse(
                 content_id=request.content_id,
-                source_type=request.source_type,
+                source_type=source_type,
                 detected_content_kind="video",
                 extraction_status="failed",
                 title=None,
@@ -136,6 +146,7 @@ class YouTubeExtractor:
         author_name: str | None,
         url: str,
         video_id: str,
+        transcript_text: str,
     ) -> str:
         segments = []
 
@@ -148,4 +159,7 @@ class YouTubeExtractor:
         segments.append(f"Video id: {video_id}.")
         segments.append(f"Original URL: {url}")
 
-        return " ".join(segments)
+        if transcript_text:
+            segments.append(f"Transcript: {transcript_text}")
+
+        return " ".join(segments)[: self.SUMMARY_TEXT_LIMIT].strip()
