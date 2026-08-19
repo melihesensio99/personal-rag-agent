@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import re
 from html import unescape
+from importlib import import_module
+from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 from urllib.request import Request, urlopen
 
 from app.contracts.extractions import (
@@ -14,11 +16,15 @@ from app.contracts.extractions import (
 
 
 class ArticleExtractor:
+    TEXT_LIMIT = 20_000
+
     def extract(self, request: ExtractionRequest) -> ExtractionResponse:
+        source_type = request.source_type or "article"
+
         if request.url is None:
             return ExtractionResponse(
                 content_id=request.content_id,
-                source_type=request.source_type,
+                source_type=source_type,
                 detected_content_kind="unknown",
                 extraction_status="failed",
                 title=None,
@@ -27,6 +33,24 @@ class ArticleExtractor:
             )
 
         url = str(request.url)
+
+        if self._is_google_search_url(url):
+            return ExtractionResponse(
+                content_id=request.content_id,
+                source_type=source_type,
+                detected_content_kind="unknown",
+                extraction_status="unsupported",
+                title="Google search result page",
+                extracted_text=request.text.strip() if request.text else url,
+                original_url=url,
+                metadata=ExtractionMetadata(
+                    domain=urlparse(url).netloc,
+                    extra={
+                        "reason": "search_result_page",
+                        "message": "Send the actual article/video/PDF URL instead of a Google search result URL.",
+                    },
+                ),
+            )
 
         try:
             fetched = self._fetch_html(url)
@@ -41,7 +65,7 @@ class ArticleExtractor:
 
             return ExtractionResponse(
                 content_id=request.content_id,
-                source_type=request.source_type,
+                source_type=source_type,
                 detected_content_kind=detected_content_kind,
                 extraction_status="completed",
                 title=title,
@@ -51,12 +75,15 @@ class ArticleExtractor:
                     domain=urlparse(url).netloc,
                     content_type=fetched["content_type"],
                     final_url=fetched["final_url"],
+                    extra={
+                        "article_parser": self._resolve_parser_name(),
+                    },
                 ),
             )
         except (HTTPError, URLError, TimeoutError, ValueError) as error:
             return ExtractionResponse(
                 content_id=request.content_id,
-                source_type=request.source_type,
+                source_type=source_type,
                 detected_content_kind=self._detect_content_kind(
                     url=url,
                     final_url=url,
@@ -83,7 +110,7 @@ class ArticleExtractor:
 
         with urlopen(request, timeout=10) as response:
             content_type = response.headers.get("Content-Type")
-            raw_html = response.read().decode("utf-8", errors="ignore")
+            raw_html = response.read().decode(response.headers.get_content_charset() or "utf-8", errors="replace")
             final_url = response.geturl()
 
         return {
@@ -93,6 +120,13 @@ class ArticleExtractor:
         }
 
     def _extract_title(self, html: str) -> str | None:
+        trafilatura_module = self._load_trafilatura()
+        if trafilatura_module is not None and hasattr(trafilatura_module, "extract_metadata"):
+            metadata = trafilatura_module.extract_metadata(html)
+            trafilatura_title = getattr(metadata, "title", None)
+            if isinstance(trafilatura_title, str) and trafilatura_title.strip():
+                return self._normalize_text(trafilatura_title)
+
         match = re.search(r"<title[^>]*>(.*?)</title>", html, flags=re.IGNORECASE | re.DOTALL)
         if not match:
             return None
@@ -101,6 +135,10 @@ class ArticleExtractor:
         return title or None
 
     def _extract_text(self, html: str) -> str:
+        trafilatura_text = self._extract_with_trafilatura(html)
+        if trafilatura_text:
+            return trafilatura_text[: self.TEXT_LIMIT]
+
         without_scripts = re.sub(
             r"<(script|style)[^>]*>.*?</\1>",
             " ",
@@ -113,7 +151,44 @@ class ArticleExtractor:
         if not normalized:
             raise ValueError("article_text_empty")
 
-        return normalized[:20000]
+        return normalized[: self.TEXT_LIMIT]
+
+    def _extract_with_trafilatura(self, html: str) -> str | None:
+        trafilatura_module = self._load_trafilatura()
+        if trafilatura_module is None:
+            return None
+
+        extracted = trafilatura_module.extract(
+            html,
+            output_format="markdown",
+            include_comments=False,
+            include_links=False,
+            include_images=False,
+            favor_precision=True,
+        )
+
+        if not isinstance(extracted, str):
+            return None
+
+        normalized = self._normalize_text(extracted)
+        return normalized or None
+
+    def _load_trafilatura(self) -> Any | None:
+        try:
+            return import_module("trafilatura")
+        except ModuleNotFoundError:
+            return None
+
+    def _resolve_parser_name(self) -> str:
+        return "trafilatura" if self._load_trafilatura() is not None else "html_regex_fallback"
+
+    def _is_google_search_url(self, url: str) -> bool:
+        parsed = urlparse(url)
+        host = parsed.netloc.lower()
+        path = parsed.path.lower()
+        query = parse_qs(parsed.query)
+
+        return host.endswith("google.com") and path.startswith("/search") and "q" in query
 
     def _detect_content_kind(
         self,

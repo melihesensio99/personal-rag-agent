@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Options;
+using TelegramAi.Backend.Application.Content.Exceptions;
 using TelegramAi.Backend.Application.Content.Services;
 using TelegramAi.Backend.Application.Telegram.Commands;
 using TelegramAi.Backend.Application.Telegram.Formatting;
@@ -126,6 +127,13 @@ public sealed class TelegramPollingHostedService(
             await telegramBotApiClient.SendTextMessageAsync(
                 message.Chat.Id,
                 responseFormatter.Format(result),
+                cancellationToken);
+        }
+        catch (UnsupportedContentInputException exception)
+        {
+            await telegramBotApiClient.SendTextMessageAsync(
+                message.Chat.Id,
+                exception.UserMessage,
                 cancellationToken);
         }
         catch (Exception exception)

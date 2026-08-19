@@ -2,6 +2,7 @@ using TelegramAi.Backend.Api.Contracts.Extractions;
 using TelegramAi.Backend.Api.Contracts.Summaries;
 using TelegramAi.Backend.Application.Abstractions;
 using TelegramAi.Backend.Application.Content.Commands;
+using TelegramAi.Backend.Application.Content.Exceptions;
 using TelegramAi.Backend.Application.Content.Queries;
 using TelegramAi.Backend.Domain.Content;
 using TelegramAi.Backend.Infrastructure.AiService;
@@ -18,6 +19,8 @@ public sealed class ContentApplicationService(
     {
         var contentId = Guid.NewGuid();
         var extraction = await TryExtractAsync(contentId, command, cancellationToken);
+        EnsureExtractionIsSaveable(extraction);
+
         var summaryInputText = ResolveSummaryInputText(command, extraction);
         var contentKind = ResolveContentKind(command, extraction);
         var sourceType = ResolveSourceType(command, extraction);
@@ -79,6 +82,24 @@ public sealed class ContentApplicationService(
             cancellationToken);
     }
 
+    private static void EnsureExtractionIsSaveable(CreateExtractionResponse? extraction)
+    {
+        if (extraction is null ||
+            !extraction.ExtractionStatus.Equals("unsupported", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        if (!TryReadExtraValue(extraction, "reason", out var reason) ||
+            !reason.Equals("search_result_page", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        throw new UnsupportedContentInputException(
+            "Bu Google arama sonucu linki. Bunu kaydetmeyelim; arama sonucunda açtığın gerçek makale, video veya PDF linkini gönder.");
+    }
+
     private static string ResolveSummaryInputText(
         CreateContentCommand command,
         CreateExtractionResponse? extraction)
@@ -133,5 +154,21 @@ public sealed class ContentApplicationService(
         return Uri.TryCreate(firstToken, UriKind.Absolute, out var uri)
             ? uri.ToString()
             : null;
+    }
+
+    private static bool TryReadExtraValue(
+        CreateExtractionResponse extraction,
+        string key,
+        out string value)
+    {
+        value = string.Empty;
+
+        if (!extraction.Metadata.Extra.TryGetValue(key, out var rawValue))
+        {
+            return false;
+        }
+
+        value = rawValue?.ToString() ?? string.Empty;
+        return !string.IsNullOrWhiteSpace(value);
     }
 }

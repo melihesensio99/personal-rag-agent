@@ -49,6 +49,76 @@ def test_create_article_extraction_returns_cleaned_text(monkeypatch) -> None:
     assert body["metadata"]["domain"] == "example.com"
 
 
+def test_create_article_extraction_prefers_trafilatura_when_available(monkeypatch) -> None:
+    class FakeMetadata:
+        title = "Clean RAG Article"
+
+    class FakeTrafilatura:
+        @staticmethod
+        def extract_metadata(html: str) -> FakeMetadata:
+            return FakeMetadata()
+
+        @staticmethod
+        def extract(
+            html: str,
+            output_format: str,
+            include_comments: bool,
+            include_links: bool,
+            include_images: bool,
+            favor_precision: bool,
+        ) -> str:
+            return "Main article body about retrieval augmented generation."
+
+    def fake_fetch_html(self: ArticleExtractor, url: str) -> dict[str, str | None]:
+        return {
+            "html": """
+                <html>
+                    <head><title>Noisy fallback title</title></head>
+                    <body>
+                        <nav>Subscribe now</nav>
+                        <article><p>Main article body about retrieval augmented generation.</p></article>
+                    </body>
+                </html>
+            """,
+            "content_type": "text/html",
+            "final_url": url,
+        }
+
+    monkeypatch.setattr(ArticleExtractor, "_fetch_html", fake_fetch_html)
+    monkeypatch.setattr(ArticleExtractor, "_load_trafilatura", lambda self: FakeTrafilatura)
+
+    response = client.post(
+        "/api/v1/extractions",
+        json={
+            "content_id": "content-article-trafilatura-1",
+            "url": "https://example.com/clean-rag",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["title"] == "Clean RAG Article"
+    assert body["extracted_text"] == "Main article body about retrieval augmented generation."
+    assert body["metadata"]["extra"]["article_parser"] == "trafilatura"
+
+
+def test_create_article_extraction_rejects_google_search_page() -> None:
+    response = client.post(
+        "/api/v1/extractions",
+        json={
+            "content_id": "content-google-search-1",
+            "url": "https://www.google.com/search?q=RAG+Mimarisi",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["source_type"] == "article"
+    assert body["detected_content_kind"] == "unknown"
+    assert body["extraction_status"] == "unsupported"
+    assert body["metadata"]["extra"]["reason"] == "search_result_page"
+
+
 def test_create_extraction_detects_source_type_when_not_provided(monkeypatch) -> None:
     def fake_fetch_html(self: ArticleExtractor, url: str) -> dict[str, str | None]:
         return {
