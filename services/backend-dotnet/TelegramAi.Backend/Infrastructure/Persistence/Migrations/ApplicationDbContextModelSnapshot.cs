@@ -100,6 +100,47 @@ namespace TelegramAi.Backend.Infrastructure.Persistence.Migrations
                     b.Navigation("Summary")
                         .IsRequired();
                 });
+
+            modelBuilder.Entity("TelegramAi.Backend.Domain.Content.ContentChunk", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("CharEnd")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CharStart")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ContentItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Index")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContentItemId", "Index")
+                        .IsUnique();
+
+                    b.ToTable("content_chunks", (string)null);
+                });
+
+            modelBuilder.Entity("TelegramAi.Backend.Domain.Content.ContentChunk", b =>
+                {
+                    b.HasOne("TelegramAi.Backend.Domain.Content.ContentItem", null)
+                        .WithMany()
+                        .HasForeignKey("ContentItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
 #pragma warning restore 612, 618
         }
     }

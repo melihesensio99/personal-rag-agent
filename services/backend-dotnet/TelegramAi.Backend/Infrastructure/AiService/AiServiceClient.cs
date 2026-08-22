@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using TelegramAi.Backend.Api.Contracts.Chunks;
 using TelegramAi.Backend.Api.Contracts.Health;
 using TelegramAi.Backend.Api.Contracts.Extractions;
 using TelegramAi.Backend.Api.Contracts.Intents;
@@ -17,6 +18,44 @@ public sealed class AiServiceClient(HttpClient httpClient) : IAiServiceClient
 
         return health ?? throw new InvalidOperationException(
             "AI service returned an empty health response.");
+    }
+
+    public async Task<CreateChunksResponse> CreateChunksAsync(
+        CreateChunksRequest request,
+        CancellationToken cancellationToken)
+    {
+        var aiRequest = new AiServiceCreateChunksRequest(
+            ContentId: request.ContentId,
+            Text: request.Text,
+            ChunkSize: request.ChunkSize,
+            Overlap: request.Overlap);
+
+        var httpResponse = await httpClient.PostAsJsonAsync(
+            "/api/v1/chunks",
+            aiRequest,
+            cancellationToken);
+
+        await EnsureSuccessWithDetailsAsync(httpResponse, cancellationToken);
+
+        var chunks = await httpResponse.Content.ReadFromJsonAsync<AiServiceCreateChunksResponse>(cancellationToken);
+
+        if (chunks is null)
+        {
+            throw new InvalidOperationException("AI service returned an empty chunk response.");
+        }
+
+        return new CreateChunksResponse(
+            ContentId: chunks.ContentId,
+            ChunkSize: chunks.ChunkSize,
+            Overlap: chunks.Overlap,
+            TotalChunks: chunks.TotalChunks,
+            Chunks: chunks.Chunks
+                .Select(chunk => new TextChunkResponse(
+                    Index: chunk.Index,
+                    Text: chunk.Text,
+                    CharStart: chunk.CharStart,
+                    CharEnd: chunk.CharEnd))
+                .ToList());
     }
 
     public async Task<CreateExtractionResponse> CreateExtractionAsync(

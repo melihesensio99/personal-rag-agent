@@ -7,6 +7,8 @@ namespace TelegramAi.Backend.Application.Telegram.Formatting;
 
 public sealed class TelegramContentSearchResponseFormatter : ITelegramContentSearchResponseFormatter
 {
+    private const int TelegramSafeMessageLength = 3800;
+
     public string Format(SearchContentsQuery query, IReadOnlyList<ContentItem> contents)
     {
         if (contents.Count == 0)
@@ -37,7 +39,7 @@ public sealed class TelegramContentSearchResponseFormatter : ITelegramContentSea
             builder.AppendLine($"🏷️ Filtre: {string.Join(", ", query.Keywords)}");
         }
 
-        return builder.ToString().Trim();
+        return TruncateForTelegram(builder.ToString().Trim());
     }
 
     private static string BuildRawContentPreview(string rawText)
@@ -60,5 +62,15 @@ public sealed class TelegramContentSearchResponseFormatter : ITelegramContentSea
     private static bool LooksLikeUrl(string value)
     {
         return Regex.IsMatch(value, @"^https?://", RegexOptions.IgnoreCase);
+    }
+
+    private static string TruncateForTelegram(string message)
+    {
+        if (message.Length <= TelegramSafeMessageLength)
+        {
+            return message;
+        }
+
+        return $"{message[..TelegramSafeMessageLength]}\n\n…";
     }
 }

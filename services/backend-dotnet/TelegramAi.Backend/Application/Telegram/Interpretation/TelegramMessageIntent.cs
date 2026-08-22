@@ -9,3 +9,5 @@ public sealed record SaveContentIntent(string Text) : TelegramMessageIntent(Text
 public sealed record SearchContentsIntent(
     string Text,
     SearchContentsQuery Query) : TelegramMessageIntent(Text);
+
+public sealed record ClarifyContentIntent(string Text) : TelegramMessageIntent(Text);

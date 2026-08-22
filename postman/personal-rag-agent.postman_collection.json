@@ -127,6 +127,62 @@
             },
             "description": "Directly inspect summary JSON from the Python AI service."
           }
+        },
+        {
+          "name": "Chunking - Demo overlap",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content_id\": \"chunk-demo-1\",\n  \"text\": \"ABCDEFGHIJ\",\n  \"chunk_size\": 4,\n  \"overlap\": 1\n}"
+            },
+            "url": {
+              "raw": "{{ai_service_base_url}}/api/v1/chunks",
+              "host": [
+                "{{ai_service_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "chunks"
+              ]
+            },
+            "description": "Shows how overlap works with a tiny string. Expected chunks: ABCD, DEFG, GHIJ."
+          }
+        },
+        {
+          "name": "Chunking - RAG text",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content_id\": \"chunk-rag-demo-1\",\n  \"text\": \"RAG, harici kaynaklardan ilgili bilgileri getirip LLM'e context olarak vererek daha dogru cevap uretmeyi saglayan bir mimaridir. Chunking, uzun metni kucuk parcalara bolerek retrieval kalitesini artirir. Embedding ise bu parcalari anlamsal arama icin vektore cevirir. Overlap, chunk sinirlarinda anlam kopmasini azaltmak icin onceki parcadan kucuk bir metin tekrar eder.\",\n  \"chunk_size\": 120,\n  \"overlap\": 25\n}"
+            },
+            "url": {
+              "raw": "{{ai_service_base_url}}/api/v1/chunks",
+              "host": [
+                "{{ai_service_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "chunks"
+              ]
+            },
+            "description": "More realistic RAG text chunking example. Inspect total_chunks, char_start, char_end and repeated overlap text."
+          }
         }
       ]
     },
@@ -280,6 +336,27 @@
               ]
             },
             "description": "Fetches the last created backend content using the environment variable content_id."
+          }
+        },
+        {
+          "name": "Get Content Chunks By Content Id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{backend_base_url}}/api/v1/contents/{{content_id}}/chunks",
+              "host": [
+                "{{backend_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "contents",
+                "{{content_id}}",
+                "chunks"
+              ]
+            },
+            "description": "Fetches chunks generated and stored for the last created content. Use after Create Content."
           }
         },
         {

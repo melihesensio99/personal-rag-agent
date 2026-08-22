@@ -8,5 +8,6 @@ public interface IContentApplicationService
 {
     Task<ContentItem> CreateAsync(CreateContentCommand command, CancellationToken cancellationToken);
     Task<ContentItem?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
+    Task<IReadOnlyList<ContentChunk>> GetChunksByContentIdAsync(Guid contentId, CancellationToken cancellationToken);
     Task<IReadOnlyList<ContentItem>> SearchAsync(SearchContentsQuery query, CancellationToken cancellationToken);
 }

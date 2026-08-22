@@ -19,6 +19,14 @@ class FakeIntentProvider(IntentProvider):
             elif "makale" in lowered or "article" in lowered:
                 source_type = "article"
 
+            content_kind = None
+            if any(token in lowered for token in ["video", "videolar", "videolari", "videoları", "reel", "short"]):
+                content_kind = "video"
+            elif any(token in lowered for token in ["foto", "görsel", "gorsel", "resim", "image"]):
+                content_kind = "image"
+            elif any(token in lowered for token in ["yazı", "yazi", "makale", "article", "pdf", "doküman", "dokuman"]):
+                content_kind = "text"
+
             time_filter = "none"
             if "bugün" in lowered or "bugun" in lowered:
                 time_filter = "today"
@@ -33,6 +41,7 @@ class FakeIntentProvider(IntentProvider):
 
             return IntentResponse(
                 intent="search",
+                content_kind=content_kind,
                 source_type=source_type,
                 time_filter=time_filter,
                 keywords=keywords,

@@ -13,11 +13,33 @@ public sealed class EfCoreContentRepository(ApplicationDbContext dbContext) : IC
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task AddChunksAsync(IReadOnlyList<ContentChunk> chunks, CancellationToken cancellationToken)
+    {
+        if (chunks.Count == 0)
+        {
+            return;
+        }
+
+        await dbContext.ContentChunks.AddRangeAsync(chunks, cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     public Task<ContentItem?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
     {
         return dbContext.Contents
             .AsNoTracking()
             .SingleOrDefaultAsync(content => content.Id == id, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<ContentChunk>> GetChunksByContentIdAsync(
+        Guid contentId,
+        CancellationToken cancellationToken)
+    {
+        return await dbContext.ContentChunks
+            .AsNoTracking()
+            .Where(chunk => chunk.ContentItemId == contentId)
+            .OrderBy(chunk => chunk.Index)
+            .ToListAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyList<ContentItem>> SearchAsync(

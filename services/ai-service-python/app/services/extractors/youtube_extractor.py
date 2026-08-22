@@ -79,6 +79,8 @@ class YouTubeExtractor:
                         "thumbnail_url": metadata.get("thumbnail_url"),
                         "transcript_status": transcript.status,
                         "transcript_language": transcript.language,
+                        "transcript_language_name": transcript.language_name,
+                        "transcript_is_generated": transcript.is_generated,
                         "transcript_reason": transcript.reason,
                     },
                 ),
@@ -148,6 +150,9 @@ class YouTubeExtractor:
         video_id: str,
         transcript_text: str,
     ) -> str:
+        if transcript_text.strip():
+            return transcript_text[: self.SUMMARY_TEXT_LIMIT].strip()
+
         segments = []
 
         if title:
@@ -158,8 +163,5 @@ class YouTubeExtractor:
 
         segments.append(f"Video id: {video_id}.")
         segments.append(f"Original URL: {url}")
-
-        if transcript_text:
-            segments.append(f"Transcript: {transcript_text}")
 
         return " ".join(segments)[: self.SUMMARY_TEXT_LIMIT].strip()

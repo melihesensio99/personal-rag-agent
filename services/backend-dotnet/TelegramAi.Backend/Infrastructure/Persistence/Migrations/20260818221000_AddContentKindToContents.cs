@@ -1,9 +1,12 @@
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace TelegramAi.Backend.Infrastructure.Persistence.Migrations
 {
+    [DbContext(typeof(ApplicationDbContext))]
+    [Migration("20260818221000_AddContentKindToContents")]
     public partial class AddContentKindToContents : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)

@@ -1,4 +1,5 @@
 using TelegramAi.Backend.Api.Contracts.Extractions;
+using TelegramAi.Backend.Api.Contracts.Chunks;
 using TelegramAi.Backend.Api.Contracts.Summaries;
 using TelegramAi.Backend.Application.Abstractions;
 using TelegramAi.Backend.Application.Content.Commands;
@@ -11,7 +12,8 @@ namespace TelegramAi.Backend.Application.Content.Services;
 
 public sealed class ContentApplicationService(
     IAiServiceClient aiServiceClient,
-    IContentRepository contentRepository) : IContentApplicationService
+    IContentRepository contentRepository,
+    ILogger<ContentApplicationService> logger) : IContentApplicationService
 {
     public async Task<ContentItem> CreateAsync(
         CreateContentCommand command,
@@ -22,6 +24,7 @@ public sealed class ContentApplicationService(
         EnsureExtractionIsSaveable(extraction);
 
         var summaryInputText = ResolveSummaryInputText(command, extraction);
+        var chunkInputText = ResolveChunkInputText(command, extraction, summaryInputText);
         var contentKind = ResolveContentKind(command, extraction);
         var sourceType = ResolveSourceType(command, extraction);
 
@@ -45,6 +48,7 @@ public sealed class ContentApplicationService(
                 provider: summary.Provider));
 
         await contentRepository.AddAsync(contentItem, cancellationToken);
+        await TryCreateAndSaveChunksAsync(contentItem.Id, chunkInputText, cancellationToken);
 
         return contentItem;
     }
@@ -52,6 +56,13 @@ public sealed class ContentApplicationService(
     public Task<ContentItem?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
     {
         return contentRepository.GetByIdAsync(id, cancellationToken);
+    }
+
+    public Task<IReadOnlyList<ContentChunk>> GetChunksByContentIdAsync(
+        Guid contentId,
+        CancellationToken cancellationToken)
+    {
+        return contentRepository.GetChunksByContentIdAsync(contentId, cancellationToken);
     }
 
     public Task<IReadOnlyList<ContentItem>> SearchAsync(
@@ -73,13 +84,66 @@ public sealed class ContentApplicationService(
             return null;
         }
 
-        return await aiServiceClient.CreateExtractionAsync(
-            new CreateExtractionRequest(
-                ContentId: contentId.ToString("N"),
-                SourceType: command.SourceType?.ToString().ToLowerInvariant(),
-                Url: url,
-                Text: command.Text),
-            cancellationToken);
+        try
+        {
+            return await aiServiceClient.CreateExtractionAsync(
+                new CreateExtractionRequest(
+                    ContentId: contentId.ToString("N"),
+                    SourceType: command.SourceType?.ToString().ToLowerInvariant(),
+                    Url: url,
+                    Text: command.Text),
+                cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(
+                exception,
+                "Extraction failed for content {ContentId}. Falling back to raw input.",
+                contentId);
+
+            return null;
+        }
+    }
+
+    private async Task TryCreateAndSaveChunksAsync(
+        Guid contentId,
+        string text,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var chunks = await aiServiceClient.CreateChunksAsync(
+                new CreateChunksRequest(
+                    ContentId: contentId.ToString("N"),
+                    Text: text),
+                cancellationToken);
+
+            await contentRepository.AddChunksAsync(
+                chunks.Chunks
+                    .Select(chunk => ContentChunk.Create(
+                        contentId,
+                        chunk.Index,
+                        chunk.Text,
+                        chunk.CharStart,
+                        chunk.CharEnd))
+                    .ToList(),
+                cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(
+                exception,
+                "Content {ContentId} was saved but chunk creation/storage failed.",
+                contentId);
+        }
     }
 
     private static void EnsureExtractionIsSaveable(CreateExtractionResponse? extraction)
@@ -113,10 +177,49 @@ public sealed class ContentApplicationService(
             extraction.ExtractionStatus.Equals("completed", StringComparison.OrdinalIgnoreCase) &&
             !string.IsNullOrWhiteSpace(extraction.ExtractedText))
         {
-            return extraction.ExtractedText.Trim();
+            return BuildSummaryInputText(extraction);
         }
 
         return command.Text.Trim();
+    }
+
+    private static string ResolveChunkInputText(
+        CreateContentCommand command,
+        CreateExtractionResponse? extraction,
+        string summaryInputText)
+    {
+        if (extraction is not null &&
+            extraction.ExtractionStatus.Equals("completed", StringComparison.OrdinalIgnoreCase) &&
+            !string.IsNullOrWhiteSpace(extraction.ExtractedText))
+        {
+            return extraction.ExtractedText.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(command.SummaryInputText))
+        {
+            return command.SummaryInputText.Trim();
+        }
+
+        return summaryInputText.Trim();
+    }
+
+    private static string BuildSummaryInputText(CreateExtractionResponse extraction)
+    {
+        var parts = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(extraction.Title))
+        {
+            parts.Add($"Title: {extraction.Title.Trim()}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(extraction.OriginalUrl))
+        {
+            parts.Add($"Original URL: {extraction.OriginalUrl.Trim()}");
+        }
+
+        parts.Add(extraction.ExtractedText.Trim());
+
+        return string.Join(Environment.NewLine, parts);
     }
 
     private static ContentKind ResolveContentKind(

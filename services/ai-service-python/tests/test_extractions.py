@@ -148,6 +148,44 @@ def test_create_extraction_detects_source_type_when_not_provided(monkeypatch) ->
     assert body["detected_content_kind"] == "video"
 
 
+def test_article_with_embedded_video_metadata_stays_text(monkeypatch) -> None:
+    def fake_fetch_html(self: ArticleExtractor, url: str) -> dict[str, str | None]:
+        return {
+            "html": """
+                <html>
+                    <head>
+                        <title>What is stimming?</title>
+                        <script type="application/ld+json">
+                            {"@type":"VideoObject","name":"Embedded explainer"}
+                        </script>
+                    </head>
+                    <body>
+                        <article>
+                            <p>Stimming can help people regulate emotions and sensory input.</p>
+                        </article>
+                    </body>
+                </html>
+            """,
+            "content_type": "text/html",
+            "final_url": url,
+        }
+
+    monkeypatch.setattr(ArticleExtractor, "_fetch_html", fake_fetch_html)
+
+    response = client.post(
+        "/api/v1/extractions",
+        json={
+            "content_id": "content-article-embedded-video-1",
+            "url": "https://health.clevelandclinic.org/what-is-stimming",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["source_type"] == "article"
+    assert body["detected_content_kind"] == "text"
+
+
 def test_create_youtube_extraction_returns_oembed_metadata(monkeypatch) -> None:
     def fake_fetch_oembed(self: YouTubeExtractor, url: str) -> dict[str, str]:
         return {
@@ -216,9 +254,39 @@ def test_create_youtube_extraction_includes_transcript_when_available(monkeypatc
     assert body["source_type"] == "youtube"
     assert body["detected_content_kind"] == "video"
     assert body["extraction_status"] == "completed"
-    assert "Transcript: Controllers should stay thin." in body["extracted_text"]
+    assert body["extracted_text"] == "Controllers should stay thin. Business rules should live in application services."
     assert body["metadata"]["extra"]["transcript_status"] == "completed"
     assert body["metadata"]["extra"]["transcript_language"] == "en"
+
+
+def test_youtube_transcript_provider_falls_back_to_available_language(monkeypatch) -> None:
+    class FakeTranscript:
+        language_code = "hi"
+
+        def fetch(self) -> list[dict[str, str]]:
+            return [
+                {"text": "Retrieval augmented generation kya hota hai?", "language_code": "hi"},
+                {"text": "Is video mein RAG samjhaya gaya hai.", "language_code": "hi"},
+            ]
+
+    class FakeTranscriptApi:
+        def fetch(self, video_id: str, languages: list[str]) -> list[dict[str, str]]:
+            raise RuntimeError("preferred languages were not available")
+
+        def list(self, video_id: str) -> list[FakeTranscript]:
+            return [FakeTranscript()]
+
+    monkeypatch.setattr(
+        YouTubeTranscriptProvider,
+        "_load_transcript_api",
+        lambda self: FakeTranscriptApi,
+    )
+
+    result = YouTubeTranscriptProvider().fetch_transcript("hindi-video-1")
+
+    assert result.status == "completed"
+    assert result.language == "hi"
+    assert "RAG samjhaya gaya hai" in result.text
 
 
 def test_create_unsupported_extraction_falls_back_to_text() -> None:

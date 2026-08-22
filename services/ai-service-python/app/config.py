@@ -11,6 +11,11 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-3.6-flash"
     gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
     gemini_timeout_seconds: int = 30
+    mistral_api_key: str = ""
+    mistral_base_url: str = "https://api.mistral.ai/v1"
+    mistral_intent_model: str = "ministral-3b-2512"
+    mistral_summary_model: str = "ministral-8b-2512"
+    mistral_timeout_seconds: int = 20
 
     model_config = SettingsConfigDict(
         env_prefix="AI_SERVICE_",

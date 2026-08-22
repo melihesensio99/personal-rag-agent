@@ -12,6 +12,7 @@ public static class ContentEndpoints
     {
         endpoints.MapPost("/api/v1/contents", CreateContentAsync);
         endpoints.MapGet("/api/v1/contents/{id:guid}", GetContentByIdAsync);
+        endpoints.MapGet("/api/v1/contents/{id:guid}/chunks", GetContentChunksByIdAsync);
 
         return endpoints;
     }
@@ -21,12 +22,19 @@ public static class ContentEndpoints
         IContentApplicationService contentApplicationService,
         CancellationToken cancellationToken)
     {
-        if (!Enum.TryParse<ContentSourceType>(request.SourceType, ignoreCase: true, out var sourceType))
+        ContentSourceType? sourceType = null;
+
+        if (!string.IsNullOrWhiteSpace(request.SourceType))
         {
-            return Results.BadRequest(new
+            if (!Enum.TryParse<ContentSourceType>(request.SourceType, ignoreCase: true, out var parsedSourceType))
             {
-                error = "Invalid sourceType. Use Manual, Telegram, Instagram or Article."
-            });
+                return Results.BadRequest(new
+                {
+                    error = "Invalid sourceType. Use Manual, Telegram, Instagram, Article, YouTube, Pdf or Image."
+                });
+            }
+
+            sourceType = parsedSourceType;
         }
 
         var contentItem = await contentApplicationService.CreateAsync(
@@ -48,5 +56,22 @@ public static class ContentEndpoints
         return contentItem is null
             ? Results.NotFound()
             : Results.Ok(ContentResponseMapper.Map(contentItem));
+    }
+
+    private static async Task<IResult> GetContentChunksByIdAsync(
+        Guid id,
+        IContentApplicationService contentApplicationService,
+        CancellationToken cancellationToken)
+    {
+        var chunks = await contentApplicationService.GetChunksByContentIdAsync(id, cancellationToken);
+
+        return Results.Ok(chunks.Select(chunk => new ContentChunkResponse(
+            Id: chunk.Id,
+            ContentItemId: chunk.ContentItemId,
+            Index: chunk.Index,
+            Text: chunk.Text,
+            CharStart: chunk.CharStart,
+            CharEnd: chunk.CharEnd,
+            CreatedAtUtc: chunk.CreatedAtUtc)));
     }
 }

@@ -2,6 +2,7 @@ using Microsoft.Extensions.Options;
 using TelegramAi.Backend.Application.Content.Exceptions;
 using TelegramAi.Backend.Application.Content.Services;
 using TelegramAi.Backend.Application.Telegram.Commands;
+using TelegramAi.Backend.Application.Telegram.Exceptions;
 using TelegramAi.Backend.Application.Telegram.Formatting;
 using TelegramAi.Backend.Application.Telegram.Interpretation;
 using TelegramAi.Backend.Application.Telegram.Services;
@@ -99,10 +100,11 @@ public sealed class TelegramPollingHostedService(
         var aiServiceClient = scope.ServiceProvider.GetRequiredService<IAiServiceClient>();
         var searchResponseFormatter = scope.ServiceProvider.GetRequiredService<ITelegramContentSearchResponseFormatter>();
         var responseFormatter = scope.ServiceProvider.GetRequiredService<ITelegramMessageResponseFormatter>();
-        var intent = await ResolveIntentAsync(text, aiServiceClient, cancellationToken);
 
         try
         {
+            var intent = await ResolveIntentAsync(text, aiServiceClient, cancellationToken);
+
             if (intent is SearchContentsIntent searchIntent)
             {
                 var contents = await contentApplicationService.SearchAsync(
@@ -112,6 +114,16 @@ public sealed class TelegramPollingHostedService(
                 await telegramBotApiClient.SendTextMessageAsync(
                     message.Chat.Id,
                     searchResponseFormatter.Format(searchIntent.Query, contents),
+                    cancellationToken);
+
+                return;
+            }
+
+            if (intent is ClarifyContentIntent)
+            {
+                await telegramBotApiClient.SendTextMessageAsync(
+                    message.Chat.Id,
+                    "Bunu kaydetmemi mi yoksa eski kayitlarda aramamı mi istiyorsun? Biraz daha net yazar misin?",
                     cancellationToken);
 
                 return;
@@ -136,6 +148,15 @@ public sealed class TelegramPollingHostedService(
                 exception.UserMessage,
                 cancellationToken);
         }
+        catch (AiIntentUnavailableException exception)
+        {
+            logger.LogWarning(exception, "AI intent service failed for chat {ChatId}.", message.Chat.Id);
+
+            await telegramBotApiClient.SendTextMessageAsync(
+                message.Chat.Id,
+                "AI karar servisi su an gec cevap verdi veya hata aldi. Yanlis islem yapmamak icin bu mesaji islemedim. Birazdan tekrar dener misin?",
+                cancellationToken);
+        }
         catch (Exception exception)
         {
             logger.LogError(exception, "Telegram message processing failed for chat {ChatId}.", message.Chat.Id);
@@ -152,16 +173,24 @@ public sealed class TelegramPollingHostedService(
         IAiServiceClient aiServiceClient,
         CancellationToken cancellationToken)
     {
-        if (LooksLikeDirectContentInput(text))
-        {
-            return new SaveContentIntent(text);
-        }
+        Api.Contracts.Intents.ClassifyIntentResponse aiIntent;
 
-        var aiIntent = await aiServiceClient.ClassifyIntentAsync(
-            new Api.Contracts.Intents.ClassifyIntentRequest(
-                Message: text,
-                CurrentDate: DateOnly.FromDateTime(DateTime.UtcNow).ToString("yyyy-MM-dd")),
-            cancellationToken);
+        try
+        {
+            aiIntent = await aiServiceClient.ClassifyIntentAsync(
+                new Api.Contracts.Intents.ClassifyIntentRequest(
+                    Message: text,
+                    CurrentDate: ResolveTodayInTurkey().ToString("yyyy-MM-dd")),
+                cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            throw new AiIntentUnavailableException(exception);
+        }
 
         if (aiIntent.Intent.Equals("search", StringComparison.OrdinalIgnoreCase))
         {
@@ -179,20 +208,13 @@ public sealed class TelegramPollingHostedService(
                     ToUtc: toUtc));
         }
 
-        return new SaveContentIntent(text);
-    }
-
-    private static bool LooksLikeDirectContentInput(string text)
-    {
-        var trimmed = text.Trim();
-
-        if (Uri.TryCreate(trimmed, UriKind.Absolute, out _))
+        if (aiIntent.Intent.Equals("clarify", StringComparison.OrdinalIgnoreCase) ||
+            aiIntent.NeedsClarification)
         {
-            return true;
+            return new ClarifyContentIntent(text);
         }
 
-        return trimmed.Contains("http://", StringComparison.OrdinalIgnoreCase) ||
-               trimmed.Contains("https://", StringComparison.OrdinalIgnoreCase);
+        return new SaveContentIntent(text);
     }
 
     private static ContentSourceType? ParseSourceType(string? sourceType)
@@ -244,5 +266,11 @@ public sealed class TelegramPollingHostedService(
         {
             return TimeZoneInfo.FindSystemTimeZoneById("Europe/Istanbul");
         }
+    }
+
+    private static DateOnly ResolveTodayInTurkey()
+    {
+        var localNow = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, ResolveTurkeyTimeZone());
+        return DateOnly.FromDateTime(localNow.DateTime);
     }
 }

@@ -226,20 +226,7 @@ class ArticleExtractor:
         if content_type_lower.startswith("image/"):
             return "image"
 
-        metadata_video_signals = (
-            'property="og:type" content="video',
-            "property='og:type' content='video",
-            'name="twitter:player"',
-            "name='twitter:player'",
-            "<video",
-            "application/ld+json",
-            "videoobject",
-            "player.vimeo.com/video/",
-            "dailymotion.com/embed/video/",
-            "youtube.com/embed/",
-        )
-
-        if any(signal in normalized_html for signal in metadata_video_signals):
+        if content_type_lower.startswith("video/"):
             return "video"
 
         if content_type_lower.startswith("text/html"):
