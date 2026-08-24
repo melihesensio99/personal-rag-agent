@@ -57,6 +57,8 @@ Suggested request order:
 02 - Backend / System Health (backend + ai-service)
 02 - Backend / Create Content - Manual text
 02 - Backend / Get Content By Id
+02 - Backend / Get Content Chunks By Content Id
+02 - Backend / Semantic Search - Query chunks
 ```
 
 ## 5. Telegram Flow
@@ -92,8 +94,9 @@ Expected behavior:
 ```text
 Python uses ArticleExtractor.
 If trafilatura is installed, article_parser is trafilatura.
-Gemini summarizes the cleaned article text.
+Mistral summarizes the cleaned article text when AI_SERVICE_SUMMARY_PROVIDER=mistral.
 .NET stores the content in PostgreSQL.
+.NET asks Python for chunk embeddings and stores them in PostgreSQL/pgvector.
 Telegram returns the formatted summary.
 ```
 
@@ -109,7 +112,7 @@ Expected behavior:
 Python uses YouTubeExtractor.
 It reads title, channel and thumbnail metadata.
 If subtitles/transcript are available, transcript_status is completed.
-Gemini summarizes the extracted metadata plus transcript text.
+Mistral summarizes the extracted metadata plus transcript text when AI_SERVICE_SUMMARY_PROVIDER=mistral.
 ```
 
 Test a Google search URL:
@@ -140,6 +143,30 @@ Python intent provider classifies this as search.
 Telegram lists matching records.
 ```
 
+Test semantic search in Postman after saving an article:
+
+```text
+POST http://127.0.0.1:5080/api/v1/search/semantic
+```
+
+Body:
+
+```json
+{
+  "query": "Kas yapmak için günlük ne kadar protein almalıyım?",
+  "maxResults": 5
+}
+```
+
+Expected behavior:
+
+```text
+.NET asks Python for a query embedding.
+PostgreSQL/pgvector compares the query embedding with stored chunk embeddings.
+Response returns the closest chunks. Lower distance means more similar.
+This is retrieval only; natural answer generation is the next step.
+```
+
 ## 6. Current Important Limits
 
 The system is not full RAG yet.
@@ -151,21 +178,23 @@ content ingestion
 article extraction
 YouTube metadata extraction
 YouTube transcript extraction when available
-Gemini summary
-Gemini intent classification
+Mistral/Gemini/fake provider abstraction
+Mistral summary when configured
+Mistral intent classification when configured
 PostgreSQL persistence
+chunking
+embeddings
+pgvector semantic search
 basic filtered search
 ```
 
 Not implemented yet:
 
 ```text
-chunking
-embeddings
-pgvector semantic search
 RAG answer generation
 PDF file upload extraction
 image OCR or image understanding
+semantic search wired into Telegram natural question flow
 ```
 
 ## 7. Useful Debug Points

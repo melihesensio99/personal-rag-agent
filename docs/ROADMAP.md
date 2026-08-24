@@ -12,6 +12,9 @@ Bu dosya, proje ilerlerken unutulmaması gereken teknik borçları ve sonraki ge
 - İçeriği PostgreSQL'e `contents` olarak kaydetme.
 - Extract edilen metni chunk'lara bölme.
 - Chunk'ları PostgreSQL `content_chunks` tablosuna düz metin olarak kaydetme.
+- Chunk'lar için Mistral/fake embedding üretme.
+- Embedding'leri PostgreSQL `vector(1024)` kolonunda saklama.
+- `POST /api/v1/search/semantic` ile kullanıcı sorgusuna en yakın chunk'ları pgvector üzerinden bulma.
 - Postman üzerinden content ve chunk kayıtlarını inceleme.
 
 ## Kısa vadeli iyileştirme backlog'u
@@ -91,13 +94,18 @@ Amaç: Sabit karakter bazlı chunk yerine daha anlamlı chunk üretmek.
 
 Amaç: Chunk'ları gerçek RAG aramasına hazır hale getirmek.
 
-Plan:
+Durum:
 
-- PostgreSQL'e pgvector extension ekle.
-- `content_chunks` tablosuna `embedding vector(...)` kolonu ekle.
-- Mistral embedding modeli ile her chunk için embedding üret.
-- Query geldiğinde kullanıcı sorusunu embedding'e çevir.
-- pgvector similarity search ile en alakalı chunk'ları bul.
+- PostgreSQL'e pgvector extension eklendi.
+- `content_chunks` tablosuna `embedding vector(1024)` kolonu eklendi.
+- Mistral embedding modeli ile her chunk için embedding üretimi eklendi.
+- Query geldiğinde kullanıcı sorusu embedding'e çevriliyor.
+- pgvector cosine distance ile en alakalı chunk'lar bulunuyor.
+
+Sıradaki iyileştirme:
+
+- Semantic search sonucunu Telegram arama akışına bağla.
+- Sonuç chunk'larını Answer LLM'e verip doğal Türkçe cevap üret.
 
 ### 6. Answer LLM
 
