@@ -55,3 +55,20 @@ def test_create_chunks_normalizes_whitespace() -> None:
     body = response.json()
     assert body["total_chunks"] == 1
     assert body["chunks"][0]["text"] == "RAG uses retrieval. LLM uses context."
+
+
+def test_create_chunks_accepts_long_extracted_text() -> None:
+    response = client.post(
+        "/api/v1/chunks",
+        json={
+            "content_id": "chunk-demo-long",
+            "text": " ".join(["long article paragraph"] * 4000),
+            "chunk_size": 1200,
+            "overlap": 150,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["content_id"] == "chunk-demo-long"
+    assert body["total_chunks"] > 1

@@ -2,9 +2,12 @@ from functools import lru_cache
 
 from app.config import settings
 from app.services.chunking_service import ChunkingService
+from app.services.embedding_service import EmbeddingService
 from app.services.extraction_service import ExtractionService
 from app.services.intent_service import IntentService
 from app.services.prompt_loader import PromptLoader
+from app.services.embedding_providers.fake_embedding_provider import FakeEmbeddingProvider
+from app.services.embedding_providers.mistral_embedding_provider import MistralEmbeddingProvider
 from app.services.extractors.article_extractor import ArticleExtractor
 from app.services.extractors.youtube_extractor import YouTubeExtractor
 from app.services.intent_providers.fake_intent_provider import FakeIntentProvider
@@ -52,6 +55,26 @@ def get_summary_service() -> SummaryService:
 @lru_cache
 def get_chunking_service() -> ChunkingService:
     return ChunkingService()
+
+
+@lru_cache
+def get_embedding_service() -> EmbeddingService:
+    if settings.embedding_provider.lower() == "mistral":
+        if not settings.mistral_api_key.strip():
+            raise ValueError("AI_SERVICE_MISTRAL_API_KEY must be set when embedding_provider=mistral.")
+
+        provider = MistralEmbeddingProvider(
+            api_key=settings.mistral_api_key,
+            model=settings.mistral_embedding_model,
+            base_url=settings.mistral_base_url,
+            timeout_seconds=settings.mistral_timeout_seconds,
+        )
+        return EmbeddingService(provider, expected_dimension=settings.embedding_dimension)
+
+    return EmbeddingService(
+        FakeEmbeddingProvider(dimension=settings.embedding_dimension),
+        expected_dimension=settings.embedding_dimension,
+    )
 
 
 @lru_cache

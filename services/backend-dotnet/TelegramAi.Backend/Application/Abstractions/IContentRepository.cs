@@ -10,4 +10,7 @@ public interface IContentRepository
     Task<ContentItem?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
     Task<IReadOnlyList<ContentChunk>> GetChunksByContentIdAsync(Guid contentId, CancellationToken cancellationToken);
     Task<IReadOnlyList<ContentItem>> SearchAsync(SearchContentsQuery query, CancellationToken cancellationToken);
+    Task<IReadOnlyList<SemanticSearchChunkResult>> SemanticSearchChunksAsync(
+        SemanticSearchChunksQuery query,
+        CancellationToken cancellationToken);
 }

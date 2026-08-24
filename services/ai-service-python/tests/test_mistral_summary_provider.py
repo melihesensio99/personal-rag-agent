@@ -85,3 +85,46 @@ def test_mistral_summary_provider_extracts_json_from_wrapped_output(monkeypatch,
 
     assert response.title == "Chunking"
     assert response.key_points == ["Uzun metin bölünür."]
+
+
+def test_mistral_summary_provider_compresses_long_input(monkeypatch, tmp_path) -> None:
+    prompt_file = tmp_path / "prompt.txt"
+    prompt_file.write_text("Summarize content.", encoding="utf-8")
+
+    provider = MistralSummaryProvider(
+        prompt_loader=PromptLoader(str(prompt_file)),
+        api_key="test-key",
+        model="ministral-8b-2512",
+        base_url="https://api.mistral.ai/v1",
+        timeout_seconds=5,
+    )
+    captured_input: dict[str, str] = {}
+
+    def fake_send_request(self: MistralSummaryProvider, normalized_text: str) -> dict[str, object]:
+        captured_input["text"] = normalized_text
+        return {
+            "choices": [
+                {
+                    "message": {
+                        "content": (
+                            '{"title":"Uzun içerik","short_summary":"Uzun içerik sıkıştırılarak özetlendi.",'
+                            '"key_points":["Baş, orta ve son bölümler kullanıldı."],'
+                            '"tags":["uzun içerik"],"language":"tr"}'
+                        )
+                    }
+                }
+            ]
+        }
+
+    monkeypatch.setattr(MistralSummaryProvider, "_send_request", fake_send_request)
+
+    response = provider.create_summary(
+        SummaryRequest(
+            content_id="long-summary-1",
+            text=" ".join(["wikipedia"] * 25000),
+        )
+    )
+
+    assert response.title == "Uzun içerik"
+    assert "[CONTENT COMPRESSED FOR SUMMARY]" in captured_input["text"]
+    assert len(captured_input["text"]) < 19000

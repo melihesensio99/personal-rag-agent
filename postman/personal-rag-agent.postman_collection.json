@@ -360,6 +360,35 @@
           }
         },
         {
+          "name": "Semantic Search - Query chunks",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"Kas yapmak için günlük ne kadar protein almalıyım?\",\n  \"maxResults\": 5\n}"
+            },
+            "url": {
+              "raw": "{{backend_base_url}}/api/v1/search/semantic",
+              "host": [
+                "{{backend_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "search",
+                "semantic"
+              ]
+            },
+            "description": "Creates an embedding for the query, searches pgvector-backed content chunks, and returns the closest chunks. Lower distance means closer semantic match."
+          }
+        },
+        {
           "name": "Summary Proxy (backend -> ai-service)",
           "request": {
             "method": "POST",

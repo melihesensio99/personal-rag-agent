@@ -1,5 +1,6 @@
 using TelegramAi.Backend.Api.Contracts.Extractions;
 using TelegramAi.Backend.Api.Contracts.Chunks;
+using TelegramAi.Backend.Api.Contracts.Embeddings;
 using TelegramAi.Backend.Api.Contracts.Summaries;
 using TelegramAi.Backend.Application.Abstractions;
 using TelegramAi.Backend.Application.Content.Commands;
@@ -72,6 +73,27 @@ public sealed class ContentApplicationService(
         return contentRepository.SearchAsync(query, cancellationToken);
     }
 
+    public async Task<IReadOnlyList<SemanticSearchChunkResult>> SemanticSearchChunksAsync(
+        string query,
+        int maxResults,
+        CancellationToken cancellationToken)
+    {
+        var embeddings = await aiServiceClient.CreateEmbeddingsAsync(
+            new CreateEmbeddingsRequest(
+                ContentId: "semantic-search-query",
+                Texts: [query]),
+            cancellationToken);
+
+        var queryEmbedding = embeddings.Embeddings.SingleOrDefault()?.Embedding
+            ?? throw new InvalidOperationException("AI service did not return a query embedding.");
+
+        return await contentRepository.SemanticSearchChunksAsync(
+            new SemanticSearchChunksQuery(
+                Embedding: queryEmbedding,
+                MaxResults: maxResults),
+            cancellationToken);
+    }
+
     private async Task<CreateExtractionResponse?> TryExtractAsync(
         Guid contentId,
         CreateContentCommand command,
@@ -122,6 +144,11 @@ public sealed class ContentApplicationService(
                     Text: text),
                 cancellationToken);
 
+            var embeddingsByChunkIndex = await TryCreateEmbeddingsByChunkIndexAsync(
+                contentId,
+                chunks.Chunks,
+                cancellationToken);
+
             await contentRepository.AddChunksAsync(
                 chunks.Chunks
                     .Select(chunk => ContentChunk.Create(
@@ -129,7 +156,10 @@ public sealed class ContentApplicationService(
                         chunk.Index,
                         chunk.Text,
                         chunk.CharStart,
-                        chunk.CharEnd))
+                        chunk.CharEnd,
+                        embeddingsByChunkIndex.TryGetValue(chunk.Index, out var embedding)
+                            ? embedding
+                            : null))
                     .ToList(),
                 cancellationToken);
         }
@@ -143,6 +173,38 @@ public sealed class ContentApplicationService(
                 exception,
                 "Content {ContentId} was saved but chunk creation/storage failed.",
                 contentId);
+        }
+    }
+
+    private async Task<IReadOnlyDictionary<int, IReadOnlyList<float>>> TryCreateEmbeddingsByChunkIndexAsync(
+        Guid contentId,
+        IReadOnlyList<TextChunkResponse> chunks,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var embeddings = await aiServiceClient.CreateEmbeddingsAsync(
+                new CreateEmbeddingsRequest(
+                    ContentId: contentId.ToString("N"),
+                    Texts: chunks.Select(chunk => chunk.Text).ToList()),
+                cancellationToken);
+
+            return embeddings.Embeddings.ToDictionary(
+                embedding => embedding.Index,
+                embedding => embedding.Embedding);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(
+                exception,
+                "Content {ContentId} chunks were created but embedding generation failed.",
+                contentId);
+
+            return new Dictionary<int, IReadOnlyList<float>>();
         }
     }
 

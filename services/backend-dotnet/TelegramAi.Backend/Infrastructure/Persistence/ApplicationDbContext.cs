@@ -11,6 +11,8 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.HasPostgresExtension("vector");
+
         modelBuilder.ApplyConfiguration(new ContentItemConfiguration());
         modelBuilder.ApplyConfiguration(new ContentChunkConfiguration());
     }

@@ -72,6 +72,7 @@ public static class ContentEndpoints
             Text: chunk.Text,
             CharStart: chunk.CharStart,
             CharEnd: chunk.CharEnd,
+            HasEmbedding: chunk.Embedding is not null,
             CreatedAtUtc: chunk.CreatedAtUtc)));
     }
 }

@@ -7,7 +7,7 @@ class SummaryRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     content_id: str = Field(min_length=1, max_length=200)
-    text: str = Field(min_length=1, max_length=20000)
+    text: str = Field(min_length=1, max_length=250000)
 
 
 class SummaryResponse(BaseModel):

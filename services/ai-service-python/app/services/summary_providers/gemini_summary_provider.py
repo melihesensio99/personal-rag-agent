@@ -6,6 +6,7 @@ from urllib.request import Request, urlopen
 
 from app.contracts.summaries import SummaryRequest, SummaryResponse
 from app.services.prompt_loader import PromptLoader
+from app.services.summary_input_preparer import SummaryInputPreparer
 from app.services.summary_providers.base import SummaryProvider
 
 
@@ -25,8 +26,8 @@ class GeminiSummaryProvider(SummaryProvider):
         self._timeout_seconds = timeout_seconds
 
     def create_summary(self, request: SummaryRequest) -> SummaryResponse:
-        normalized_text = self._normalize_whitespace(request.text)
-        payload = self._send_request(normalized_text)
+        prepared_text = SummaryInputPreparer.prepare(request.text)
+        payload = self._send_request(prepared_text)
         output_text = self._extract_output_text(payload)
 
         if not isinstance(output_text, str) or not output_text.strip():
@@ -37,14 +38,14 @@ class GeminiSummaryProvider(SummaryProvider):
         return SummaryResponse(
             content_id=request.content_id,
             title=self._read_text(parsed, "title", fallback="Basliksiz icerik"),
-            short_summary=self._read_text(parsed, "short_summary", fallback=normalized_text[:280]),
-            key_points=self._read_text_list(parsed, "key_points", fallback=[normalized_text[:140]]),
-            tags=self._read_text_list(parsed, "tags", fallback=self._build_fallback_tags(normalized_text)),
+            short_summary=self._read_text(parsed, "short_summary", fallback=prepared_text[:280]),
+            key_points=self._read_text_list(parsed, "key_points", fallback=[prepared_text[:140]]),
+            tags=self._read_text_list(parsed, "tags", fallback=self._build_fallback_tags(prepared_text)),
             language=self._read_text(parsed, "language", fallback="tr"),
             provider="gemini",
         )
 
-    def _send_request(self, normalized_text: str) -> dict[str, object]:
+    def _send_request(self, prepared_text: str) -> dict[str, object]:
         endpoint = f"{self._base_url}/models/{self._model}:generateContent"
 
         body = {
@@ -60,7 +61,7 @@ class GeminiSummaryProvider(SummaryProvider):
                                 "title, short_summary, key_points, tags, language. "
                                 "key_points and tags must be arrays of strings. "
                                 "language must be tr.\n\n"
-                                f"Content:\n{normalized_text}"
+                                f"Content:\n{prepared_text}"
                             )
                         }
                     ],
@@ -169,10 +170,3 @@ class GeminiSummaryProvider(SummaryProvider):
                 break
 
         return unique_words or ["genel"]
-
-    def _normalize_whitespace(self, text: str) -> str:
-        condensed = " ".join(text.split())
-        if not condensed:
-            raise ValueError("Summary input cannot be empty.")
-
-        return condensed

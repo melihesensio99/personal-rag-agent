@@ -7,4 +7,5 @@ public sealed record ContentChunkResponse(
     string Text,
     int CharStart,
     int CharEnd,
+    bool HasEmbedding,
     DateTimeOffset CreatedAtUtc);

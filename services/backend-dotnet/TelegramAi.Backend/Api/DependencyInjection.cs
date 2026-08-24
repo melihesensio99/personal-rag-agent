@@ -11,6 +11,7 @@ public static class DependencyInjection
     {
         app.MapHealthEndpoints();
         app.MapContentEndpoints();
+        app.MapSearchEndpoints();
         app.MapSummaryEndpoints();
 
         return app;

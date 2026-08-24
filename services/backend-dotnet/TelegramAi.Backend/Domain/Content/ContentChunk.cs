@@ -1,3 +1,5 @@
+using Pgvector;
+
 namespace TelegramAi.Backend.Domain.Content;
 
 public sealed class ContentChunk
@@ -14,6 +16,7 @@ public sealed class ContentChunk
         string text,
         int charStart,
         int charEnd,
+        Vector? embedding,
         DateTimeOffset createdAtUtc)
     {
         Id = id;
@@ -22,6 +25,7 @@ public sealed class ContentChunk
         Text = text;
         CharStart = charStart;
         CharEnd = charEnd;
+        Embedding = embedding;
         CreatedAtUtc = createdAtUtc;
     }
 
@@ -31,6 +35,7 @@ public sealed class ContentChunk
     public string Text { get; private set; }
     public int CharStart { get; private set; }
     public int CharEnd { get; private set; }
+    public Vector? Embedding { get; private set; }
     public DateTimeOffset CreatedAtUtc { get; private set; }
 
     public static ContentChunk Create(
@@ -38,7 +43,8 @@ public sealed class ContentChunk
         int index,
         string text,
         int charStart,
-        int charEnd)
+        int charEnd,
+        IReadOnlyList<float>? embedding = null)
     {
         return new ContentChunk(
             Guid.NewGuid(),
@@ -47,6 +53,7 @@ public sealed class ContentChunk
             text.Trim(),
             charStart,
             charEnd,
+            embedding is null ? null : new Vector(embedding.ToArray()),
             DateTimeOffset.UtcNow);
     }
 }

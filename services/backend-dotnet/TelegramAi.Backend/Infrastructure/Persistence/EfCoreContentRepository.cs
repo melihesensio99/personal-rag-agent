@@ -1,5 +1,7 @@
 using TelegramAi.Backend.Application.Content.Queries;
 using Microsoft.EntityFrameworkCore;
+using Pgvector;
+using Pgvector.EntityFrameworkCore;
 using TelegramAi.Backend.Application.Abstractions;
 using TelegramAi.Backend.Domain.Content;
 
@@ -82,6 +84,41 @@ public sealed class EfCoreContentRepository(ApplicationDbContext dbContext) : IC
         return await dbQuery
             .OrderByDescending(content => content.CreatedAtUtc)
             .Take(query.MaxResults)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<SemanticSearchChunkResult>> SemanticSearchChunksAsync(
+        SemanticSearchChunksQuery query,
+        CancellationToken cancellationToken)
+    {
+        var embedding = new Vector(query.Embedding.ToArray());
+
+        return await dbContext.ContentChunks
+            .AsNoTracking()
+            .Where(chunk => chunk.Embedding != null)
+            .Join(
+                dbContext.Contents.AsNoTracking(),
+                chunk => chunk.ContentItemId,
+                content => content.Id,
+                (chunk, content) => new
+                {
+                    Chunk = chunk,
+                    Content = content,
+                    Distance = chunk.Embedding!.CosineDistance(embedding),
+                })
+            .OrderBy(result => result.Distance)
+            .Take(query.MaxResults)
+            .Select(result => new SemanticSearchChunkResult(
+                result.Content.Id,
+                result.Chunk.Id,
+                result.Content.Summary.Title,
+                result.Content.RawText,
+                result.Content.SourceType,
+                result.Content.ContentKind,
+                result.Chunk.Index,
+                result.Chunk.Text,
+                result.Distance,
+                result.Content.CreatedAtUtc))
             .ToListAsync(cancellationToken);
     }
 }

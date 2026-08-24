@@ -5,6 +5,7 @@ using TelegramAi.Backend.Infrastructure.Persistence;
 using TelegramAi.Backend.Infrastructure.Telegram;
 using TelegramAi.Backend.Infrastructure.Telegram.TelegramApi;
 using Microsoft.EntityFrameworkCore;
+using Pgvector.EntityFrameworkCore;
 
 namespace TelegramAi.Backend.Infrastructure;
 
@@ -19,7 +20,9 @@ public static class DependencyInjection
 
         services.AddDbContext<ApplicationDbContext>(options =>
         {
-            options.UseNpgsql(connectionString);
+            options.UseNpgsql(
+                connectionString,
+                npgsqlOptions => npgsqlOptions.UseVector());
         });
 
         services.AddScoped<IContentRepository, EfCoreContentRepository>();

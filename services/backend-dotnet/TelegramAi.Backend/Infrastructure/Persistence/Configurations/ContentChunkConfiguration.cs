@@ -31,6 +31,9 @@ public sealed class ContentChunkConfiguration : IEntityTypeConfiguration<Content
         builder.Property(chunk => chunk.CharEnd)
             .IsRequired();
 
+        builder.Property(chunk => chunk.Embedding)
+            .HasColumnType("vector(1024)");
+
         builder.Property(chunk => chunk.CreatedAtUtc)
             .IsRequired();
 

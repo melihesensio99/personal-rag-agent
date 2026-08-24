@@ -6,6 +6,7 @@ from urllib.request import Request, urlopen
 
 from app.contracts.summaries import SummaryRequest, SummaryResponse
 from app.services.prompt_loader import PromptLoader
+from app.services.summary_input_preparer import SummaryInputPreparer
 from app.services.summary_providers.base import SummaryProvider
 
 
@@ -27,12 +28,12 @@ class MistralSummaryProvider(SummaryProvider):
         self._timeout_seconds = timeout_seconds
 
     def create_summary(self, request: SummaryRequest) -> SummaryResponse:
-        normalized_text = self._normalize_whitespace(request.text)
+        prepared_text = SummaryInputPreparer.prepare(request.text)
         last_error: Exception | None = None
 
         for _ in range(self.MAX_ATTEMPTS):
             try:
-                payload = self._send_request(normalized_text)
+                payload = self._send_request(prepared_text)
                 output_text = self._extract_output_text(payload)
 
                 if not isinstance(output_text, str) or not output_text.strip():
@@ -54,7 +55,7 @@ class MistralSummaryProvider(SummaryProvider):
 
         raise RuntimeError("Mistral summary failed after retries.") from last_error
 
-    def _send_request(self, normalized_text: str) -> dict[str, object]:
+    def _send_request(self, prepared_text: str) -> dict[str, object]:
         endpoint = f"{self._base_url}/chat/completions"
 
         system_prompt = (
@@ -71,7 +72,7 @@ class MistralSummaryProvider(SummaryProvider):
             "model": self._model,
             "messages": [
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Content:\n{normalized_text}"},
+                {"role": "user", "content": f"Content:\n{prepared_text}"},
             ],
             "temperature": 0.2,
             "response_format": {"type": "json_object"},
@@ -192,11 +193,3 @@ class MistralSummaryProvider(SummaryProvider):
             raise ValueError(f"Mistral summary JSON output has an empty '{key}'.")
 
         return items
-
-    @staticmethod
-    def _normalize_whitespace(text: str) -> str:
-        condensed = " ".join(text.split())
-        if not condensed:
-            raise ValueError("Summary input cannot be empty.")
-
-        return condensed

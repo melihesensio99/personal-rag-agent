@@ -1,5 +1,6 @@
 using TelegramAi.Backend.Api.Contracts.Health;
 using TelegramAi.Backend.Api.Contracts.Chunks;
+using TelegramAi.Backend.Api.Contracts.Embeddings;
 using TelegramAi.Backend.Api.Contracts.Extractions;
 using TelegramAi.Backend.Api.Contracts.Intents;
 using TelegramAi.Backend.Api.Contracts.Summaries;
@@ -14,6 +15,9 @@ public interface IAiServiceClient
         CancellationToken cancellationToken);
     Task<CreateExtractionResponse> CreateExtractionAsync(
         CreateExtractionRequest request,
+        CancellationToken cancellationToken);
+    Task<CreateEmbeddingsResponse> CreateEmbeddingsAsync(
+        CreateEmbeddingsRequest request,
         CancellationToken cancellationToken);
     Task<ClassifyIntentResponse> ClassifyIntentAsync(
         ClassifyIntentRequest request,

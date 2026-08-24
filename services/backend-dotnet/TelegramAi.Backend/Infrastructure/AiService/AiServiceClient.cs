@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using TelegramAi.Backend.Api.Contracts.Chunks;
+using TelegramAi.Backend.Api.Contracts.Embeddings;
 using TelegramAi.Backend.Api.Contracts.Health;
 using TelegramAi.Backend.Api.Contracts.Extractions;
 using TelegramAi.Backend.Api.Contracts.Intents;
@@ -96,6 +97,39 @@ public sealed class AiServiceClient(HttpClient httpClient) : IAiServiceClient
                 ContentType: extraction.Metadata.ContentType,
                 FinalUrl: extraction.Metadata.FinalUrl,
                 Extra: extraction.Metadata.Extra));
+    }
+
+    public async Task<CreateEmbeddingsResponse> CreateEmbeddingsAsync(
+        CreateEmbeddingsRequest request,
+        CancellationToken cancellationToken)
+    {
+        var aiRequest = new AiServiceCreateEmbeddingsRequest(
+            ContentId: request.ContentId,
+            Texts: request.Texts);
+
+        var httpResponse = await httpClient.PostAsJsonAsync(
+            "/api/v1/embeddings",
+            aiRequest,
+            cancellationToken);
+
+        await EnsureSuccessWithDetailsAsync(httpResponse, cancellationToken);
+
+        var embeddings = await httpResponse.Content.ReadFromJsonAsync<AiServiceCreateEmbeddingsResponse>(cancellationToken);
+
+        if (embeddings is null)
+        {
+            throw new InvalidOperationException("AI service returned an empty embedding response.");
+        }
+
+        return new CreateEmbeddingsResponse(
+            ContentId: embeddings.ContentId,
+            Model: embeddings.Model,
+            Dimension: embeddings.Dimension,
+            Embeddings: embeddings.Embeddings
+                .Select(embedding => new TextEmbeddingResponse(
+                    Index: embedding.Index,
+                    Embedding: embedding.Embedding))
+                .ToList());
     }
 
     public async Task<ClassifyIntentResponse> ClassifyIntentAsync(
