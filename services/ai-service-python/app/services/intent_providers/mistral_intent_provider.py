@@ -105,7 +105,7 @@ class MistralIntentProvider(IntentProvider):
 
                 parsed = self._parse_json_object(output_text)
 
-                return IntentResponse(
+                response = IntentResponse(
                     intent=self._normalize_required_literal(
                         parsed.get("intent"),
                         self._INTENT_ALIASES,
@@ -127,6 +127,31 @@ class MistralIntentProvider(IntentProvider):
                     keywords=self._normalize_keywords(parsed.get("keywords", [])),
                     needs_clarification=self._normalize_bool(parsed.get("needs_clarification", False)),
                 )
+
+                if response.intent != "save" and self._looks_like_content_to_save(request.message):
+                    return response.model_copy(
+                        update={
+                            "intent": "save",
+                            "content_kind": "text",
+                            "source_type": "telegram",
+                            "time_filter": "none",
+                            "keywords": [],
+                            "needs_clarification": False,
+                        }
+                    )
+
+                if response.intent == "save" and self._looks_like_answer_question(request.message):
+                    return response.model_copy(
+                        update={
+                            "intent": "search",
+                            "content_kind": None,
+                            "source_type": None,
+                            "time_filter": "none",
+                            "needs_clarification": False,
+                        }
+                    )
+
+                return response
             except (json.JSONDecodeError, RuntimeError, ValueError) as error:
                 last_error = error
 
@@ -146,6 +171,10 @@ class MistralIntentProvider(IntentProvider):
             "The user usually writes in Turkish. "
             "Turkish search verbs include: getir, listele, göster, goster, bul, ara, neydi, hangisiydi. "
             "If the user asks to retrieve, list, show, find, or search previously saved records, choose search. "
+            "If the user asks a factual question that should be answered from saved knowledge, choose search even when they do not use retrieve/list/search verbs. "
+            "Question signals include: ?, nedir, nasil, nasıl, neden, ne kadar, kac, kaç, hangi, hangisi, onerir, önerir, almaliyim, almalıyım. "
+            "Do not choose save for a standalone question unless the user explicitly says it is a note to save. "
+            "If the user sends article-like content, long pasted text, or text starting with Baslik/Başlık/Title, choose save. "
             "If the user sends a URL, article text, note, or content to save without asking to retrieve old records, choose save. "
             "If the user asks for videos in general, set content_kind to video and source_type to null unless YouTube is explicitly requested. "
             "If the user says youtube, set source_type to youtube and content_kind to video. "
@@ -162,6 +191,12 @@ class MistralIntentProvider(IntentProvider):
             "{\"intent\":\"search\",\"content_kind\":null,\"source_type\":null,\"time_filter\":\"none\",\"keywords\":[\"spor\"],\"needs_clarification\":false}. "
             "User: 'bugün attığım makaleleri getir' => "
             "{\"intent\":\"search\",\"content_kind\":null,\"source_type\":\"article\",\"time_filter\":\"today\",\"keywords\":[],\"needs_clarification\":false}. "
+            "User: 'Kas yapmak için günlük ne kadar protein almalıyım?' => "
+            "{\"intent\":\"search\",\"content_kind\":null,\"source_type\":null,\"time_filter\":\"none\",\"keywords\":[\"kas yapmak\",\"protein\"],\"needs_clarification\":false}. "
+            "User: 'RAG nedir?' => "
+            "{\"intent\":\"search\",\"content_kind\":null,\"source_type\":null,\"time_filter\":\"none\",\"keywords\":[\"rag\"],\"needs_clarification\":false}. "
+            "User: 'Başlık: Sabah Antrenmanı Daha Verimlidir Sabah saatlerinde yapılan antrenmanlar...' => "
+            "{\"intent\":\"save\",\"content_kind\":\"text\",\"source_type\":\"telegram\",\"time_filter\":\"none\",\"keywords\":[],\"needs_clarification\":false}. "
             "User: 'kendime not: RAG chunking önemli' => "
             "{\"intent\":\"save\",\"content_kind\":\"text\",\"source_type\":\"telegram\",\"time_filter\":\"none\",\"keywords\":[],\"needs_clarification\":false}."
         )
@@ -352,3 +387,66 @@ class MistralIntentProvider(IntentProvider):
             return value.strip().lower() in {"true", "yes", "evet", "1"}
 
         return False
+
+    @staticmethod
+    def _looks_like_answer_question(message: str) -> bool:
+        normalized = message.strip().lower()
+
+        if MistralIntentProvider._looks_like_content_to_save(message):
+            return False
+
+        if "http://" in normalized or "https://" in normalized:
+            return False
+
+        explicit_save_markers = {
+            "kaydet",
+            "not al",
+            "kendime not",
+            "bunu sakla",
+            "bunu kaydet",
+            "save this",
+        }
+        if any(marker in normalized for marker in explicit_save_markers):
+            return False
+
+        question_signals = {
+            "?",
+            " nedir",
+            " nasil",
+            " nasıl",
+            " neden",
+            " ne kadar",
+            " kac ",
+            " kaç ",
+            " hangi",
+            " hangisi",
+            " almaliyim",
+            " almalıyım",
+            " onerir",
+            " önerir",
+        }
+
+        return any(signal in f" {normalized} " for signal in question_signals)
+
+    @staticmethod
+    def _looks_like_content_to_save(message: str) -> bool:
+        normalized = message.strip().lower()
+
+        content_markers = {
+            "başlık:",
+            "baslik:",
+            "title:",
+            "özet:",
+            "ozet:",
+            "ana noktalar",
+        }
+        if any(marker in normalized for marker in content_markers):
+            return True
+
+        if "http://" in normalized or "https://" in normalized:
+            return False
+
+        word_count = len(normalized.split())
+        sentence_count = normalized.count(".") + normalized.count("!") + normalized.count("?")
+
+        return word_count >= 45 and sentence_count >= 2

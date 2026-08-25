@@ -30,7 +30,7 @@ class GeminiIntentProvider(IntentProvider):
 
         parsed = json.loads(output_text)
 
-        return IntentResponse(
+        response = IntentResponse(
             intent=parsed["intent"],
             content_kind=parsed.get("content_kind"),
             source_type=parsed.get("source_type"),
@@ -38,6 +38,31 @@ class GeminiIntentProvider(IntentProvider):
             keywords=parsed.get("keywords", []),
             needs_clarification=parsed.get("needs_clarification", False),
         )
+
+        if response.intent != "save" and self._looks_like_content_to_save(request.message):
+            return response.model_copy(
+                update={
+                    "intent": "save",
+                    "content_kind": "text",
+                    "source_type": "telegram",
+                    "time_filter": "none",
+                    "keywords": [],
+                    "needs_clarification": False,
+                }
+            )
+
+        if response.intent == "save" and self._looks_like_answer_question(request.message):
+            return response.model_copy(
+                update={
+                    "intent": "search",
+                    "content_kind": None,
+                    "source_type": None,
+                    "time_filter": "none",
+                    "needs_clarification": False,
+                }
+            )
+
+        return response
 
     def _send_request(self, request: IntentRequest) -> dict[str, object]:
         endpoint = f"{self._base_url}/models/{self._model}:generateContent"
@@ -55,6 +80,10 @@ class GeminiIntentProvider(IntentProvider):
             "If the user asks for articles, writings, PDFs, or text-like records in general, set content_kind to text unless a stricter source_type is clearly requested. "
             "If the user asks for images, visuals, photos, or screenshots, set content_kind to image. "
             "If the user wants previously saved records, choose search. "
+            "If the user asks a factual question that should be answered from saved knowledge, choose search even when they do not use retrieve/list/search verbs. "
+            "Question signals include: ?, nedir, nasil, nasıl, neden, ne kadar, kac, kaç, hangi, hangisi, onerir, önerir, almaliyim, almalıyım. "
+            "Do not choose save for a standalone question unless the user explicitly says it is a note to save. "
+            "If the user sends article-like content, long pasted text, or text starting with Baslik/Başlık/Title, choose save. "
             "If the user sends content or a link to save, choose save.\n\n"
             f"User message: {request.message}"
         )
@@ -121,3 +150,66 @@ class GeminiIntentProvider(IntentProvider):
                     return part["text"]
 
         return None
+
+    @staticmethod
+    def _looks_like_answer_question(message: str) -> bool:
+        normalized = message.strip().lower()
+
+        if GeminiIntentProvider._looks_like_content_to_save(message):
+            return False
+
+        if "http://" in normalized or "https://" in normalized:
+            return False
+
+        explicit_save_markers = {
+            "kaydet",
+            "not al",
+            "kendime not",
+            "bunu sakla",
+            "bunu kaydet",
+            "save this",
+        }
+        if any(marker in normalized for marker in explicit_save_markers):
+            return False
+
+        question_signals = {
+            "?",
+            " nedir",
+            " nasil",
+            " nasıl",
+            " neden",
+            " ne kadar",
+            " kac ",
+            " kaç ",
+            " hangi",
+            " hangisi",
+            " almaliyim",
+            " almalıyım",
+            " onerir",
+            " önerir",
+        }
+
+        return any(signal in f" {normalized} " for signal in question_signals)
+
+    @staticmethod
+    def _looks_like_content_to_save(message: str) -> bool:
+        normalized = message.strip().lower()
+
+        content_markers = {
+            "başlık:",
+            "baslik:",
+            "title:",
+            "özet:",
+            "ozet:",
+            "ana noktalar",
+        }
+        if any(marker in normalized for marker in content_markers):
+            return True
+
+        if "http://" in normalized or "https://" in normalized:
+            return False
+
+        word_count = len(normalized.split())
+        sentence_count = normalized.count(".") + normalized.count("!") + normalized.count("?")
+
+        return word_count >= 45 and sentence_count >= 2
