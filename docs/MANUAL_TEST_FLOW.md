@@ -166,6 +166,16 @@ Expected behavior:
 PostgreSQL/pgvector compares the query embedding with stored chunk embeddings.
 Response returns the closest chunks. Lower distance means more similar.
 This is retrieval only; natural answer generation is the next step.
+
+If you want the search to focus on a single saved link, add the optional `contentId` field:
+
+```json
+{
+  "query": "Bu videoya göre ne öneriliyor?",
+  "maxResults": 5,
+  "contentId": "YOUR_CONTENT_ID_HERE"
+}
+```
 ```
 
 Test semantic answer in Postman after saving an article:
@@ -190,6 +200,16 @@ Expected behavior:
 PostgreSQL/pgvector returns the closest chunks.
 Python answer provider writes a Turkish answer using only those chunks.
 Response returns the answer plus the source chunks.
+
+If you want the answer to rely on only one saved link, send the same optional `contentId`:
+
+```json
+{
+  "query": "Bu videoya göre ne öneriliyor?",
+  "maxResults": 5,
+  "contentId": "YOUR_CONTENT_ID_HERE"
+}
+```
 ```
 
 ## 6. Current Important Limits

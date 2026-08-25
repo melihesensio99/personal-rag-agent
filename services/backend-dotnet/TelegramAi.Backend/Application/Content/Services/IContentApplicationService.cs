@@ -13,9 +13,11 @@ public interface IContentApplicationService
     Task<IReadOnlyList<SemanticSearchChunkResult>> SemanticSearchChunksAsync(
         string query,
         int maxResults,
+        Guid? contentId,
         CancellationToken cancellationToken);
     Task<SemanticAnswerResult> SemanticAnswerAsync(
         string query,
         int maxResults,
+        Guid? contentId,
         CancellationToken cancellationToken);
 }

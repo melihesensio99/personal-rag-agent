@@ -77,6 +77,7 @@ public sealed class ContentApplicationService(
     public async Task<IReadOnlyList<SemanticSearchChunkResult>> SemanticSearchChunksAsync(
         string query,
         int maxResults,
+        Guid? contentId,
         CancellationToken cancellationToken)
     {
         var embeddings = await aiServiceClient.CreateEmbeddingsAsync(
@@ -91,16 +92,18 @@ public sealed class ContentApplicationService(
         return await contentRepository.SemanticSearchChunksAsync(
             new SemanticSearchChunksQuery(
                 Embedding: queryEmbedding,
-                MaxResults: maxResults),
+                MaxResults: maxResults,
+                ContentId: contentId),
             cancellationToken);
     }
 
     public async Task<SemanticAnswerResult> SemanticAnswerAsync(
         string query,
         int maxResults,
+        Guid? contentId,
         CancellationToken cancellationToken)
     {
-        var sources = await SemanticSearchChunksAsync(query, maxResults, cancellationToken);
+        var sources = await SemanticSearchChunksAsync(query, maxResults, contentId, cancellationToken);
 
         var answer = await aiServiceClient.CreateAnswerAsync(
             new CreateAnswerRequest(

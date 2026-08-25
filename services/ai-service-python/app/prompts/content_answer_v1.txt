@@ -8,3 +8,6 @@ Return only a JSON object with these exact fields:
 answer, used_chunk_indexes, language
 used_chunk_indexes must contain integer indexes from the provided chunk list.
 language must be tr.
+If the retrieved chunks disagree or present different claims, say that explicitly.
+Do not merge conflicting claims into a single fact.
+Explain each source or viewpoint separately and mention the chunk indexes that support them.

@@ -93,9 +93,17 @@ public sealed class EfCoreContentRepository(ApplicationDbContext dbContext) : IC
     {
         var embedding = new Vector(query.Embedding.ToArray());
 
-        return await dbContext.ContentChunks
+        var dbQuery = dbContext.ContentChunks
             .AsNoTracking()
-            .Where(chunk => chunk.Embedding != null)
+            .Where(chunk => chunk.Embedding != null);
+
+        if (query.ContentId.HasValue)
+        {
+            var contentId = query.ContentId.Value;
+            dbQuery = dbQuery.Where(chunk => chunk.ContentItemId == contentId);
+        }
+
+        return await dbQuery
             .Join(
                 dbContext.Contents.AsNoTracking(),
                 chunk => chunk.ContentItemId,

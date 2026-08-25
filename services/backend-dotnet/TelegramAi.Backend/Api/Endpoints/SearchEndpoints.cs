@@ -29,6 +29,7 @@ public static class SearchEndpoints
         var results = await contentApplicationService.SemanticSearchChunksAsync(
             query,
             maxResults,
+            request.ContentId,
             cancellationToken);
 
         return Results.Ok(new SemanticSearchResponse(
@@ -62,6 +63,7 @@ public static class SearchEndpoints
         var result = await contentApplicationService.SemanticAnswerAsync(
             query,
             maxResults,
+            request.ContentId,
             cancellationToken);
 
         return Results.Ok(new SemanticAnswerResponse(
