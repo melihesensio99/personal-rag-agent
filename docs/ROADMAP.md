@@ -15,6 +15,7 @@ Bu dosya, proje ilerlerken unutulmaması gereken teknik borçları ve sonraki ge
 - Chunk'lar için Mistral/fake embedding üretme.
 - Embedding'leri PostgreSQL `vector(1024)` kolonunda saklama.
 - `POST /api/v1/search/semantic` ile kullanıcı sorgusuna en yakın chunk'ları pgvector üzerinden bulma.
+- `POST /api/v1/search/answer` ile bulunan chunk'lar üzerinden Türkçe cevap üretme.
 - Postman üzerinden content ve chunk kayıtlarını inceleme.
 
 ## Kısa vadeli iyileştirme backlog'u
@@ -121,6 +122,12 @@ Kullanıcı sorusu
 → Answer LLM
 → Türkçe doğal cevap + kaynak linkleri
 ```
+
+Durum:
+
+- Semantic search endpoint'i çalışıyor.
+- Answer LLM endpoint'i eklendi; backend, semantik sonuçları Python'a verip Türkçe cevap alabiliyor.
+- Sonraki pratik adım bunu Telegram doğal soru akışına bağlamak.
 
 ### 7. Clarify flow
 

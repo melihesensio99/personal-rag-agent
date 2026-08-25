@@ -389,6 +389,35 @@
           }
         },
         {
+          "name": "Semantic Answer - Query and answer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"Kas yapmak için günlük ne kadar protein almalıyım?\",\n  \"maxResults\": 5\n}"
+            },
+            "url": {
+              "raw": "{{backend_base_url}}/api/v1/search/answer",
+              "host": [
+                "{{backend_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "search",
+                "answer"
+              ]
+            },
+            "description": "Runs semantic search, then asks the Python AI service to generate a Turkish answer grounded in the retrieved chunks."
+          }
+        },
+        {
           "name": "Summary Proxy (backend -> ai-service)",
           "request": {
             "method": "POST",

@@ -59,6 +59,7 @@ Suggested request order:
 02 - Backend / Get Content By Id
 02 - Backend / Get Content Chunks By Content Id
 02 - Backend / Semantic Search - Query chunks
+02 - Backend / Semantic Answer - Query and answer
 ```
 
 ## 5. Telegram Flow
@@ -167,6 +168,30 @@ Response returns the closest chunks. Lower distance means more similar.
 This is retrieval only; natural answer generation is the next step.
 ```
 
+Test semantic answer in Postman after saving an article:
+
+```text
+POST http://127.0.0.1:5080/api/v1/search/answer
+```
+
+Body:
+
+```json
+{
+  "query": "Kas yapmak için günlük ne kadar protein almalıyım?",
+  "maxResults": 5
+}
+```
+
+Expected behavior:
+
+```text
+.NET asks Python for a query embedding.
+PostgreSQL/pgvector returns the closest chunks.
+Python answer provider writes a Turkish answer using only those chunks.
+Response returns the answer plus the source chunks.
+```
+
 ## 6. Current Important Limits
 
 The system is not full RAG yet.
@@ -191,7 +216,6 @@ basic filtered search
 Not implemented yet:
 
 ```text
-RAG answer generation
 PDF file upload extraction
 image OCR or image understanding
 semantic search wired into Telegram natural question flow
