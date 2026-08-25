@@ -2,6 +2,10 @@ from functools import lru_cache
 
 from app.config import settings
 from app.services.chunking_service import ChunkingService
+from app.services.answer_service import AnswerService
+from app.services.answer_providers.fake_answer_provider import FakeAnswerProvider
+from app.services.answer_providers.gemini_answer_provider import GeminiAnswerProvider
+from app.services.answer_providers.mistral_answer_provider import MistralAnswerProvider
 from app.services.embedding_service import EmbeddingService
 from app.services.extraction_service import ExtractionService
 from app.services.intent_service import IntentService
@@ -50,6 +54,39 @@ def get_summary_service() -> SummaryService:
         return SummaryService(provider)
 
     return SummaryService(FakeSummaryProvider(prompt_loader))
+
+
+@lru_cache
+def get_answer_service() -> AnswerService:
+    prompt_loader = PromptLoader(settings.answer_prompt_path)
+
+    if settings.answer_provider.lower() == "gemini":
+        if not settings.gemini_api_key.strip():
+            raise ValueError("AI_SERVICE_GEMINI_API_KEY must be set when answer_provider=gemini.")
+
+        provider = GeminiAnswerProvider(
+            prompt_loader=prompt_loader,
+            api_key=settings.gemini_api_key,
+            model=settings.gemini_model,
+            base_url=settings.gemini_base_url,
+            timeout_seconds=settings.gemini_timeout_seconds,
+        )
+        return AnswerService(provider)
+
+    if settings.answer_provider.lower() == "mistral":
+        if not settings.mistral_api_key.strip():
+            raise ValueError("AI_SERVICE_MISTRAL_API_KEY must be set when answer_provider=mistral.")
+
+        provider = MistralAnswerProvider(
+            prompt_loader=prompt_loader,
+            api_key=settings.mistral_api_key,
+            model=settings.mistral_answer_model,
+            base_url=settings.mistral_base_url,
+            timeout_seconds=settings.mistral_timeout_seconds,
+        )
+        return AnswerService(provider)
+
+    return AnswerService(FakeAnswerProvider(prompt_loader))
 
 
 @lru_cache

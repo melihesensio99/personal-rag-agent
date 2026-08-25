@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using TelegramAi.Backend.Api.Contracts.Answers;
 using TelegramAi.Backend.Api.Contracts.Chunks;
 using TelegramAi.Backend.Api.Contracts.Embeddings;
 using TelegramAi.Backend.Api.Contracts.Health;
@@ -130,6 +131,50 @@ public sealed class AiServiceClient(HttpClient httpClient) : IAiServiceClient
                     Index: embedding.Index,
                     Embedding: embedding.Embedding))
                 .ToList());
+    }
+
+    public async Task<CreateAnswerResponse> CreateAnswerAsync(
+        CreateAnswerRequest request,
+        CancellationToken cancellationToken)
+    {
+        var aiRequest = new AiServiceCreateAnswerRequest(
+            ContentId: request.ContentId,
+            Question: request.Question,
+            Chunks: request.Chunks
+                .Select(chunk => new AiServiceAnswerChunkRequest(
+                    Index: chunk.Index,
+                    ContentId: chunk.ContentId,
+                    ChunkId: chunk.ChunkId,
+                    ContentTitle: chunk.ContentTitle,
+                    ContentUrl: chunk.ContentUrl,
+                    SourceType: chunk.SourceType,
+                    ContentKind: chunk.ContentKind,
+                    ChunkIndex: chunk.ChunkIndex,
+                    Text: chunk.Text,
+                    Distance: chunk.Distance,
+                    Similarity: chunk.Similarity))
+                .ToList());
+
+        var httpResponse = await httpClient.PostAsJsonAsync(
+            "/api/v1/answers",
+            aiRequest,
+            cancellationToken);
+
+        await EnsureSuccessWithDetailsAsync(httpResponse, cancellationToken);
+
+        var answer = await httpResponse.Content.ReadFromJsonAsync<AiServiceCreateAnswerResponse>(cancellationToken);
+
+        if (answer is null)
+        {
+            throw new InvalidOperationException("AI service returned an empty answer response.");
+        }
+
+        return new CreateAnswerResponse(
+            ContentId: answer.ContentId,
+            Answer: answer.Answer,
+            UsedChunkIndexes: answer.UsedChunkIndexes,
+            Language: answer.Language,
+            Provider: answer.Provider);
     }
 
     public async Task<ClassifyIntentResponse> ClassifyIntentAsync(

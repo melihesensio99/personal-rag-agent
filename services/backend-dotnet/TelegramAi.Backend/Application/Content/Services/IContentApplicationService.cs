@@ -14,4 +14,8 @@ public interface IContentApplicationService
         string query,
         int maxResults,
         CancellationToken cancellationToken);
+    Task<SemanticAnswerResult> SemanticAnswerAsync(
+        string query,
+        int maxResults,
+        CancellationToken cancellationToken);
 }

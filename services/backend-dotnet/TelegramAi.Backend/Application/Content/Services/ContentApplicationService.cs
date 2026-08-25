@@ -1,5 +1,6 @@
 using TelegramAi.Backend.Api.Contracts.Extractions;
 using TelegramAi.Backend.Api.Contracts.Chunks;
+using TelegramAi.Backend.Api.Contracts.Answers;
 using TelegramAi.Backend.Api.Contracts.Embeddings;
 using TelegramAi.Backend.Api.Contracts.Summaries;
 using TelegramAi.Backend.Application.Abstractions;
@@ -92,6 +93,39 @@ public sealed class ContentApplicationService(
                 Embedding: queryEmbedding,
                 MaxResults: maxResults),
             cancellationToken);
+    }
+
+    public async Task<SemanticAnswerResult> SemanticAnswerAsync(
+        string query,
+        int maxResults,
+        CancellationToken cancellationToken)
+    {
+        var sources = await SemanticSearchChunksAsync(query, maxResults, cancellationToken);
+
+        var answer = await aiServiceClient.CreateAnswerAsync(
+            new CreateAnswerRequest(
+                ContentId: "semantic-answer-query",
+                Question: query,
+                Chunks: sources.Select((source, index) => new CreateAnswerChunkRequest(
+                    Index: index,
+                    ContentId: source.ContentId.ToString("N"),
+                    ChunkId: source.ChunkId.ToString("N"),
+                    ContentTitle: source.ContentTitle,
+                    ContentUrl: source.ContentUrl,
+                    SourceType: source.SourceType.ToString(),
+                    ContentKind: source.ContentKind.ToString(),
+                    ChunkIndex: source.ChunkIndex,
+                    Text: source.ChunkText,
+                    Distance: source.Distance,
+                    Similarity: Math.Max(0, 1 - source.Distance))).ToList()),
+            cancellationToken);
+
+        return new SemanticAnswerResult(
+            Query: query,
+            Answer: answer.Answer,
+            Provider: answer.Provider,
+            UsedChunkIndexes: answer.UsedChunkIndexes,
+            Sources: sources);
     }
 
     private async Task<CreateExtractionResponse?> TryExtractAsync(
