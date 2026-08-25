@@ -99,6 +99,7 @@ public sealed class TelegramPollingHostedService(
         var telegramMessageApplicationService = scope.ServiceProvider.GetRequiredService<ITelegramMessageApplicationService>();
         var aiServiceClient = scope.ServiceProvider.GetRequiredService<IAiServiceClient>();
         var searchResponseFormatter = scope.ServiceProvider.GetRequiredService<ITelegramContentSearchResponseFormatter>();
+        var semanticAnswerResponseFormatter = scope.ServiceProvider.GetRequiredService<ITelegramSemanticAnswerResponseFormatter>();
         var responseFormatter = scope.ServiceProvider.GetRequiredService<ITelegramMessageResponseFormatter>();
 
         try
@@ -107,14 +108,30 @@ public sealed class TelegramPollingHostedService(
 
             if (intent is SearchContentsIntent searchIntent)
             {
-                var contents = await contentApplicationService.SearchAsync(
-                    searchIntent.Query,
-                    cancellationToken);
+                if (ShouldUseSemanticAnswer(text, searchIntent.Query))
+                {
+                    var semanticAnswer = await contentApplicationService.SemanticAnswerAsync(
+                        text,
+                        5,
+                        null,
+                        cancellationToken);
 
-                await telegramBotApiClient.SendTextMessageAsync(
-                    message.Chat.Id,
-                    searchResponseFormatter.Format(searchIntent.Query, contents),
-                    cancellationToken);
+                    await telegramBotApiClient.SendTextMessageAsync(
+                        message.Chat.Id,
+                        semanticAnswerResponseFormatter.Format(semanticAnswer),
+                        cancellationToken);
+                }
+                else
+                {
+                    var contents = await contentApplicationService.SearchAsync(
+                        searchIntent.Query,
+                        cancellationToken);
+
+                    await telegramBotApiClient.SendTextMessageAsync(
+                        message.Chat.Id,
+                        searchResponseFormatter.Format(searchIntent.Query, contents),
+                        cancellationToken);
+                }
 
                 return;
             }
@@ -254,6 +271,49 @@ public sealed class TelegramPollingHostedService(
         return (
             TimeZoneInfo.ConvertTimeToUtc(dayStart, timeZone),
             TimeZoneInfo.ConvertTimeToUtc(dayEnd, timeZone));
+    }
+
+    private static bool ShouldUseSemanticAnswer(string originalText, Application.Content.Queries.SearchContentsQuery query)
+    {
+        var normalized = originalText.Trim().ToLowerInvariant();
+        var listVerbs = new[]
+        {
+            "listele",
+            "liste",
+            "getir",
+            "göster",
+            "goster",
+            "bul",
+            "ara",
+            "show",
+            "list",
+            "find",
+        };
+
+        if (listVerbs.Any(verb => normalized.Contains(verb, StringComparison.Ordinal)))
+        {
+            return false;
+        }
+
+        var questionSignals = new[]
+        {
+            "?",
+            "nedir",
+            "neden",
+            "niçin",
+            "nasil",
+            "nasıl",
+            "ne kadar",
+            "kaç",
+            "hangi",
+            "hangisi",
+            "ne diyor",
+            "ne söylüyor",
+            "ne öneriyor",
+            "öneriyor mu",
+        };
+
+        return questionSignals.Any(signal => normalized.Contains(signal, StringComparison.Ordinal));
     }
 
     private static TimeZoneInfo ResolveTurkeyTimeZone()
