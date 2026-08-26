@@ -140,7 +140,7 @@ class MistralIntentProvider(IntentProvider):
                         }
                     )
 
-                if response.intent == "save" and self._looks_like_answer_question(request.message):
+                if response.intent in {"save", "clarify"} and self._looks_like_answer_question(request.message):
                     return response.model_copy(
                         update={
                             "intent": "search",
@@ -173,6 +173,7 @@ class MistralIntentProvider(IntentProvider):
             "If the user asks to retrieve, list, show, find, or search previously saved records, choose search. "
             "If the user asks a factual question that should be answered from saved knowledge, choose search even when they do not use retrieve/list/search verbs. "
             "Question signals include: ?, nedir, nasil, nasıl, neden, ne kadar, kac, kaç, hangi, hangisi, onerir, önerir, almaliyim, almalıyım. "
+            "A long conceptual question comparing approaches is still a search/answer request, not clarify. "
             "Do not choose save for a standalone question unless the user explicitly says it is a note to save. "
             "If the user sends article-like content, long pasted text, or text starting with Baslik/Başlık/Title, choose save. "
             "If the user sends a URL, article text, note, or content to save without asking to retrieve old records, choose save. "
@@ -195,6 +196,8 @@ class MistralIntentProvider(IntentProvider):
             "{\"intent\":\"search\",\"content_kind\":null,\"source_type\":null,\"time_filter\":\"none\",\"keywords\":[\"kas yapmak\",\"protein\"],\"needs_clarification\":false}. "
             "User: 'RAG nedir?' => "
             "{\"intent\":\"search\",\"content_kind\":null,\"source_type\":null,\"time_filter\":\"none\",\"keywords\":[\"rag\"],\"needs_clarification\":false}. "
+            "User: 'Geniş doküman kümesinde RAG kurarken indeksleme aşamasında mı derinleşmeliyiz yoksa inference anında aramaya mı güvenmeliyiz?' => "
+            "{\"intent\":\"search\",\"content_kind\":null,\"source_type\":null,\"time_filter\":\"none\",\"keywords\":[\"rag\",\"indexing\",\"inference\",\"retrieval\"],\"needs_clarification\":false}. "
             "User: 'Başlık: Sabah Antrenmanı Daha Verimlidir Sabah saatlerinde yapılan antrenmanlar...' => "
             "{\"intent\":\"save\",\"content_kind\":\"text\",\"source_type\":\"telegram\",\"time_filter\":\"none\",\"keywords\":[],\"needs_clarification\":false}. "
             "User: 'kendime not: RAG chunking önemli' => "
@@ -424,6 +427,10 @@ class MistralIntentProvider(IntentProvider):
             " almalıyım",
             " onerir",
             " önerir",
+            " mi ",
+            " mı ",
+            " mu ",
+            " mü ",
         }
 
         return any(signal in f" {normalized} " for signal in question_signals)

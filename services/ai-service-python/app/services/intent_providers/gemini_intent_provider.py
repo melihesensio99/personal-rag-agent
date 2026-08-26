@@ -51,7 +51,7 @@ class GeminiIntentProvider(IntentProvider):
                 }
             )
 
-        if response.intent == "save" and self._looks_like_answer_question(request.message):
+        if response.intent in {"save", "clarify"} and self._looks_like_answer_question(request.message):
             return response.model_copy(
                 update={
                     "intent": "search",
@@ -82,6 +82,7 @@ class GeminiIntentProvider(IntentProvider):
             "If the user wants previously saved records, choose search. "
             "If the user asks a factual question that should be answered from saved knowledge, choose search even when they do not use retrieve/list/search verbs. "
             "Question signals include: ?, nedir, nasil, nasıl, neden, ne kadar, kac, kaç, hangi, hangisi, onerir, önerir, almaliyim, almalıyım. "
+            "A long conceptual question comparing approaches is still a search/answer request, not clarify. "
             "Do not choose save for a standalone question unless the user explicitly says it is a note to save. "
             "If the user sends article-like content, long pasted text, or text starting with Baslik/Başlık/Title, choose save. "
             "If the user sends content or a link to save, choose save.\n\n"
@@ -187,6 +188,10 @@ class GeminiIntentProvider(IntentProvider):
             " almalıyım",
             " onerir",
             " önerir",
+            " mi ",
+            " mı ",
+            " mu ",
+            " mü ",
         }
 
         return any(signal in f" {normalized} " for signal in question_signals)

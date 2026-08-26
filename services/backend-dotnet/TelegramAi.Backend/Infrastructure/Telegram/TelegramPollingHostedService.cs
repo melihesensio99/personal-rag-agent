@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Options;
+using System.Text.RegularExpressions;
 using TelegramAi.Backend.Application.Content.Exceptions;
 using TelegramAi.Backend.Application.Content.Services;
 using TelegramAi.Backend.Application.Telegram.Commands;
@@ -290,7 +291,7 @@ public sealed class TelegramPollingHostedService(
             "find",
         };
 
-        if (listVerbs.Any(verb => normalized.Contains(verb, StringComparison.Ordinal)))
+        if (ContainsAnyWholeWord(normalized, listVerbs))
         {
             return false;
         }
@@ -307,6 +308,10 @@ public sealed class TelegramPollingHostedService(
             "kaç",
             "hangi",
             "hangisi",
+            " mi ",
+            " mı ",
+            " mu ",
+            " mü ",
             "ne diyor",
             "ne söylüyor",
             "ne öneriyor",
@@ -314,6 +319,16 @@ public sealed class TelegramPollingHostedService(
         };
 
         return questionSignals.Any(signal => normalized.Contains(signal, StringComparison.Ordinal));
+    }
+
+    private static bool ContainsAnyWholeWord(string text, IEnumerable<string> words)
+    {
+        var textWords = Regex
+            .Matches(text, @"[\p{L}\p{Nd}]+")
+            .Select(match => match.Value)
+            .ToHashSet(StringComparer.Ordinal);
+
+        return words.Any(textWords.Contains);
     }
 
     private static TimeZoneInfo ResolveTurkeyTimeZone()
