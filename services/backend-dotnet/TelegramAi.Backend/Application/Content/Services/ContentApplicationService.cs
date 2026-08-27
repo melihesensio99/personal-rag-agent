@@ -80,21 +80,36 @@ public sealed class ContentApplicationService(
         Guid? contentId,
         CancellationToken cancellationToken)
     {
-        var embeddings = await aiServiceClient.CreateEmbeddingsAsync(
-            new CreateEmbeddingsRequest(
-                ContentId: "semantic-search-query",
-                Texts: [query]),
+        var debugResult = await SemanticSearchChunksDebugAsync(
+            query,
+            maxResults,
+            contentId,
             cancellationToken);
 
-        var queryEmbedding = embeddings.Embeddings.SingleOrDefault()?.Embedding
-            ?? throw new InvalidOperationException("AI service did not return a query embedding.");
+        return debugResult.Results;
+    }
 
-        return await contentRepository.SemanticSearchChunksAsync(
+    public async Task<SemanticSearchDebugResult> SemanticSearchChunksDebugAsync(
+        string query,
+        int maxResults,
+        Guid? contentId,
+        CancellationToken cancellationToken)
+    {
+        var (embeddings, queryEmbedding) = await CreateQueryEmbeddingAsync(query, cancellationToken);
+
+        var results = await contentRepository.SemanticSearchChunksAsync(
             new SemanticSearchChunksQuery(
                 Embedding: queryEmbedding,
                 MaxResults: maxResults,
                 ContentId: contentId),
             cancellationToken);
+
+        return new SemanticSearchDebugResult(
+            Query: query,
+            EmbeddingModel: embeddings.Model,
+            EmbeddingDimension: embeddings.Dimension,
+            QueryEmbeddingPreview: queryEmbedding.Take(8).ToList(),
+            Results: results);
     }
 
     public async Task<SemanticAnswerResult> SemanticAnswerAsync(
@@ -109,18 +124,7 @@ public sealed class ContentApplicationService(
             new CreateAnswerRequest(
                 ContentId: "semantic-answer-query",
                 Question: query,
-                Chunks: sources.Select((source, index) => new CreateAnswerChunkRequest(
-                    Index: index,
-                    ContentId: source.ContentId.ToString("N"),
-                    ChunkId: source.ChunkId.ToString("N"),
-                    ContentTitle: source.ContentTitle,
-                    ContentUrl: source.ContentUrl,
-                    SourceType: source.SourceType.ToString(),
-                    ContentKind: source.ContentKind.ToString(),
-                    ChunkIndex: source.ChunkIndex,
-                    Text: source.ChunkText,
-                    Distance: source.Distance,
-                    Similarity: Math.Max(0, 1 - source.Distance))).ToList()),
+                Chunks: BuildAnswerChunks(sources)),
             cancellationToken);
 
         return new SemanticAnswerResult(
@@ -129,6 +133,72 @@ public sealed class ContentApplicationService(
             Provider: answer.Provider,
             UsedChunkIndexes: answer.UsedChunkIndexes,
             Sources: sources);
+    }
+
+    public async Task<SemanticAnswerDebugResult> SemanticAnswerDebugAsync(
+        string query,
+        int maxResults,
+        Guid? contentId,
+        CancellationToken cancellationToken)
+    {
+        var searchDebug = await SemanticSearchChunksDebugAsync(
+            query,
+            maxResults,
+            contentId,
+            cancellationToken);
+
+        var contextChunks = BuildAnswerChunks(searchDebug.Results);
+
+        var answer = await aiServiceClient.CreateAnswerAsync(
+            new CreateAnswerRequest(
+                ContentId: "semantic-answer-query",
+                Question: query,
+                Chunks: contextChunks),
+            cancellationToken);
+
+        return new SemanticAnswerDebugResult(
+            Query: query,
+            EmbeddingModel: searchDebug.EmbeddingModel,
+            EmbeddingDimension: searchDebug.EmbeddingDimension,
+            QueryEmbeddingPreview: searchDebug.QueryEmbeddingPreview,
+            AnswerProvider: answer.Provider,
+            Answer: answer.Answer,
+            UsedChunkIndexes: answer.UsedChunkIndexes,
+            ContextChunksSentToLlm: contextChunks,
+            Sources: searchDebug.Results);
+    }
+
+    private async Task<(CreateEmbeddingsResponse Response, IReadOnlyList<float> QueryEmbedding)> CreateQueryEmbeddingAsync(
+        string query,
+        CancellationToken cancellationToken)
+    {
+        var embeddings = await aiServiceClient.CreateEmbeddingsAsync(
+            new CreateEmbeddingsRequest(
+                ContentId: "semantic-search-query",
+                Texts: [query]),
+            cancellationToken);
+
+        var queryEmbedding = embeddings.Embeddings.SingleOrDefault()?.Embedding
+            ?? throw new InvalidOperationException("AI service did not return a query embedding.");
+
+        return (embeddings, queryEmbedding);
+    }
+
+    private static IReadOnlyList<CreateAnswerChunkRequest> BuildAnswerChunks(
+        IReadOnlyList<SemanticSearchChunkResult> sources)
+    {
+        return sources.Select((source, index) => new CreateAnswerChunkRequest(
+            Index: index,
+            ContentId: source.ContentId.ToString("N"),
+            ChunkId: source.ChunkId.ToString("N"),
+            ContentTitle: source.ContentTitle,
+            ContentUrl: source.ContentUrl,
+            SourceType: source.SourceType.ToString(),
+            ContentKind: source.ContentKind.ToString(),
+            ChunkIndex: source.ChunkIndex,
+            Text: source.ChunkText,
+            Distance: source.Distance,
+            Similarity: Math.Max(0, 1 - source.Distance))).ToList();
     }
 
     private async Task<CreateExtractionResponse?> TryExtractAsync(

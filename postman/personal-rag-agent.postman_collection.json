@@ -418,6 +418,66 @@
           }
         },
         {
+          "name": "Semantic Search Debug - Inspect retrieval",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"Kas yapmak için günlük ne kadar protein almalıyım?\",\n  \"maxResults\": 5,\n  \"contentId\": \"{{content_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{backend_base_url}}/api/v1/search/semantic/debug",
+              "host": [
+                "{{backend_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "search",
+                "semantic",
+                "debug"
+              ]
+            },
+            "description": "Debug view for retrieval. Shows query embedding model/dimension/preview and the ranked chunks returned from pgvector."
+          }
+        },
+        {
+          "name": "Semantic Answer Debug - Inspect RAG context",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"Kas yapmak için günlük ne kadar protein almalıyım?\",\n  \"maxResults\": 5,\n  \"contentId\": \"{{content_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{backend_base_url}}/api/v1/search/answer/debug",
+              "host": [
+                "{{backend_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "search",
+                "answer",
+                "debug"
+              ]
+            },
+            "description": "Debug view for the full RAG answer flow. Shows retrieval output, the exact context chunk previews sent to the LLM, used_chunk_indexes, answer provider, and final answer."
+          }
+        },
+        {
           "name": "Summary Proxy (backend -> ai-service)",
           "request": {
             "method": "POST",

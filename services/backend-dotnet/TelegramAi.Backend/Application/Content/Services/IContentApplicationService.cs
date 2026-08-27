@@ -15,7 +15,17 @@ public interface IContentApplicationService
         int maxResults,
         Guid? contentId,
         CancellationToken cancellationToken);
+    Task<SemanticSearchDebugResult> SemanticSearchChunksDebugAsync(
+        string query,
+        int maxResults,
+        Guid? contentId,
+        CancellationToken cancellationToken);
     Task<SemanticAnswerResult> SemanticAnswerAsync(
+        string query,
+        int maxResults,
+        Guid? contentId,
+        CancellationToken cancellationToken);
+    Task<SemanticAnswerDebugResult> SemanticAnswerDebugAsync(
         string query,
         int maxResults,
         Guid? contentId,
