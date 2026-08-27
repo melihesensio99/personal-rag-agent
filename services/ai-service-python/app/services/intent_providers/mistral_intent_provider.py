@@ -11,6 +11,30 @@ from app.services.intent_providers.base import IntentProvider
 class MistralIntentProvider(IntentProvider):
     MAX_ATTEMPTS = 3
 
+    _ACTION_ALIASES = {
+        "save_content": "save_content",
+        "save": "save_content",
+        "store": "save_content",
+        "kaydet": "save_content",
+        "list_contents": "list_contents",
+        "list": "list_contents",
+        "retrieve": "list_contents",
+        "get": "list_contents",
+        "search": "list_contents",
+        "find": "list_contents",
+        "listele": "list_contents",
+        "getir": "list_contents",
+        "bul": "list_contents",
+        "answer_from_memory": "answer_from_memory",
+        "answer": "answer_from_memory",
+        "question": "answer_from_memory",
+        "qa": "answer_from_memory",
+        "rag_answer": "answer_from_memory",
+        "ask_clarification": "ask_clarification",
+        "clarify": "ask_clarification",
+        "unclear": "ask_clarification",
+        "belirsiz": "ask_clarification",
+    }
     _INTENT_ALIASES = {
         "save": "save",
         "kaydet": "save",
@@ -104,13 +128,26 @@ class MistralIntentProvider(IntentProvider):
                     raise ValueError("Mistral intent response did not include output text.")
 
                 parsed = self._parse_json_object(output_text)
+                action = self._normalize_required_literal(
+                    parsed.get("action"),
+                    self._ACTION_ALIASES,
+                    fallback="",
+                )
+                intent = self._normalize_required_literal(
+                    parsed.get("intent"),
+                    self._INTENT_ALIASES,
+                    fallback="clarify",
+                )
+                if not action:
+                    action = self._derive_action_from_intent(intent, request.message)
+                query = self._normalize_optional_text(parsed.get("query"))
+                content = self._normalize_optional_text(parsed.get("content"))
 
                 response = IntentResponse(
-                    intent=self._normalize_required_literal(
-                        parsed.get("intent"),
-                        self._INTENT_ALIASES,
-                        fallback="clarify",
-                    ),
+                    action=action,
+                    intent=self._derive_intent_from_action(action),
+                    query=(query or request.message) if action in {"list_contents", "answer_from_memory"} else None,
+                    content=(content or request.message) if action == "save_content" else None,
                     content_kind=self._normalize_optional_literal(
                         parsed.get("content_kind"),
                         self._CONTENT_KIND_ALIASES,
@@ -126,12 +163,16 @@ class MistralIntentProvider(IntentProvider):
                     ),
                     keywords=self._normalize_keywords(parsed.get("keywords", [])),
                     needs_clarification=self._normalize_bool(parsed.get("needs_clarification", False)),
+                    clarification_message=self._normalize_optional_text(parsed.get("clarification_message")),
                 )
 
-                if response.intent != "save" and self._looks_like_content_to_save(request.message):
+                if response.action != "save_content" and self._looks_like_content_to_save(request.message):
                     return response.model_copy(
                         update={
+                            "action": "save_content",
                             "intent": "save",
+                            "query": None,
+                            "content": request.message,
                             "content_kind": "text",
                             "source_type": "telegram",
                             "time_filter": "none",
@@ -140,14 +181,18 @@ class MistralIntentProvider(IntentProvider):
                         }
                     )
 
-                if response.intent in {"save", "clarify"} and self._looks_like_answer_question(request.message):
+                if response.action in {"save_content", "ask_clarification"} and self._looks_like_answer_question(request.message):
                     return response.model_copy(
                         update={
+                            "action": "answer_from_memory",
                             "intent": "search",
+                            "query": request.message,
+                            "content": None,
                             "content_kind": None,
                             "source_type": None,
                             "time_filter": "none",
                             "needs_clarification": False,
+                            "clarification_message": None,
                         }
                     )
 
@@ -163,15 +208,20 @@ class MistralIntentProvider(IntentProvider):
         system_prompt = (
             "You classify messages for a personal content assistant. "
             "Return only a JSON object. "
+            "action must be save_content, list_contents, answer_from_memory, or ask_clarification. "
             "intent must be save, search, or clarify. "
+            "For backwards compatibility, intent must be save when action is save_content, search when action is list_contents or answer_from_memory, and clarify when action is ask_clarification. "
+            "query is the user's search/question text for list_contents or answer_from_memory. "
+            "content is the text to save for save_content. "
+            "clarification_message is a short Turkish message for ask_clarification. "
             "content_kind must be text, video, image, or null. "
             "source_type must be article, youtube, pdf, image, telegram, or null. "
             "time_filter must be today, yesterday, two_days_ago, or none. "
             "keywords must contain only meaningful topic words. "
             "The user usually writes in Turkish. "
             "Turkish search verbs include: getir, listele, göster, goster, bul, ara, neydi, hangisiydi. "
-            "If the user asks to retrieve, list, show, find, or search previously saved records, choose search. "
-            "If the user asks a factual question that should be answered from saved knowledge, choose search even when they do not use retrieve/list/search verbs. "
+            "If the user asks to retrieve, list, show, find, or search previously saved records, choose action list_contents. "
+            "If the user asks a factual or conceptual question that should be answered from saved knowledge, choose action answer_from_memory even when they do not use retrieve/list/search verbs. "
             "Question signals include: ?, nedir, nasil, nasıl, neden, ne kadar, kac, kaç, hangi, hangisi, onerir, önerir, almaliyim, almalıyım. "
             "A long conceptual question comparing approaches is still a search/answer request, not clarify. "
             "Do not choose save for a standalone question unless the user explicitly says it is a note to save. "
@@ -187,21 +237,21 @@ class MistralIntentProvider(IntentProvider):
             "If the message is ambiguous and you cannot safely choose save/search, choose clarify. "
             "Examples: "
             "User: 'bugün attığım spor videolarını listele' => "
-            "{\"intent\":\"search\",\"content_kind\":\"video\",\"source_type\":null,\"time_filter\":\"today\",\"keywords\":[\"spor\"],\"needs_clarification\":false}. "
+            "{\"action\":\"list_contents\",\"intent\":\"search\",\"query\":\"bugün attığım spor videolarını listele\",\"content\":null,\"content_kind\":\"video\",\"source_type\":null,\"time_filter\":\"today\",\"keywords\":[\"spor\"],\"needs_clarification\":false,\"clarification_message\":null}. "
             "User: 'geçen gün attığım sporla ilgili şeyi bulsana' => "
-            "{\"intent\":\"search\",\"content_kind\":null,\"source_type\":null,\"time_filter\":\"none\",\"keywords\":[\"spor\"],\"needs_clarification\":false}. "
+            "{\"action\":\"list_contents\",\"intent\":\"search\",\"query\":\"geçen gün attığım sporla ilgili şeyi bulsana\",\"content\":null,\"content_kind\":null,\"source_type\":null,\"time_filter\":\"none\",\"keywords\":[\"spor\"],\"needs_clarification\":false,\"clarification_message\":null}. "
             "User: 'bugün attığım makaleleri getir' => "
-            "{\"intent\":\"search\",\"content_kind\":null,\"source_type\":\"article\",\"time_filter\":\"today\",\"keywords\":[],\"needs_clarification\":false}. "
+            "{\"action\":\"list_contents\",\"intent\":\"search\",\"query\":\"bugün attığım makaleleri getir\",\"content\":null,\"content_kind\":null,\"source_type\":\"article\",\"time_filter\":\"today\",\"keywords\":[],\"needs_clarification\":false,\"clarification_message\":null}. "
             "User: 'Kas yapmak için günlük ne kadar protein almalıyım?' => "
-            "{\"intent\":\"search\",\"content_kind\":null,\"source_type\":null,\"time_filter\":\"none\",\"keywords\":[\"kas yapmak\",\"protein\"],\"needs_clarification\":false}. "
+            "{\"action\":\"answer_from_memory\",\"intent\":\"search\",\"query\":\"Kas yapmak için günlük ne kadar protein almalıyım?\",\"content\":null,\"content_kind\":null,\"source_type\":null,\"time_filter\":\"none\",\"keywords\":[\"kas yapmak\",\"protein\"],\"needs_clarification\":false,\"clarification_message\":null}. "
             "User: 'RAG nedir?' => "
-            "{\"intent\":\"search\",\"content_kind\":null,\"source_type\":null,\"time_filter\":\"none\",\"keywords\":[\"rag\"],\"needs_clarification\":false}. "
+            "{\"action\":\"answer_from_memory\",\"intent\":\"search\",\"query\":\"RAG nedir?\",\"content\":null,\"content_kind\":null,\"source_type\":null,\"time_filter\":\"none\",\"keywords\":[\"rag\"],\"needs_clarification\":false,\"clarification_message\":null}. "
             "User: 'Geniş doküman kümesinde RAG kurarken indeksleme aşamasında mı derinleşmeliyiz yoksa inference anında aramaya mı güvenmeliyiz?' => "
-            "{\"intent\":\"search\",\"content_kind\":null,\"source_type\":null,\"time_filter\":\"none\",\"keywords\":[\"rag\",\"indexing\",\"inference\",\"retrieval\"],\"needs_clarification\":false}. "
+            "{\"action\":\"answer_from_memory\",\"intent\":\"search\",\"query\":\"Geniş doküman kümesinde RAG kurarken indeksleme aşamasında mı derinleşmeliyiz yoksa inference anında aramaya mı güvenmeliyiz?\",\"content\":null,\"content_kind\":null,\"source_type\":null,\"time_filter\":\"none\",\"keywords\":[\"rag\",\"indexing\",\"inference\",\"retrieval\"],\"needs_clarification\":false,\"clarification_message\":null}. "
             "User: 'Başlık: Sabah Antrenmanı Daha Verimlidir Sabah saatlerinde yapılan antrenmanlar...' => "
-            "{\"intent\":\"save\",\"content_kind\":\"text\",\"source_type\":\"telegram\",\"time_filter\":\"none\",\"keywords\":[],\"needs_clarification\":false}. "
+            "{\"action\":\"save_content\",\"intent\":\"save\",\"query\":null,\"content\":\"Başlık: Sabah Antrenmanı Daha Verimlidir Sabah saatlerinde yapılan antrenmanlar...\",\"content_kind\":\"text\",\"source_type\":\"telegram\",\"time_filter\":\"none\",\"keywords\":[],\"needs_clarification\":false,\"clarification_message\":null}. "
             "User: 'kendime not: RAG chunking önemli' => "
-            "{\"intent\":\"save\",\"content_kind\":\"text\",\"source_type\":\"telegram\",\"time_filter\":\"none\",\"keywords\":[],\"needs_clarification\":false}."
+            "{\"action\":\"save_content\",\"intent\":\"save\",\"query\":null,\"content\":\"kendime not: RAG chunking önemli\",\"content_kind\":\"text\",\"source_type\":\"telegram\",\"time_filter\":\"none\",\"keywords\":[],\"needs_clarification\":false,\"clarification_message\":null}."
         )
 
         user_prompt = (
@@ -340,6 +390,37 @@ class MistralIntentProvider(IntentProvider):
             return None
 
         return aliases.get(normalized)
+
+    @staticmethod
+    def _normalize_optional_text(value: object) -> str | None:
+        if not isinstance(value, str):
+            return None
+
+        normalized = " ".join(value.split())
+        return normalized or None
+
+    @staticmethod
+    def _derive_action_from_intent(intent: str, message: str) -> str:
+        if intent == "save":
+            return "save_content"
+
+        if intent == "clarify":
+            return "ask_clarification"
+
+        if MistralIntentProvider._looks_like_answer_question(message):
+            return "answer_from_memory"
+
+        return "list_contents"
+
+    @staticmethod
+    def _derive_intent_from_action(action: str) -> str:
+        if action == "save_content":
+            return "save"
+
+        if action == "ask_clarification":
+            return "clarify"
+
+        return "search"
 
     @staticmethod
     def _normalize_keywords(value: object) -> list[str]:

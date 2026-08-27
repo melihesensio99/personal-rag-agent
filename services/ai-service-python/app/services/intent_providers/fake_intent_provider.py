@@ -7,6 +7,7 @@ from app.services.intent_providers.base import IntentProvider
 class FakeIntentProvider(IntentProvider):
     def classify(self, request: IntentRequest) -> IntentResponse:
         lowered = request.message.lower().strip()
+        question_signals = ["?", "nedir", "neden", "nasil", "nasıl", "ne kadar", "hangi", "hangisi", " mi ", " mı ", " mu ", " mü "]
 
         if any(token in lowered for token in ["listele", "getir", "göster", "goster", "bul", "kayıt", "kayit"]):
             source_type = None
@@ -40,7 +41,9 @@ class FakeIntentProvider(IntentProvider):
             keywords = [word for word in words if len(word) >= 3 and word not in stop][:5]
 
             return IntentResponse(
+                action="list_contents",
                 intent="search",
+                query=request.message,
                 content_kind=content_kind,
                 source_type=source_type,
                 time_filter=time_filter,
@@ -48,4 +51,23 @@ class FakeIntentProvider(IntentProvider):
                 needs_clarification=False,
             )
 
-        return IntentResponse(intent="save", source_type=None, time_filter="none", keywords=[], needs_clarification=False)
+        if any(signal in f" {lowered} " for signal in question_signals):
+            return IntentResponse(
+                action="answer_from_memory",
+                intent="search",
+                query=request.message,
+                source_type=None,
+                time_filter="none",
+                keywords=[],
+                needs_clarification=False,
+            )
+
+        return IntentResponse(
+            action="save_content",
+            intent="save",
+            content=request.message,
+            source_type=None,
+            time_filter="none",
+            keywords=[],
+            needs_clarification=False,
+        )

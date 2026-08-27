@@ -1,11 +1,11 @@
 using Microsoft.Extensions.Options;
-using System.Text.RegularExpressions;
+using TelegramAi.Backend.Api.Contracts.Intents;
 using TelegramAi.Backend.Application.Content.Exceptions;
+using TelegramAi.Backend.Application.Content.Queries;
 using TelegramAi.Backend.Application.Content.Services;
 using TelegramAi.Backend.Application.Telegram.Commands;
 using TelegramAi.Backend.Application.Telegram.Exceptions;
 using TelegramAi.Backend.Application.Telegram.Formatting;
-using TelegramAi.Backend.Application.Telegram.Interpretation;
 using TelegramAi.Backend.Application.Telegram.Services;
 using TelegramAi.Backend.Domain.Content;
 using TelegramAi.Backend.Infrastructure.AiService;
@@ -105,43 +105,45 @@ public sealed class TelegramPollingHostedService(
 
         try
         {
-            var intent = await ResolveIntentAsync(text, aiServiceClient, cancellationToken);
+            var decision = await ResolveAgentDecisionAsync(text, aiServiceClient, cancellationToken);
 
-            if (intent is SearchContentsIntent searchIntent)
+            if (decision.Action.Equals("list_contents", StringComparison.OrdinalIgnoreCase))
             {
-                if (ShouldUseSemanticAnswer(text, searchIntent.Query))
-                {
-                    var semanticAnswer = await contentApplicationService.SemanticAnswerAsync(
-                        text,
-                        5,
-                        null,
-                        cancellationToken);
+                var query = BuildSearchQuery(decision);
+                var contents = await contentApplicationService.SearchAsync(
+                    query,
+                    cancellationToken);
 
-                    await telegramBotApiClient.SendTextMessageAsync(
-                        message.Chat.Id,
-                        semanticAnswerResponseFormatter.Format(semanticAnswer),
-                        cancellationToken);
-                }
-                else
-                {
-                    var contents = await contentApplicationService.SearchAsync(
-                        searchIntent.Query,
-                        cancellationToken);
-
-                    await telegramBotApiClient.SendTextMessageAsync(
-                        message.Chat.Id,
-                        searchResponseFormatter.Format(searchIntent.Query, contents),
-                        cancellationToken);
-                }
+                await telegramBotApiClient.SendTextMessageAsync(
+                    message.Chat.Id,
+                    searchResponseFormatter.Format(query, contents),
+                    cancellationToken);
 
                 return;
             }
 
-            if (intent is ClarifyContentIntent)
+            if (decision.Action.Equals("answer_from_memory", StringComparison.OrdinalIgnoreCase))
+            {
+                var semanticAnswer = await contentApplicationService.SemanticAnswerAsync(
+                    ResolveQuestionText(decision, text),
+                    5,
+                    null,
+                    cancellationToken);
+
+                await telegramBotApiClient.SendTextMessageAsync(
+                    message.Chat.Id,
+                    semanticAnswerResponseFormatter.Format(semanticAnswer),
+                    cancellationToken);
+
+                return;
+            }
+
+            if (decision.Action.Equals("ask_clarification", StringComparison.OrdinalIgnoreCase) ||
+                decision.NeedsClarification)
             {
                 await telegramBotApiClient.SendTextMessageAsync(
                     message.Chat.Id,
-                    "Bunu kaydetmemi mi yoksa eski kayitlarda aramamı mi istiyorsun? Biraz daha net yazar misin?",
+                    ResolveClarificationMessage(decision),
                     cancellationToken);
 
                 return;
@@ -150,7 +152,7 @@ public sealed class TelegramPollingHostedService(
             var result = await telegramMessageApplicationService.ProcessAsync(
                 new ProcessTelegramMessageCommand(
                     ChatId: message.Chat.Id,
-                    Text: text,
+                    Text: ResolveContentText(decision, text),
                     SenderDisplayName: message.From?.FirstName ?? message.From?.Username),
                 cancellationToken);
 
@@ -186,17 +188,15 @@ public sealed class TelegramPollingHostedService(
         }
     }
 
-    private static async Task<TelegramMessageIntent> ResolveIntentAsync(
+    private static async Task<ClassifyIntentResponse> ResolveAgentDecisionAsync(
         string text,
         IAiServiceClient aiServiceClient,
         CancellationToken cancellationToken)
     {
-        Api.Contracts.Intents.ClassifyIntentResponse aiIntent;
-
         try
         {
-            aiIntent = await aiServiceClient.ClassifyIntentAsync(
-                new Api.Contracts.Intents.ClassifyIntentRequest(
+            return await aiServiceClient.ClassifyIntentAsync(
+                new ClassifyIntentRequest(
                     Message: text,
                     CurrentDate: ResolveTodayInTurkey().ToString("yyyy-MM-dd")),
                 cancellationToken);
@@ -209,30 +209,41 @@ public sealed class TelegramPollingHostedService(
         {
             throw new AiIntentUnavailableException(exception);
         }
+    }
 
-        if (aiIntent.Intent.Equals("search", StringComparison.OrdinalIgnoreCase))
-        {
-            var contentKind = ParseContentKind(aiIntent.ContentKind);
-            var sourceType = ParseSourceType(aiIntent.SourceType);
-            var (fromUtc, toUtc) = ParseTimeFilter(aiIntent.TimeFilter);
+    private static SearchContentsQuery BuildSearchQuery(ClassifyIntentResponse decision)
+    {
+        var contentKind = ParseContentKind(decision.ContentKind);
+        var sourceType = ParseSourceType(decision.SourceType);
+        var (fromUtc, toUtc) = ParseTimeFilter(decision.TimeFilter);
 
-            return new SearchContentsIntent(
-                text,
-                new Application.Content.Queries.SearchContentsQuery(
-                    Keywords: aiIntent.Keywords,
-                    ContentKind: contentKind,
-                    SourceType: sourceType,
-                    FromUtc: fromUtc,
-                    ToUtc: toUtc));
-        }
+        return new SearchContentsQuery(
+            Keywords: decision.Keywords,
+            ContentKind: contentKind,
+            SourceType: sourceType,
+            FromUtc: fromUtc,
+            ToUtc: toUtc);
+    }
 
-        if (aiIntent.Intent.Equals("clarify", StringComparison.OrdinalIgnoreCase) ||
-            aiIntent.NeedsClarification)
-        {
-            return new ClarifyContentIntent(text);
-        }
+    private static string ResolveQuestionText(ClassifyIntentResponse decision, string fallbackText)
+    {
+        return string.IsNullOrWhiteSpace(decision.Query)
+            ? fallbackText
+            : decision.Query.Trim();
+    }
 
-        return new SaveContentIntent(text);
+    private static string ResolveContentText(ClassifyIntentResponse decision, string fallbackText)
+    {
+        return string.IsNullOrWhiteSpace(decision.Content)
+            ? fallbackText
+            : decision.Content.Trim();
+    }
+
+    private static string ResolveClarificationMessage(ClassifyIntentResponse decision)
+    {
+        return string.IsNullOrWhiteSpace(decision.ClarificationMessage)
+            ? "Bunu kaydetmemi mi yoksa eski kayitlarda aramamı mi istiyorsun? Biraz daha net yazar misin?"
+            : decision.ClarificationMessage.Trim();
     }
 
     private static ContentSourceType? ParseSourceType(string? sourceType)
@@ -272,63 +283,6 @@ public sealed class TelegramPollingHostedService(
         return (
             TimeZoneInfo.ConvertTimeToUtc(dayStart, timeZone),
             TimeZoneInfo.ConvertTimeToUtc(dayEnd, timeZone));
-    }
-
-    private static bool ShouldUseSemanticAnswer(string originalText, Application.Content.Queries.SearchContentsQuery query)
-    {
-        var normalized = originalText.Trim().ToLowerInvariant();
-        var listVerbs = new[]
-        {
-            "listele",
-            "liste",
-            "getir",
-            "göster",
-            "goster",
-            "bul",
-            "ara",
-            "show",
-            "list",
-            "find",
-        };
-
-        if (ContainsAnyWholeWord(normalized, listVerbs))
-        {
-            return false;
-        }
-
-        var questionSignals = new[]
-        {
-            "?",
-            "nedir",
-            "neden",
-            "niçin",
-            "nasil",
-            "nasıl",
-            "ne kadar",
-            "kaç",
-            "hangi",
-            "hangisi",
-            " mi ",
-            " mı ",
-            " mu ",
-            " mü ",
-            "ne diyor",
-            "ne söylüyor",
-            "ne öneriyor",
-            "öneriyor mu",
-        };
-
-        return questionSignals.Any(signal => normalized.Contains(signal, StringComparison.Ordinal));
-    }
-
-    private static bool ContainsAnyWholeWord(string text, IEnumerable<string> words)
-    {
-        var textWords = Regex
-            .Matches(text, @"[\p{L}\p{Nd}]+")
-            .Select(match => match.Value)
-            .ToHashSet(StringComparer.Ordinal);
-
-        return words.Any(textWords.Contains);
     }
 
     private static TimeZoneInfo ResolveTurkeyTimeZone()

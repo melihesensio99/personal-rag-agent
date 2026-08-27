@@ -200,12 +200,16 @@ public sealed class AiServiceClient(HttpClient httpClient) : IAiServiceClient
         }
 
         return new ClassifyIntentResponse(
+            Action: intent.Action,
             Intent: intent.Intent,
+            Query: intent.Query,
+            Content: intent.Content,
             ContentKind: intent.ContentKind,
             SourceType: intent.SourceType,
             TimeFilter: intent.TimeFilter,
             Keywords: intent.Keywords,
-            NeedsClarification: intent.NeedsClarification);
+            NeedsClarification: intent.NeedsClarification,
+            ClarificationMessage: intent.ClarificationMessage);
     }
 
     public async Task<CreateSummaryResponse> CreateSummaryAsync(

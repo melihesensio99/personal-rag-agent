@@ -28,7 +28,9 @@ def test_search_intent_for_today_links() -> None:
 
     assert response.status_code == 200
     body = response.json()
+    assert body["action"] == "list_contents"
     assert body["intent"] == "search"
+    assert body["query"] == "bugün attığım linkleri listele"
     assert body["time_filter"] == "today"
 
 
@@ -43,7 +45,9 @@ def test_save_intent_for_regular_content() -> None:
 
     assert response.status_code == 200
     body = response.json()
+    assert body["action"] == "save_content"
     assert body["intent"] == "save"
+    assert body["content"] == "RAG ile semantic search farkını öğrenmek istiyorum."
 
 
 def test_mistral_intent_provider_parses_structured_output(monkeypatch) -> None:
@@ -78,6 +82,8 @@ def test_mistral_intent_provider_parses_structured_output(monkeypatch) -> None:
     )
 
     assert result.intent == "search"
+    assert result.action == "list_contents"
+    assert result.query == "bugün attığım sporla ilgili videoları listele"
     assert result.content_kind == "video"
     assert result.time_filter == "today"
     assert result.keywords == ["spor"]
@@ -116,6 +122,7 @@ def test_mistral_intent_provider_normalizes_non_contract_values(monkeypatch) -> 
     )
 
     assert result.intent == "search"
+    assert result.action == "list_contents"
     assert result.content_kind == "video"
     assert result.source_type is None
     assert result.time_filter == "today"
@@ -154,6 +161,47 @@ def test_mistral_intent_provider_keeps_article_search_as_source_filter(monkeypat
     )
 
     assert result.intent == "search"
+    assert result.action == "list_contents"
     assert result.content_kind is None
     assert result.source_type == "article"
     assert result.time_filter == "today"
+
+
+def test_mistral_intent_provider_routes_conceptual_questions_to_answer_from_memory(monkeypatch) -> None:
+    provider = MistralIntentProvider(
+        api_key="test-key",
+        model="ministral-3b-2512",
+        base_url="https://api.mistral.ai/v1",
+        timeout_seconds=5,
+    )
+
+    def fake_send_request(self: MistralIntentProvider, request: IntentRequest) -> dict[str, object]:
+        return {
+            "choices": [
+                {
+                    "message": {
+                        "content": (
+                            '{"action":"ask_clarification","intent":"clarify","content_kind":null,'
+                            '"source_type":null,"time_filter":"none","keywords":["rag"],'
+                            '"needs_clarification":true,"clarification_message":"Bunu arayayım mı?"}'
+                        )
+                    }
+                }
+            ]
+        }
+
+    monkeypatch.setattr(MistralIntentProvider, "_send_request", fake_send_request)
+
+    message = (
+        "Geniş ve karmaşık bir doküman kümesi üzerinde RAG kurarken, veriyi önceden "
+        "indeksleme aşamasında mı derinleştirmeliyiz yoksa çıkarım anında modelin "
+        "filtreleme ve arama yeteneklerine mi güvenmeliyiz?"
+    )
+
+    result = provider.classify(IntentRequest(message=message, current_date="2026-08-21"))
+
+    assert result.action == "answer_from_memory"
+    assert result.intent == "search"
+    assert result.query == message
+    assert result.content is None
+    assert result.needs_clarification is False

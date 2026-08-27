@@ -9,6 +9,31 @@ from app.services.intent_providers.base import IntentProvider
 
 
 class GeminiIntentProvider(IntentProvider):
+    _ACTION_ALIASES = {
+        "save_content": "save_content",
+        "save": "save_content",
+        "store": "save_content",
+        "kaydet": "save_content",
+        "list_contents": "list_contents",
+        "list": "list_contents",
+        "retrieve": "list_contents",
+        "get": "list_contents",
+        "search": "list_contents",
+        "find": "list_contents",
+        "listele": "list_contents",
+        "getir": "list_contents",
+        "bul": "list_contents",
+        "answer_from_memory": "answer_from_memory",
+        "answer": "answer_from_memory",
+        "question": "answer_from_memory",
+        "qa": "answer_from_memory",
+        "rag_answer": "answer_from_memory",
+        "ask_clarification": "ask_clarification",
+        "clarify": "ask_clarification",
+        "unclear": "ask_clarification",
+        "belirsiz": "ask_clarification",
+    }
+
     def __init__(
         self,
         api_key: str,
@@ -29,20 +54,30 @@ class GeminiIntentProvider(IntentProvider):
             raise ValueError("Gemini intent response did not include output_text.")
 
         parsed = json.loads(output_text)
+        action = self._normalize_action(parsed.get("action"), parsed.get("intent"), request.message)
+        query = self._normalize_optional_text(parsed.get("query"))
+        content = self._normalize_optional_text(parsed.get("content"))
 
         response = IntentResponse(
-            intent=parsed["intent"],
+            action=action,
+            intent=self._derive_intent_from_action(action),
+            query=(query or request.message) if action in {"list_contents", "answer_from_memory"} else None,
+            content=(content or request.message) if action == "save_content" else None,
             content_kind=parsed.get("content_kind"),
             source_type=parsed.get("source_type"),
             time_filter=parsed.get("time_filter", "none"),
             keywords=parsed.get("keywords", []),
             needs_clarification=parsed.get("needs_clarification", False),
+            clarification_message=self._normalize_optional_text(parsed.get("clarification_message")),
         )
 
-        if response.intent != "save" and self._looks_like_content_to_save(request.message):
+        if response.action != "save_content" and self._looks_like_content_to_save(request.message):
             return response.model_copy(
                 update={
+                    "action": "save_content",
                     "intent": "save",
+                    "query": None,
+                    "content": request.message,
                     "content_kind": "text",
                     "source_type": "telegram",
                     "time_filter": "none",
@@ -51,14 +86,18 @@ class GeminiIntentProvider(IntentProvider):
                 }
             )
 
-        if response.intent in {"save", "clarify"} and self._looks_like_answer_question(request.message):
+        if response.action in {"save_content", "ask_clarification"} and self._looks_like_answer_question(request.message):
             return response.model_copy(
                 update={
+                    "action": "answer_from_memory",
                     "intent": "search",
+                    "query": request.message,
+                    "content": None,
                     "content_kind": None,
                     "source_type": None,
                     "time_filter": "none",
                     "needs_clarification": False,
+                    "clarification_message": None,
                 }
             )
 
@@ -71,7 +110,12 @@ class GeminiIntentProvider(IntentProvider):
             f"Today's date is {request.current_date}. "
             "Classify the user's message for a personal content assistant. "
             "Return only JSON. "
+            "action must be save_content, list_contents, answer_from_memory, or ask_clarification. "
             "intent must be save, search, or clarify. "
+            "For backwards compatibility, intent must be save when action is save_content, search when action is list_contents or answer_from_memory, and clarify when action is ask_clarification. "
+            "query is the user's search/question text for list_contents or answer_from_memory. "
+            "content is the text to save for save_content. "
+            "clarification_message is a short Turkish message for ask_clarification. "
             "content_kind must be text, video, image, or null. "
             "source_type must be article, youtube, pdf, image, telegram, or null. "
             "time_filter must be today, yesterday, two_days_ago, or none. "
@@ -79,8 +123,8 @@ class GeminiIntentProvider(IntentProvider):
             "If the user asks for videos in general, set content_kind to video even when source_type is null. "
             "If the user asks for articles, writings, PDFs, or text-like records in general, set content_kind to text unless a stricter source_type is clearly requested. "
             "If the user asks for images, visuals, photos, or screenshots, set content_kind to image. "
-            "If the user wants previously saved records, choose search. "
-            "If the user asks a factual question that should be answered from saved knowledge, choose search even when they do not use retrieve/list/search verbs. "
+            "If the user wants previously saved records, choose action list_contents. "
+            "If the user asks a factual or conceptual question that should be answered from saved knowledge, choose action answer_from_memory even when they do not use retrieve/list/search verbs. "
             "Question signals include: ?, nedir, nasil, nasıl, neden, ne kadar, kac, kaç, hangi, hangisi, onerir, önerir, almaliyim, almalıyım. "
             "A long conceptual question comparing approaches is still a search/answer request, not clarify. "
             "Do not choose save for a standalone question unless the user explicitly says it is a note to save. "
@@ -151,6 +195,40 @@ class GeminiIntentProvider(IntentProvider):
                     return part["text"]
 
         return None
+
+    @classmethod
+    def _normalize_action(cls, action_value: object, intent_value: object, message: str) -> str:
+        if isinstance(action_value, str):
+            normalized = action_value.strip().lower().replace(" ", "_")
+            if normalized in cls._ACTION_ALIASES:
+                return cls._ACTION_ALIASES[normalized]
+
+        intent = str(intent_value).strip().lower() if intent_value is not None else "clarify"
+        if intent == "save":
+            return "save_content"
+
+        if intent == "clarify":
+            return "ask_clarification"
+
+        return "answer_from_memory" if cls._looks_like_answer_question(message) else "list_contents"
+
+    @staticmethod
+    def _derive_intent_from_action(action: str) -> str:
+        if action == "save_content":
+            return "save"
+
+        if action == "ask_clarification":
+            return "clarify"
+
+        return "search"
+
+    @staticmethod
+    def _normalize_optional_text(value: object) -> str | None:
+        if not isinstance(value, str):
+            return None
+
+        normalized = " ".join(value.split())
+        return normalized or None
 
     @staticmethod
     def _looks_like_answer_question(message: str) -> bool:
