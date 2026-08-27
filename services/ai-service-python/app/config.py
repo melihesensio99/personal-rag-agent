@@ -6,10 +6,11 @@ class Settings(BaseSettings):
     service_version: str = "1.0"
     summary_prompt_path: str = "app/prompts/content_summary_v1.txt"
     answer_prompt_path: str = "app/prompts/content_answer_v1.txt"
-    summary_provider: str = "fake"
-    answer_provider: str = "fake"
-    intent_provider: str = "fake"
-    embedding_provider: str = "fake"
+    summary_provider: str = "mistral"
+    answer_provider: str = "mistral"
+    intent_provider: str = "mistral"
+    embedding_provider: str = "mistral"
+    allow_fake_providers: bool = False
     embedding_dimension: int = 1024
     gemini_api_key: str = ""
     gemini_model: str = "gemini-3.6-flash"

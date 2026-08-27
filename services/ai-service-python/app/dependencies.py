@@ -26,8 +26,9 @@ from app.services.summary_providers.mistral_summary_provider import MistralSumma
 @lru_cache
 def get_summary_service() -> SummaryService:
     prompt_loader = PromptLoader(settings.summary_prompt_path)
+    provider_name = settings.summary_provider.lower()
 
-    if settings.summary_provider.lower() == "gemini":
+    if provider_name == "gemini":
         if not settings.gemini_api_key.strip():
             raise ValueError("AI_SERVICE_GEMINI_API_KEY must be set when summary_provider=gemini.")
 
@@ -40,7 +41,7 @@ def get_summary_service() -> SummaryService:
         )
         return SummaryService(provider)
 
-    if settings.summary_provider.lower() == "mistral":
+    if provider_name == "mistral":
         if not settings.mistral_api_key.strip():
             raise ValueError("AI_SERVICE_MISTRAL_API_KEY must be set when summary_provider=mistral.")
 
@@ -53,14 +54,19 @@ def get_summary_service() -> SummaryService:
         )
         return SummaryService(provider)
 
-    return SummaryService(FakeSummaryProvider(prompt_loader))
+    if provider_name == "fake":
+        _ensure_fake_providers_allowed("summary_provider")
+        return SummaryService(FakeSummaryProvider(prompt_loader))
+
+    raise ValueError(f"Unsupported summary_provider: {settings.summary_provider}.")
 
 
 @lru_cache
 def get_answer_service() -> AnswerService:
     prompt_loader = PromptLoader(settings.answer_prompt_path)
+    provider_name = settings.answer_provider.lower()
 
-    if settings.answer_provider.lower() == "gemini":
+    if provider_name == "gemini":
         if not settings.gemini_api_key.strip():
             raise ValueError("AI_SERVICE_GEMINI_API_KEY must be set when answer_provider=gemini.")
 
@@ -73,7 +79,7 @@ def get_answer_service() -> AnswerService:
         )
         return AnswerService(provider)
 
-    if settings.answer_provider.lower() == "mistral":
+    if provider_name == "mistral":
         if not settings.mistral_api_key.strip():
             raise ValueError("AI_SERVICE_MISTRAL_API_KEY must be set when answer_provider=mistral.")
 
@@ -86,7 +92,11 @@ def get_answer_service() -> AnswerService:
         )
         return AnswerService(provider)
 
-    return AnswerService(FakeAnswerProvider(prompt_loader))
+    if provider_name == "fake":
+        _ensure_fake_providers_allowed("answer_provider")
+        return AnswerService(FakeAnswerProvider(prompt_loader))
+
+    raise ValueError(f"Unsupported answer_provider: {settings.answer_provider}.")
 
 
 @lru_cache
@@ -96,7 +106,9 @@ def get_chunking_service() -> ChunkingService:
 
 @lru_cache
 def get_embedding_service() -> EmbeddingService:
-    if settings.embedding_provider.lower() == "mistral":
+    provider_name = settings.embedding_provider.lower()
+
+    if provider_name == "mistral":
         if not settings.mistral_api_key.strip():
             raise ValueError("AI_SERVICE_MISTRAL_API_KEY must be set when embedding_provider=mistral.")
 
@@ -108,10 +120,14 @@ def get_embedding_service() -> EmbeddingService:
         )
         return EmbeddingService(provider, expected_dimension=settings.embedding_dimension)
 
-    return EmbeddingService(
-        FakeEmbeddingProvider(dimension=settings.embedding_dimension),
-        expected_dimension=settings.embedding_dimension,
-    )
+    if provider_name == "fake":
+        _ensure_fake_providers_allowed("embedding_provider")
+        return EmbeddingService(
+            FakeEmbeddingProvider(dimension=settings.embedding_dimension),
+            expected_dimension=settings.embedding_dimension,
+        )
+
+    raise ValueError(f"Unsupported embedding_provider: {settings.embedding_provider}.")
 
 
 @lru_cache
@@ -123,7 +139,9 @@ def get_extraction_service() -> ExtractionService:
 
 @lru_cache
 def get_intent_service() -> IntentService:
-    if settings.intent_provider.lower() == "gemini":
+    provider_name = settings.intent_provider.lower()
+
+    if provider_name == "gemini":
         if not settings.gemini_api_key.strip():
             raise ValueError("AI_SERVICE_GEMINI_API_KEY must be set when intent_provider=gemini.")
 
@@ -135,7 +153,7 @@ def get_intent_service() -> IntentService:
         )
         return IntentService(provider)
 
-    if settings.intent_provider.lower() == "mistral":
+    if provider_name == "mistral":
         if not settings.mistral_api_key.strip():
             raise ValueError("AI_SERVICE_MISTRAL_API_KEY must be set when intent_provider=mistral.")
 
@@ -147,4 +165,15 @@ def get_intent_service() -> IntentService:
         )
         return IntentService(provider)
 
-    return IntentService(FakeIntentProvider())
+    if provider_name == "fake":
+        _ensure_fake_providers_allowed("intent_provider")
+        return IntentService(FakeIntentProvider())
+
+    raise ValueError(f"Unsupported intent_provider: {settings.intent_provider}.")
+
+
+def _ensure_fake_providers_allowed(setting_name: str) -> None:
+    if not settings.allow_fake_providers:
+        raise ValueError(
+            f"{setting_name}=fake is only allowed when AI_SERVICE_ALLOW_FAKE_PROVIDERS=true."
+        )
