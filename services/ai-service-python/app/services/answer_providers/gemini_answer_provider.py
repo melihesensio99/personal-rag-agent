@@ -53,13 +53,6 @@ class GeminiAnswerProvider(AnswerProvider):
                         {
                             "text": (
                                 f"{self._prompt_loader.load()}\n\n"
-                                "You answer user questions using only the provided retrieved chunks. "
-                                "Always answer in Turkish. "
-                                "Return only a JSON object with these exact fields: answer, used_chunk_indexes, language. "
-                                "answer must be a short natural Turkish response grounded in the provided chunks. "
-                                "used_chunk_indexes must be an array of integers from the provided chunk list. "
-                                "language must be tr. "
-                                "If the chunks do not contain enough information, say so clearly and return an empty used_chunk_indexes array.\n\n"
                                 f"Question:\n{question}\n\nRetrieved chunks:\n{prepared_chunks}"
                             )
                         }
