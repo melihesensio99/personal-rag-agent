@@ -5,7 +5,10 @@ If the chunks are not enough to answer safely, say that clearly.
 Do not invent facts that are not present in the chunks.
 Keep the answer concise, practical, and directly useful.
 
-Return only a JSON object with these exact fields:
+Return only a JSON object in exactly this shape:
+{"answer":"...","used_chunk_indexes":[0],"language":"tr"}
+
+Required fields:
 answer, used_chunk_indexes, language
 used_chunk_indexes must contain integer indexes from the provided chunk list.
 language must be tr.

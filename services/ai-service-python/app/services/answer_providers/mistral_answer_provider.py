@@ -43,9 +43,15 @@ class MistralAnswerProvider(AnswerProvider):
 
                 return AnswerResponse(
                     content_id=request.content_id,
-                    answer=self._read_text(parsed, "answer"),
-                    used_chunk_indexes=self._read_int_list(parsed, "used_chunk_indexes"),
-                    language=self._read_text(parsed, "language", fallback="tr"),
+                    answer=self._read_first_text(
+                        parsed,
+                        ["answer", "cevap", "response", "final_answer", "result"],
+                    ),
+                    used_chunk_indexes=self._read_first_int_list(
+                        parsed,
+                        ["used_chunk_indexes", "used_chunks", "chunk_indexes", "source_indexes"],
+                    ),
+                    language=self._read_first_text(parsed, ["language", "lang"], fallback="tr"),
                     provider="mistral",
                 )
             except (json.JSONDecodeError, RuntimeError, ValueError) as error:
@@ -194,21 +200,32 @@ class MistralAnswerProvider(AnswerProvider):
         raise json.JSONDecodeError("No complete JSON object found", output_text, start)
 
     @staticmethod
-    def _read_text(parsed: dict[str, object], key: str, fallback: str = "") -> str:
-        value = parsed.get(key)
-        if isinstance(value, str) and value.strip():
-            return value.strip()
+    def _read_first_text(
+        parsed: dict[str, object],
+        keys: list[str],
+        fallback: str = "",
+    ) -> str:
+        for key in keys:
+            value = parsed.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
 
         if fallback:
             return fallback
 
-        raise ValueError(f"Mistral answer JSON output is missing '{key}'.")
+        raise ValueError(
+            f"Mistral answer JSON output is missing one of these fields: {', '.join(keys)}."
+        )
 
     @staticmethod
-    def _read_int_list(parsed: dict[str, object], key: str) -> list[int]:
-        value = parsed.get(key)
-        if not isinstance(value, list):
-            raise ValueError(f"Mistral answer JSON output is missing '{key}'.")
+    def _read_first_int_list(parsed: dict[str, object], keys: list[str]) -> list[int]:
+        for key in keys:
+            value = parsed.get(key)
+            if not isinstance(value, list):
+                continue
 
-        items = [item for item in value if isinstance(item, int)]
-        return items
+            return [item for item in value if isinstance(item, int)]
+
+        raise ValueError(
+            f"Mistral answer JSON output is missing one of these fields: {', '.join(keys)}."
+        )
