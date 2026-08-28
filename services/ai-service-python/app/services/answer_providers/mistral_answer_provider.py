@@ -45,11 +45,30 @@ class MistralAnswerProvider(AnswerProvider):
                     content_id=request.content_id,
                     answer=self._read_first_text(
                         parsed,
-                        ["answer", "cevap", "response", "final_answer", "result"],
+                        [
+                            "answer",
+                            "cevap",
+                            "response",
+                            "final_answer",
+                            "result",
+                            "content",
+                            "text",
+                            "message",
+                            "final",
+                            "answer_text",
+                            "result_text",
+                        ],
                     ),
                     used_chunk_indexes=self._read_first_int_list(
                         parsed,
-                        ["used_chunk_indexes", "used_chunks", "chunk_indexes", "source_indexes"],
+                        [
+                            "used_chunk_indexes",
+                            "used_chunks",
+                            "chunk_indexes",
+                            "source_indexes",
+                            "used_indexes",
+                            "indexes",
+                        ],
                     ),
                     language=self._read_first_text(parsed, ["language", "lang"], fallback="tr"),
                     provider="mistral",
@@ -214,7 +233,8 @@ class MistralAnswerProvider(AnswerProvider):
             return fallback
 
         raise ValueError(
-            f"Mistral answer JSON output is missing one of these fields: {', '.join(keys)}."
+            "Mistral answer JSON output is missing one of these fields: "
+            f"{', '.join(keys)}. Available keys: {', '.join(sorted(parsed.keys())) or '[none]'}."
         )
 
     @staticmethod
@@ -227,5 +247,6 @@ class MistralAnswerProvider(AnswerProvider):
             return [item for item in value if isinstance(item, int)]
 
         raise ValueError(
-            f"Mistral answer JSON output is missing one of these fields: {', '.join(keys)}."
+            "Mistral answer JSON output is missing one of these fields: "
+            f"{', '.join(keys)}. Available keys: {', '.join(sorted(parsed.keys())) or '[none]'}."
         )

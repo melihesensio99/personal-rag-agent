@@ -102,3 +102,55 @@ def test_mistral_answer_provider_accepts_common_answer_field_aliases(monkeypatch
     assert result.answer == "Protein için kaynak 1.6-2.2 gram/kg aralığını öneriyor."
     assert result.used_chunk_indexes == [0]
     assert result.language == "tr"
+
+
+def test_mistral_answer_provider_accepts_content_as_answer_alias(monkeypatch) -> None:
+    provider = MistralAnswerProvider(
+        prompt_loader=PromptLoader("app/prompts/content_answer_v1.txt"),
+        api_key="test-key",
+        model="ministral-8b-2512",
+        base_url="https://api.mistral.ai/v1",
+        timeout_seconds=5,
+    )
+
+    def fake_send_request(self: MistralAnswerProvider, question: str, prepared_chunks: str) -> dict[str, object]:
+        return {
+            "choices": [
+                {
+                    "message": {
+                        "content": (
+                            '{"content":"Protein için 1.6-2.2 gram/kg önerilir.",'
+                            '"used_chunk_indexes":[0],"language":"tr"}'
+                        )
+                    }
+                }
+            ]
+        }
+
+    monkeypatch.setattr(MistralAnswerProvider, "_send_request", fake_send_request)
+
+    result = provider.create_answer(
+        AnswerRequest(
+            content_id="answer-demo-1",
+            question="Kas yapmak için günlük ne kadar protein almalıyım?",
+            chunks=[
+                AnswerContextChunk(
+                    index=0,
+                    content_id="content-1",
+                    chunk_id="chunk-1",
+                    content_title="Kas Hacmi Artırmak",
+                    content_url="https://health.clevelandclinic.org/hypertrophy",
+                    source_type="article",
+                    content_kind="text",
+                    chunk_index=1,
+                    text="Protein alımının 1.6-2.2 gram/kg olması önerilir.",
+                    distance=0.12,
+                    similarity=0.88,
+                )
+            ],
+        )
+    )
+
+    assert result.answer == "Protein için 1.6-2.2 gram/kg önerilir."
+    assert result.used_chunk_indexes == [0]
+    assert result.language == "tr"
