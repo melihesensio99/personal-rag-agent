@@ -4,6 +4,8 @@ import json
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from pydantic import ValidationError
+
 from app.contracts.intents import IntentRequest, IntentResponse
 from app.services.intent_providers.base import IntentProvider
 
@@ -118,52 +120,48 @@ class MistralIntentProvider(IntentProvider):
 
     def classify(self, request: IntentRequest) -> IntentResponse:
         last_error: Exception | None = None
+        repair_hint: str | None = None
 
         for _ in range(self.MAX_ATTEMPTS):
             try:
-                payload = self._send_request(request)
+                payload = self._send_request(request, repair_hint)
                 output_text = self._extract_output_text(payload)
 
                 if not isinstance(output_text, str) or not output_text.strip():
                     raise ValueError("Mistral intent response did not include output text.")
 
                 parsed = self._parse_json_object(output_text)
-                action = self._normalize_required_literal(
-                    parsed.get("action"),
-                    self._ACTION_ALIASES,
-                    fallback="",
-                )
-                intent = self._normalize_required_literal(
-                    parsed.get("intent"),
-                    self._INTENT_ALIASES,
-                    fallback="clarify",
-                )
-                if not action:
-                    action = self._derive_action_from_intent(intent, request.message)
-                query = self._normalize_optional_text(parsed.get("query"))
-                content = self._normalize_optional_text(parsed.get("content"))
+                response = IntentResponse.model_validate(parsed)
 
-                response = IntentResponse(
-                    action=action,
-                    intent=self._derive_intent_from_action(action),
-                    query=(query or request.message) if action in {"list_contents", "answer_from_memory"} else None,
-                    content=(content or request.message) if action == "save_content" else None,
-                    content_kind=self._normalize_optional_literal(
-                        parsed.get("content_kind"),
-                        self._CONTENT_KIND_ALIASES,
-                    ),
-                    source_type=self._normalize_optional_literal(
-                        parsed.get("source_type"),
-                        self._SOURCE_TYPE_ALIASES,
-                    ),
-                    time_filter=self._normalize_required_literal(
-                        parsed.get("time_filter", "none"),
-                        self._TIME_FILTER_ALIASES,
-                        fallback="none",
-                    ),
-                    keywords=self._normalize_keywords(parsed.get("keywords", [])),
-                    needs_clarification=self._normalize_bool(parsed.get("needs_clarification", False)),
-                    clarification_message=self._normalize_optional_text(parsed.get("clarification_message")),
+                response = response.model_copy(
+                    update={
+                        "query": (
+                            self._normalize_optional_text(response.query) or request.message
+                            if response.action in {"list_contents", "answer_from_memory"}
+                            else None
+                        ),
+                        "content": (
+                            self._normalize_optional_text(response.content) or request.message
+                            if response.action == "save_content"
+                            else None
+                        ),
+                        "content_kind": self._normalize_optional_literal(
+                            response.content_kind,
+                            self._CONTENT_KIND_ALIASES,
+                        ),
+                        "source_type": self._normalize_optional_literal(
+                            response.source_type,
+                            self._SOURCE_TYPE_ALIASES,
+                        ),
+                        "time_filter": self._normalize_required_literal(
+                            response.time_filter,
+                            self._TIME_FILTER_ALIASES,
+                            fallback="none",
+                        ),
+                        "keywords": self._normalize_keywords(response.keywords),
+                        "needs_clarification": self._normalize_bool(response.needs_clarification),
+                        "clarification_message": self._normalize_optional_text(response.clarification_message),
+                    }
                 )
 
                 if response.action != "save_content" and self._looks_like_content_to_save(request.message):
@@ -197,27 +195,28 @@ class MistralIntentProvider(IntentProvider):
                     )
 
                 return response
-            except (json.JSONDecodeError, RuntimeError, ValueError) as error:
+            except (json.JSONDecodeError, RuntimeError, ValueError, ValidationError) as error:
                 last_error = error
+                repair_hint = self._build_repair_hint(error, request.message)
 
         raise RuntimeError("Mistral intent failed after retries.") from last_error
 
-    def _send_request(self, request: IntentRequest) -> dict[str, object]:
+    def _send_request(self, request: IntentRequest, repair_hint: str | None = None) -> dict[str, object]:
         endpoint = f"{self._base_url}/chat/completions"
 
         system_prompt = (
             "You classify messages for a personal content assistant. "
-            "Return only a JSON object. "
+            "Return only a JSON object that matches the exact schema. "
+            "Do not use aliases, paraphrases, or extra keys. "
             "action must be save_content, list_contents, answer_from_memory, or ask_clarification. "
             "intent must be save, search, or clarify. "
-            "For backwards compatibility, intent must be save when action is save_content, search when action is list_contents or answer_from_memory, and clarify when action is ask_clarification. "
             "query is the user's search/question text for list_contents or answer_from_memory. "
             "content is the text to save for save_content. "
             "clarification_message is a short Turkish message for ask_clarification. "
             "content_kind must be text, video, image, or null. "
             "source_type must be article, youtube, pdf, image, telegram, or null. "
             "time_filter must be today, yesterday, two_days_ago, or none. "
-            "keywords must contain only meaningful topic words. "
+            "keywords must be an array of meaningful topic words. "
             "The user usually writes in Turkish. "
             "Turkish search verbs include: getir, listele, göster, goster, bul, ara, neydi, hangisiydi. "
             "If the user asks to retrieve, list, show, find, or search previously saved records, choose action list_contents. "
@@ -254,10 +253,24 @@ class MistralIntentProvider(IntentProvider):
             "{\"action\":\"save_content\",\"intent\":\"save\",\"query\":null,\"content\":\"kendime not: RAG chunking önemli\",\"content_kind\":\"text\",\"source_type\":\"telegram\",\"time_filter\":\"none\",\"keywords\":[],\"needs_clarification\":false,\"clarification_message\":null}."
         )
 
+        if repair_hint is not None:
+            system_prompt = (
+                system_prompt
+                + " The previous output was invalid. Fix the schema errors and return only corrected JSON."
+            )
+
         user_prompt = (
             f"Today's date is {request.current_date}.\n"
             f"User message: {request.message}"
         )
+
+        if repair_hint is not None:
+            user_prompt = (
+                user_prompt
+                + "\n\nPrevious output validation errors:\n"
+                + repair_hint
+                + "\n\nReturn only the corrected JSON object."
+            )
 
         body = {
             "model": self._model,
@@ -471,6 +484,25 @@ class MistralIntentProvider(IntentProvider):
             return value.strip().lower() in {"true", "yes", "evet", "1"}
 
         return False
+
+    @staticmethod
+    def _build_repair_hint(error: Exception, message: str) -> str:
+        if isinstance(error, ValidationError):
+            parts = []
+            for item in error.errors():
+                location = ".".join(str(part) for part in item.get("loc", ()))
+                detail = item.get("msg", "invalid value")
+                parts.append(f"- {location}: {detail}")
+
+            details = "\n".join(parts) if parts else "- Validation failed."
+        else:
+            details = f"- {error}"
+
+        return (
+            "The previous JSON was invalid for this message.\n"
+            f"User message: {message}\n"
+            f"Validation errors:\n{details}"
+        )
 
     @staticmethod
     def _looks_like_answer_question(message: str) -> bool:

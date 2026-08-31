@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+import pytest
 
 from app.dependencies import get_intent_service
 from app.main import app
@@ -58,14 +59,19 @@ def test_mistral_intent_provider_parses_structured_output(monkeypatch) -> None:
         timeout_seconds=5,
     )
 
-    def fake_send_request(self: MistralIntentProvider, request: IntentRequest) -> dict[str, object]:
+    def fake_send_request(
+        self: MistralIntentProvider,
+        request: IntentRequest,
+        repair_hint: str | None = None,
+    ) -> dict[str, object]:
         return {
             "choices": [
                 {
                     "message": {
                         "content": (
-                            '{"intent":"search","content_kind":"video","source_type":null,'
-                            '"time_filter":"today","keywords":["spor"],"needs_clarification":false}'
+                            '{"action":"list_contents","intent":"search","content_kind":"video",'
+                            '"source_type":null,"time_filter":"today","keywords":["spor"],'
+                            '"needs_clarification":false,"clarification_message":null}'
                         )
                     }
                 }
@@ -97,15 +103,38 @@ def test_mistral_intent_provider_normalizes_non_contract_values(monkeypatch) -> 
         timeout_seconds=5,
     )
 
-    def fake_send_request(self: MistralIntentProvider, request: IntentRequest) -> dict[str, object]:
+    attempts = {"count": 0}
+
+    def fake_send_request(
+        self: MistralIntentProvider,
+        request: IntentRequest,
+        repair_hint: str | None = None,
+    ) -> dict[str, object]:
+        attempts["count"] += 1
+
+        if attempts["count"] == 1:
+            return {
+                "choices": [
+                    {
+                        "message": {
+                            "content": (
+                                '{"action":"answer","intent":"search","content_kind":"youtube",'
+                                '"source_type":"any","time_filter":"bugün","keywords":"spor",'
+                                '"needs_clarification":"false"}'
+                            )
+                        }
+                    }
+                ]
+            }
+
         return {
             "choices": [
                 {
                     "message": {
                         "content": (
-                            '{"intent":"retrieve","content_kind":"youtube","source_type":"any",'
-                            '"time_filter":"bugün","keywords":["bugün","spor","listele"],'
-                            '"needs_clarification":"false"}'
+                            '{"action":"list_contents","intent":"search","content_kind":"video",'
+                            '"source_type":null,"time_filter":"today","keywords":["spor"],'
+                            '"needs_clarification":false,"clarification_message":null}'
                         )
                     }
                 }
@@ -127,6 +156,7 @@ def test_mistral_intent_provider_normalizes_non_contract_values(monkeypatch) -> 
     assert result.source_type is None
     assert result.time_filter == "today"
     assert result.keywords == ["spor"]
+    assert attempts["count"] == 2
 
 
 def test_mistral_intent_provider_keeps_article_search_as_source_filter(monkeypatch) -> None:
@@ -137,14 +167,19 @@ def test_mistral_intent_provider_keeps_article_search_as_source_filter(monkeypat
         timeout_seconds=5,
     )
 
-    def fake_send_request(self: MistralIntentProvider, request: IntentRequest) -> dict[str, object]:
+    def fake_send_request(
+        self: MistralIntentProvider,
+        request: IntentRequest,
+        repair_hint: str | None = None,
+    ) -> dict[str, object]:
         return {
             "choices": [
                 {
                     "message": {
                         "content": (
-                            '{"intent":"search","content_kind":null,"source_type":"article",'
-                            '"time_filter":"today","keywords":[],"needs_clarification":false}'
+                            '{"action":"list_contents","intent":"search","content_kind":null,'
+                            '"source_type":"article","time_filter":"today","keywords":[],'
+                            '"needs_clarification":false,"clarification_message":null}'
                         )
                     }
                 }
@@ -175,7 +210,11 @@ def test_mistral_intent_provider_routes_conceptual_questions_to_answer_from_memo
         timeout_seconds=5,
     )
 
-    def fake_send_request(self: MistralIntentProvider, request: IntentRequest) -> dict[str, object]:
+    def fake_send_request(
+        self: MistralIntentProvider,
+        request: IntentRequest,
+        repair_hint: str | None = None,
+    ) -> dict[str, object]:
         return {
             "choices": [
                 {
@@ -205,3 +244,41 @@ def test_mistral_intent_provider_routes_conceptual_questions_to_answer_from_memo
     assert result.query == message
     assert result.content is None
     assert result.needs_clarification is False
+
+
+def test_mistral_intent_provider_raises_when_validation_cannot_be_repaired(monkeypatch) -> None:
+    provider = MistralIntentProvider(
+        api_key="test-key",
+        model="ministral-3b-2512",
+        base_url="https://api.mistral.ai/v1",
+        timeout_seconds=5,
+    )
+
+    def fake_send_request(
+        self: MistralIntentProvider,
+        request: IntentRequest,
+        repair_hint: str | None = None,
+    ) -> dict[str, object]:
+        return {
+            "choices": [
+                {
+                    "message": {
+                        "content": (
+                            '{"action":"answer","intent":"search","content_kind":"video",'
+                            '"source_type":"any","time_filter":"bugün","keywords":"spor",'
+                            '"needs_clarification":"false"}'
+                        )
+                    }
+                }
+            ]
+        }
+
+    monkeypatch.setattr(MistralIntentProvider, "_send_request", fake_send_request)
+
+    with pytest.raises(RuntimeError, match="Mistral intent failed after retries"):
+        provider.classify(
+            IntentRequest(
+                message="bugün attığım spor videolarını listele",
+                current_date="2026-08-20",
+            )
+        )
