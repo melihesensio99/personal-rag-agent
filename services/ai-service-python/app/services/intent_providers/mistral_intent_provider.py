@@ -8,6 +8,8 @@ from pydantic import ValidationError
 
 from app.contracts.intents import IntentRequest, IntentResponse
 from app.services.intent_providers.base import IntentProvider
+from app.services.structured_output_runner import run_with_retries
+from app.services.mistral_response_schemas import INTENT_SCHEMA, response_format
 
 
 class MistralIntentProvider(IntentProvider):
@@ -119,87 +121,42 @@ class MistralIntentProvider(IntentProvider):
         self._timeout_seconds = timeout_seconds
 
     def classify(self, request: IntentRequest) -> IntentResponse:
-        last_error: Exception | None = None
-        repair_hint: str | None = None
+        def operation(repair_hint: str | None) -> IntentResponse:
+            payload = self._send_request(request, repair_hint)
+            output_text = self._extract_output_text(payload)
+            if not isinstance(output_text, str) or not output_text.strip():
+                raise ValueError("Mistral intent response did not include output text.")
 
-        for _ in range(self.MAX_ATTEMPTS):
-            try:
-                payload = self._send_request(request, repair_hint)
-                output_text = self._extract_output_text(payload)
+            parsed = self._parse_json_object(output_text)
+            response = IntentResponse.model_validate(parsed)
+            return response.model_copy(
+                update={
+                    "query": (
+                        self._normalize_optional_text(response.query) or request.message
+                        if response.action in {"list_contents", "answer_from_memory"}
+                        else None
+                    ),
+                    "content": (
+                        self._normalize_optional_text(response.content) or request.message
+                        if response.action == "save_content"
+                        else None
+                    ),
+                    "content_kind": self._normalize_optional_literal(response.content_kind, self._CONTENT_KIND_ALIASES),
+                    "source_type": self._normalize_optional_literal(response.source_type, self._SOURCE_TYPE_ALIASES),
+                    "time_filter": self._normalize_required_literal(response.time_filter, self._TIME_FILTER_ALIASES, fallback="none"),
+                    "keywords": self._normalize_keywords(response.keywords),
+                    "needs_clarification": self._normalize_bool(response.needs_clarification),
+                    "clarification_message": self._normalize_optional_text(response.clarification_message),
+                }
+            )
 
-                if not isinstance(output_text, str) or not output_text.strip():
-                    raise ValueError("Mistral intent response did not include output text.")
-
-                parsed = self._parse_json_object(output_text)
-                response = IntentResponse.model_validate(parsed)
-
-                response = response.model_copy(
-                    update={
-                        "query": (
-                            self._normalize_optional_text(response.query) or request.message
-                            if response.action in {"list_contents", "answer_from_memory"}
-                            else None
-                        ),
-                        "content": (
-                            self._normalize_optional_text(response.content) or request.message
-                            if response.action == "save_content"
-                            else None
-                        ),
-                        "content_kind": self._normalize_optional_literal(
-                            response.content_kind,
-                            self._CONTENT_KIND_ALIASES,
-                        ),
-                        "source_type": self._normalize_optional_literal(
-                            response.source_type,
-                            self._SOURCE_TYPE_ALIASES,
-                        ),
-                        "time_filter": self._normalize_required_literal(
-                            response.time_filter,
-                            self._TIME_FILTER_ALIASES,
-                            fallback="none",
-                        ),
-                        "keywords": self._normalize_keywords(response.keywords),
-                        "needs_clarification": self._normalize_bool(response.needs_clarification),
-                        "clarification_message": self._normalize_optional_text(response.clarification_message),
-                    }
-                )
-
-                if response.action != "save_content" and self._looks_like_content_to_save(request.message):
-                    return response.model_copy(
-                        update={
-                            "action": "save_content",
-                            "intent": "save",
-                            "query": None,
-                            "content": request.message,
-                            "content_kind": "text",
-                            "source_type": "telegram",
-                            "time_filter": "none",
-                            "keywords": [],
-                            "needs_clarification": False,
-                        }
-                    )
-
-                if response.action in {"save_content", "ask_clarification"} and self._looks_like_answer_question(request.message):
-                    return response.model_copy(
-                        update={
-                            "action": "answer_from_memory",
-                            "intent": "search",
-                            "query": request.message,
-                            "content": None,
-                            "content_kind": None,
-                            "source_type": None,
-                            "time_filter": "none",
-                            "needs_clarification": False,
-                            "clarification_message": None,
-                        }
-                    )
-
-                return response
-            except (json.JSONDecodeError, RuntimeError, ValueError, ValidationError) as error:
-                last_error = error
-                repair_hint = self._build_repair_hint(error, request.message)
-
-        raise RuntimeError("Mistral intent failed after retries.") from last_error
+        return run_with_retries(
+            operation,
+            lambda error: self._build_repair_hint(error, request.message),
+            max_attempts=self.MAX_ATTEMPTS,
+            failure_message="Mistral intent failed after retries.",
+            retryable_errors=(json.JSONDecodeError, RuntimeError, ValueError, ValidationError),
+        )
 
     def _send_request(self, request: IntentRequest, repair_hint: str | None = None) -> dict[str, object]:
         endpoint = f"{self._base_url}/chat/completions"
@@ -279,7 +236,7 @@ class MistralIntentProvider(IntentProvider):
                 {"role": "user", "content": user_prompt},
             ],
             "temperature": 0.1,
-            "response_format": {"type": "json_object"},
+            "response_format": response_format("intent_response", INTENT_SCHEMA),
         }
 
         http_request = Request(

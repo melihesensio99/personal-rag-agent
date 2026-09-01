@@ -8,6 +8,8 @@ from app.contracts.summaries import SummaryRequest, SummaryResponse
 from app.services.prompt_loader import PromptLoader
 from app.services.summary_input_preparer import SummaryInputPreparer
 from app.services.summary_providers.base import SummaryProvider
+from app.services.structured_output_runner import run_with_retries
+from app.services.mistral_response_schemas import SUMMARY_SCHEMA, response_format
 
 
 class MistralSummaryProvider(SummaryProvider):
@@ -29,33 +31,33 @@ class MistralSummaryProvider(SummaryProvider):
 
     def create_summary(self, request: SummaryRequest) -> SummaryResponse:
         prepared_text = SummaryInputPreparer.prepare(request.text)
-        last_error: Exception | None = None
 
-        for _ in range(self.MAX_ATTEMPTS):
-            try:
-                payload = self._send_request(prepared_text)
-                output_text = self._extract_output_text(payload)
+        def operation(repair_hint: str | None) -> SummaryResponse:
+            payload = self._send_request(prepared_text, repair_hint)
+            output_text = self._extract_output_text(payload)
+            if not isinstance(output_text, str) or not output_text.strip():
+                raise ValueError("Mistral summary response did not include output text.")
 
-                if not isinstance(output_text, str) or not output_text.strip():
-                    raise ValueError("Mistral summary response did not include output text.")
+            parsed = self._parse_json_object(output_text)
+            return SummaryResponse(
+                content_id=request.content_id,
+                title=self._read_text(parsed, "title"),
+                short_summary=self._read_text(parsed, "short_summary"),
+                key_points=self._read_text_list(parsed, "key_points"),
+                tags=self._read_text_list(parsed, "tags"),
+                language=self._read_text(parsed, "language"),
+                provider="mistral",
+            )
 
-                parsed = self._parse_json_object(output_text)
+        return run_with_retries(
+            operation,
+            self._build_repair_hint,
+            max_attempts=self.MAX_ATTEMPTS,
+            failure_message="Mistral summary failed after retries.",
+            retryable_errors=(json.JSONDecodeError, RuntimeError, ValueError),
+        )
 
-                return SummaryResponse(
-                    content_id=request.content_id,
-                    title=self._read_text(parsed, "title"),
-                    short_summary=self._read_text(parsed, "short_summary"),
-                    key_points=self._read_text_list(parsed, "key_points"),
-                    tags=self._read_text_list(parsed, "tags"),
-                    language=self._read_text(parsed, "language"),
-                    provider="mistral",
-                )
-            except (json.JSONDecodeError, RuntimeError, ValueError) as error:
-                last_error = error
-
-        raise RuntimeError("Mistral summary failed after retries.") from last_error
-
-    def _send_request(self, prepared_text: str) -> dict[str, object]:
+    def _send_request(self, prepared_text: str, repair_hint: str | None = None) -> dict[str, object]:
         endpoint = f"{self._base_url}/chat/completions"
 
         system_prompt = (
@@ -68,14 +70,27 @@ class MistralSummaryProvider(SummaryProvider):
             "language must be tr."
         )
 
+        if repair_hint is not None:
+            system_prompt += (
+                " The previous output was invalid. Return only corrected JSON "
+                "matching the required fields."
+            )
+
+        user_content = f"Content:\n{prepared_text}"
+        if repair_hint is not None:
+            user_content += (
+                "\n\nPrevious output validation error:\n"
+                f"{repair_hint}\nReturn only the corrected JSON object."
+            )
+
         body = {
             "model": self._model,
             "messages": [
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Content:\n{prepared_text}"},
+                {"role": "user", "content": user_content},
             ],
             "temperature": 0.2,
-            "response_format": {"type": "json_object"},
+            "response_format": response_format("summary_response", SUMMARY_SCHEMA),
         }
 
         http_request = Request(
@@ -193,3 +208,12 @@ class MistralSummaryProvider(SummaryProvider):
             raise ValueError(f"Mistral summary JSON output has an empty '{key}'.")
 
         return items
+
+    @staticmethod
+    def _build_repair_hint(error: Exception) -> str:
+        return (
+            "The previous summary JSON did not match the required schema. "
+            f"Error: {error}. "
+            "Use non-empty strings for title, short_summary and language; "
+            "use non-empty string arrays for key_points and tags; language must be 'tr'."
+        )

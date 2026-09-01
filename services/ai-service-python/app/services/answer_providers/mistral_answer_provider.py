@@ -7,6 +7,8 @@ from urllib.request import Request, urlopen
 from app.contracts.answers import AnswerRequest, AnswerResponse
 from app.services.answer_providers.base import AnswerProvider
 from app.services.prompt_loader import PromptLoader
+from app.services.structured_output_runner import run_with_retries
+from app.services.mistral_response_schemas import ANSWER_SCHEMA, response_format
 
 
 class MistralAnswerProvider(AnswerProvider):
@@ -27,76 +29,74 @@ class MistralAnswerProvider(AnswerProvider):
         self._timeout_seconds = timeout_seconds
 
     def create_answer(self, request: AnswerRequest) -> AnswerResponse:
-        last_error: Exception | None = None
         prepared_question = " ".join(request.question.split())
         prepared_chunks = self._build_prepared_chunks(request)
 
-        for _ in range(self.MAX_ATTEMPTS):
-            try:
-                payload = self._send_request(prepared_question, prepared_chunks)
-                output_text = self._extract_output_text(payload)
+        def operation(repair_hint: str | None) -> AnswerResponse:
+            payload = self._send_request(prepared_question, prepared_chunks, repair_hint)
+            output_text = self._extract_output_text(payload)
+            if not isinstance(output_text, str) or not output_text.strip():
+                raise ValueError("Mistral answer response did not include output text.")
 
-                if not isinstance(output_text, str) or not output_text.strip():
-                    raise ValueError("Mistral answer response did not include output text.")
+            parsed = self._parse_json_object(output_text)
+            return AnswerResponse(
+                content_id=request.content_id,
+                answer=self._read_first_text(parsed, [
+                    "answer", "cevap", "response", "final_answer", "result",
+                    "content", "text", "message", "final", "answer_text", "result_text",
+                ]),
+                used_chunk_indexes=self._read_first_int_list(parsed, [
+                    "used_chunk_indexes", "used_chunks", "chunk_indexes", "source_indexes",
+                    "used_indexes", "indexes",
+                ]),
+                language=self._read_first_text(parsed, ["language", "lang"], fallback="tr"),
+                provider="mistral",
+            )
 
-                parsed = self._parse_json_object(output_text)
+        return run_with_retries(
+            operation,
+            lambda error: self._build_repair_hint(error, prepared_question),
+            max_attempts=self.MAX_ATTEMPTS,
+            failure_message="Mistral answer failed after retries.",
+            retryable_errors=(json.JSONDecodeError, RuntimeError, ValueError),
+        )
 
-                return AnswerResponse(
-                    content_id=request.content_id,
-                    answer=self._read_first_text(
-                        parsed,
-                        [
-                            "answer",
-                            "cevap",
-                            "response",
-                            "final_answer",
-                            "result",
-                            "content",
-                            "text",
-                            "message",
-                            "final",
-                            "answer_text",
-                            "result_text",
-                        ],
-                    ),
-                    used_chunk_indexes=self._read_first_int_list(
-                        parsed,
-                        [
-                            "used_chunk_indexes",
-                            "used_chunks",
-                            "chunk_indexes",
-                            "source_indexes",
-                            "used_indexes",
-                            "indexes",
-                        ],
-                    ),
-                    language=self._read_first_text(parsed, ["language", "lang"], fallback="tr"),
-                    provider="mistral",
-                )
-            except (json.JSONDecodeError, RuntimeError, ValueError) as error:
-                last_error = error
-
-        raise RuntimeError("Mistral answer failed after retries.") from last_error
-
-    def _send_request(self, question: str, prepared_chunks: str) -> dict[str, object]:
+    def _send_request(
+        self,
+        question: str,
+        prepared_chunks: str,
+        repair_hint: str | None = None,
+    ) -> dict[str, object]:
         endpoint = f"{self._base_url}/chat/completions"
 
         system_prompt = self._prompt_loader.load()
+
+        if repair_hint is not None:
+            system_prompt += (
+                "\nThe previous answer JSON was invalid. Return only corrected JSON "
+                "matching the required schema.\n"
+            )
+
+        user_content = (
+            f"Question:\n{question}\n\n"
+            f"Retrieved chunks:\n{prepared_chunks}"
+        )
+
+        if repair_hint is not None:
+            user_content += (
+                "\n\nPrevious output validation error:\n"
+                f"{repair_hint}\n"
+                "Return only the corrected JSON object."
+            )
 
         body = {
             "model": self._model,
             "messages": [
                 {"role": "system", "content": system_prompt},
-                {
-                    "role": "user",
-                    "content": (
-                        f"Question:\n{question}\n\n"
-                        f"Retrieved chunks:\n{prepared_chunks}"
-                    ),
-                },
+                {"role": "user", "content": user_content},
             ],
             "temperature": 0.2,
-            "response_format": {"type": "json_object"},
+            "response_format": response_format("answer_response", ANSWER_SCHEMA),
         }
 
         http_request = Request(
@@ -148,6 +148,16 @@ class MistralAnswerProvider(AnswerProvider):
             )
 
         return "\n\n---\n\n".join(lines) if lines else "[NO CHUNKS]"
+
+    @staticmethod
+    def _build_repair_hint(error: Exception, question: str) -> str:
+        return (
+            f"Question: {question}\n"
+            "The previous response did not match the required answer schema.\n"
+            f"Error: {error}\n"
+            "Use a non-empty string for answer, an integer array for "
+            "used_chunk_indexes, and language='tr'."
+        )
 
     @staticmethod
     def _extract_output_text(payload: dict[str, object]) -> str | None:

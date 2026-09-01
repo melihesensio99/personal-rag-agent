@@ -202,7 +202,7 @@ def test_mistral_intent_provider_keeps_article_search_as_source_filter(monkeypat
     assert result.time_filter == "today"
 
 
-def test_mistral_intent_provider_routes_conceptual_questions_to_answer_from_memory(monkeypatch) -> None:
+def test_mistral_intent_provider_preserves_model_action_for_conceptual_questions(monkeypatch) -> None:
     provider = MistralIntentProvider(
         api_key="test-key",
         model="ministral-3b-2512",
@@ -239,11 +239,11 @@ def test_mistral_intent_provider_routes_conceptual_questions_to_answer_from_memo
 
     result = provider.classify(IntentRequest(message=message, current_date="2026-08-21"))
 
-    assert result.action == "answer_from_memory"
-    assert result.intent == "search"
-    assert result.query == message
+    assert result.action == "ask_clarification"
+    assert result.intent == "clarify"
+    assert result.query is None
     assert result.content is None
-    assert result.needs_clarification is False
+    assert result.needs_clarification is True
 
 
 def test_mistral_intent_provider_raises_when_validation_cannot_be_repaired(monkeypatch) -> None:

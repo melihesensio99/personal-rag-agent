@@ -1,3 +1,5 @@
+import json
+
 from app.contracts.summaries import SummaryRequest
 from app.services.prompt_loader import PromptLoader
 from app.services.summary_providers.mistral_summary_provider import MistralSummaryProvider
@@ -15,7 +17,7 @@ def test_mistral_summary_provider_parses_structured_output(monkeypatch, tmp_path
         timeout_seconds=5,
     )
 
-    def fake_send_request(self: MistralSummaryProvider, normalized_text: str) -> dict[str, object]:
+    def fake_send_request(self: MistralSummaryProvider, normalized_text: str, repair_hint: str | None = None) -> dict[str, object]:
         return {
             "choices": [
                 {
@@ -57,7 +59,7 @@ def test_mistral_summary_provider_extracts_json_from_wrapped_output(monkeypatch,
         timeout_seconds=5,
     )
 
-    def fake_send_request(self: MistralSummaryProvider, normalized_text: str) -> dict[str, object]:
+    def fake_send_request(self: MistralSummaryProvider, normalized_text: str, repair_hint: str | None = None) -> dict[str, object]:
         return {
             "choices": [
                 {
@@ -100,7 +102,7 @@ def test_mistral_summary_provider_compresses_long_input(monkeypatch, tmp_path) -
     )
     captured_input: dict[str, str] = {}
 
-    def fake_send_request(self: MistralSummaryProvider, normalized_text: str) -> dict[str, object]:
+    def fake_send_request(self: MistralSummaryProvider, normalized_text: str, repair_hint: str | None = None) -> dict[str, object]:
         captured_input["text"] = normalized_text
         return {
             "choices": [
@@ -128,3 +130,54 @@ def test_mistral_summary_provider_compresses_long_input(monkeypatch, tmp_path) -
     assert response.title == "Uzun içerik"
     assert "[CONTENT COMPRESSED FOR SUMMARY]" in captured_input["text"]
     assert len(captured_input["text"]) < 19000
+
+
+def test_mistral_summary_provider_repairs_invalid_shape(monkeypatch, tmp_path) -> None:
+    prompt_file = tmp_path / "prompt.txt"
+    prompt_file.write_text("Summarize content.", encoding="utf-8")
+    provider = MistralSummaryProvider(
+        prompt_loader=PromptLoader(str(prompt_file)),
+        api_key="test-key",
+        model="ministral-8b-2512",
+        base_url="https://api.mistral.ai/v1",
+        timeout_seconds=5,
+    )
+    attempts = {"count": 0, "repair_seen": False}
+
+    def fake_send_request(
+        self: MistralSummaryProvider,
+        normalized_text: str,
+        repair_hint: str | None = None,
+    ) -> dict[str, object]:
+        attempts["count"] += 1
+        attempts["repair_seen"] = attempts["repair_seen"] or repair_hint is not None
+        if attempts["count"] == 1:
+            content = {
+                "title": "Geçersiz",
+                "short_summary": "Özet",
+                "key_points": "tek string",
+                "tags": ["rag"],
+                "language": "tr",
+            }
+        else:
+            content = {
+                "title": "Düzeltilmiş",
+                "short_summary": "Geçerli özet.",
+                "key_points": ["Ana nokta."],
+                "tags": ["rag"],
+                "language": "tr",
+            }
+
+        return {
+            "choices": [
+                {"message": {"content": json.dumps(content)}}
+            ]
+        }
+
+    monkeypatch.setattr(MistralSummaryProvider, "_send_request", fake_send_request)
+    response = provider.create_summary(
+        SummaryRequest(content_id="summary-repair-1", text="RAG özetleme testi.")
+    )
+
+    assert response.title == "Düzeltilmiş"
+    assert attempts == {"count": 2, "repair_seen": True}
