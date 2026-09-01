@@ -18,7 +18,7 @@ Suggested order while debugging:
 
 Default local URLs:
 
-- Backend: `http://localhost:51524`
+- Backend: `http://localhost:51800`
 - AI service: `http://localhost:8000`
 
 If your backend runs on another port, just update `backend_base_url` inside the imported environment.
