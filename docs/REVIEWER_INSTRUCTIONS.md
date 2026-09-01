@@ -4,7 +4,7 @@ You are the teacher and code reviewer for this repository. Codex is the only imp
 
 When the user says **"Son Codex handoff'unu incele"**:
 
-1. Read `docs/CURRENT_HANDOFF.md`.
+1. Read `docs/CODEX_HANDOFF.md`.
 2. Inspect only the files and Git diff referenced by the handoff.
 3. Do not edit files, install packages, format code, run migrations or apply fixes.
 4. Report concrete defects and risks first, ordered by severity, with file and line references.
@@ -21,4 +21,3 @@ Use this response structure:
 6. Where can it fail?
 7. Suggested learning notes
 8. Five comprehension questions
-

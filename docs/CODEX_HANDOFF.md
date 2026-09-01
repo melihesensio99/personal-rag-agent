@@ -43,9 +43,9 @@ Responsibilities:
 - Kullanıcı mesajını alır.
 - AI intent endpoint ile mesajın `save`, `search`, `clarify` olduğunu öğrenir.
 - Save ise content pipeline'ı çalıştırır.
-- Search ise PostgreSQL kayıtlarını filtreler.
+- Search ise PostgreSQL'de filtreleme veya pgvector semantic retrieval çalıştırır.
 - PostgreSQL persistence EF Core ile yapılır.
-- Telegram response formatting yapar.
+- Retrieved chunk'ları Answer LLM'e gönderir ve Telegram response formatting yapar.
 
 Important files:
 
@@ -114,6 +114,7 @@ Sistem şu anda şunları yapabiliyor:
 - İçeriği PostgreSQL `contents` tablosuna kaydediyor.
 - Extract edilen metni chunk'lara bölüp PostgreSQL `content_chunks` tablosuna yazıyor.
 - Postman ile content ve chunk kayıtları incelenebiliyor.
+- Semantic search/answer debug endpoint'leri ile query embedding ve LLM bağlamı incelenebiliyor.
 
 ## Important decisions made
 
@@ -185,7 +186,8 @@ AI_SERVICE_INTENT_PROVIDER=mistral
 AI_SERVICE_MISTRAL_API_KEY=...
 AI_SERVICE_MISTRAL_INTENT_MODEL=ministral-3b-2512
 AI_SERVICE_MISTRAL_SUMMARY_MODEL=ministral-8b-2512
-AI_SERVICE_MISTRAL_TIMEOUT_SECONDS=20
+AI_SERVICE_MISTRAL_TIMEOUT_SECONDS=60
+AI_SERVICE_MISTRAL_RESPONSE_FORMAT=json_schema
 ```
 
 Gerçek API key repo'ya koyulmamalıdır.
@@ -209,7 +211,7 @@ eklendi.
 
 ### .NET AI service timeout increased
 
-Backend config'te AI service timeout 5 saniyeydi. Mistral summary 10-20 saniye sürebildiği için Telegram'da hata oluşuyordu.
+Backend config'te AI service timeout 60 saniyeye çıkarıldı. Mistral answer/summary gecikmelerine karşı Python provider timeout'u da 60 saniyedir.
 
 Şu an:
 
@@ -245,7 +247,7 @@ __EFMigrationsHistory
 - char start/end
 - created at
 
-Important: `content_chunks` currently stores plain text chunks only. This is not yet vector search. pgvector/embedding is the next major RAG step.
+`content_chunks` plain text chunk'ları ve Mistral embedding'lerini PostgreSQL pgvector kolonunda saklar. Semantic retrieval ve Answer LLM akışı aktiftir.
 
 ## How to run locally
 
@@ -291,13 +293,13 @@ dotnet run --project services/backend-dotnet/TelegramAi.Backend/TelegramAi.Backe
 Known local HTTP port from launch settings:
 
 ```text
-http://localhost:51524
+http://localhost:51800
 ```
 
 Health:
 
 ```text
-http://127.0.0.1:51524/health
+http://127.0.0.1:51800/health
 ```
 
 ## How to test
@@ -339,11 +341,7 @@ cd services/ai-service-python
 python -m pytest tests
 ```
 
-Expected recently:
-
-```text
-23 passed
-```
+Beklenen sonuç: tüm Python testleri başarılı olmalı (mevcut suite 35 test).
 
 .NET:
 
@@ -376,32 +374,26 @@ https://github.com/melihesensio99/personal-rag-agent.git
 - Telegram conversation history is not portable across Codex accounts.
 - API keys are local `.env`; never commit them.
 - Current chunking is fixed-size character chunking, not semantic chunking.
-- No embeddings yet.
-- No pgvector yet.
-- Search is not true semantic RAG yet; it is DB/filter based.
-- Answer LLM is not implemented yet; search results are formatted by backend.
+- Embedding ve pgvector aktif; chunk ve query embedding'leri Mistral ile üretiliyor.
+- Answer LLM semantic retrieval sonuçlarıyla aktif.
 - PDF/image upload support is planned but not implemented.
 - YouTube transcript availability depends on YouTube captions/transcript API behavior.
 - Some transcripts can be in Hindi/English/Turkish; future improvement may store original + Turkish normalized text.
 
 ## Next recommended step
 
-The next major engineering step should be:
+Sonraki büyük adım:
 
 ```text
-Embedding + pgvector for content_chunks
+Hybrid retrieval ve reranking kalitesini artırmak
 ```
 
 Recommended implementation order:
 
-1. Add pgvector extension migration.
-2. Add `Embedding` column to `content_chunks`.
-3. Add Python embedding endpoint.
-4. Use Mistral embedding model or another free embedding provider.
-5. After chunk creation, generate embedding for each chunk.
-6. Implement semantic search endpoint/query in backend.
-7. For user search questions, retrieve top relevant chunks.
-8. Add Answer LLM to generate natural Turkish response with source links.
+1. Ortak structured-output runner'ı Gemini provider'larına da bağla.
+2. Hybrid (BM25 + vector) search ekle.
+3. Reranking ve retrieval evaluation ekle.
+4. Chunking kalitesini paragraph/sentence-aware hale getir.
 
 ## Prompt for another Codex account
 
@@ -410,4 +402,3 @@ When opening this repo in another Codex account, paste:
 ```text
 Bu projeye devam etmek istiyorum. Önce docs/CODEX_HANDOFF.md dosyasını tamamen oku, sonra docs/ROADMAP.md ve docs/MANUAL_TEST_FLOW.md dosyalarını incele. Sohbet geçmişim yok; bu dosyayı proje hafızası olarak kabul et. Bana mevcut durumu kısa özetle ve sıradaki adım olan embedding + pgvector için plan çıkar. Kod yazmadan önce hangi dosyalara bakacağını söyle.
 ```
-

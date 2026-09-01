@@ -34,7 +34,7 @@ dotnet run --project services/backend-dotnet/TelegramAi.Backend
 Use the backend URL printed by `dotnet run`. In the current Postman environment the default is:
 
 ```text
-http://localhost:51524
+http://localhost:51800
 ```
 
 ## 4. Postman Flow
@@ -97,7 +97,7 @@ Python uses ArticleExtractor.
 If trafilatura is installed, article_parser is trafilatura.
 Mistral summarizes the cleaned article text when AI_SERVICE_SUMMARY_PROVIDER=mistral.
 .NET stores the content in PostgreSQL.
-.NET asks Python for chunk embeddings and stores them in PostgreSQL/pgvector.
+.NET asks Python for chunk embeddings and stores them in PostgreSQL's pgvector column.
 Telegram returns the formatted summary.
 ```
 
@@ -147,7 +147,7 @@ Telegram lists matching records.
 Test semantic search in Postman after saving an article:
 
 ```text
-POST http://127.0.0.1:5080/api/v1/search/semantic
+POST http://localhost:51800/api/v1/search/semantic
 ```
 
 Body:
@@ -181,7 +181,7 @@ If you want the search to focus on a single saved link, add the optional `conten
 Test semantic answer in Postman after saving an article:
 
 ```text
-POST http://127.0.0.1:5080/api/v1/search/answer
+POST http://localhost:51800/api/v1/search/answer
 ```
 
 Body:
@@ -214,7 +214,7 @@ If you want the answer to rely on only one saved link, send the same optional `c
 
 ## 6. Current Important Limits
 
-The system is not full RAG yet.
+The current system has a working Naive RAG path.
 
 Currently implemented:
 
@@ -230,6 +230,7 @@ PostgreSQL persistence
 chunking
 embeddings
 pgvector semantic search
+LLM answer generation with source chunks
 basic filtered search
 ```
 
@@ -238,7 +239,7 @@ Not implemented yet:
 ```text
 PDF file upload extraction
 image OCR or image understanding
-semantic search wired into Telegram natural question flow
+advanced retrieval (hybrid search, reranking, GraphRAG)
 ```
 
 ## 7. Useful Debug Points

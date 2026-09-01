@@ -6,7 +6,7 @@ Bu dosya, proje ilerlerken unutulmaması gereken teknik borçları ve sonraki ge
 
 - Telegram bot üzerinden metin/link alma.
 - Python AI service ile intent sınıflandırma.
-- Mistral ile intent ve summary üretme.
+- Mistral ile intent, summary ve answer üretme.
 - Article URL extraction ile makale metni çekme.
 - YouTube metadata/transcript extraction denemesi.
 - İçeriği PostgreSQL'e `contents` olarak kaydetme.
@@ -17,11 +17,11 @@ Bu dosya, proje ilerlerken unutulmaması gereken teknik borçları ve sonraki ge
 - `POST /api/v1/search/semantic` ile kullanıcı sorgusuna en yakın chunk'ları pgvector üzerinden bulma.
 - `POST /api/v1/search/answer` ile bulunan chunk'lar üzerinden Türkçe cevap üretme.
 - `contentId` filtresi ile tek bir kayıt/link üzerinden semantic search ve answer yapabilme.
-- Postman üzerinden content ve chunk kayıtlarını inceleme.
+- Postman üzerinden content, chunk, semantic search ve semantic answer debug kayıtlarını inceleme.
 
 ## Kısa vadeli iyileştirme backlog'u
 
-### 1. Intent contract v2
+### 1. Agent decision contract v2
 
 Amaç: LLM'in serbest string yerine numeric code döndürmesi.
 
@@ -92,7 +92,7 @@ Amaç: Sabit karakter bazlı chunk yerine daha anlamlı chunk üretmek.
 - Markdown heading'e göre chunking.
 - Çok kısa/çok uzun chunk'ları normalize etme.
 
-### 5. Embedding + pgvector
+### 5. Embedding + pgvector (tamamlandı)
 
 Amaç: Chunk'ları gerçek RAG aramasına hazır hale getirmek.
 
@@ -104,12 +104,9 @@ Durum:
 - Query geldiğinde kullanıcı sorusu embedding'e çevriliyor.
 - pgvector cosine distance ile en alakalı chunk'lar bulunuyor.
 
-Sıradaki iyileştirme:
+Tamamlanan sonuç: Semantic search ve Answer LLM Telegram soru akışına bağlandı; cevap kaynak chunk'larıyla birlikte dönüyor.
 
-- Semantic search sonucunu Telegram arama akışına bağla.
-- Sonuç chunk'larını Answer LLM'e verip doğal Türkçe cevap üret.
-
-### 6. Answer LLM
+### 6. Answer LLM (tamamlandı)
 
 Amaç: Search sonucu bulunan kayıtları sadece listelemek yerine LLM ile doğal cevap üretmek.
 
@@ -124,12 +121,7 @@ Kullanıcı sorusu
 → Türkçe doğal cevap + kaynak linkleri
 ```
 
-Durum:
-
-- Semantic search endpoint'i çalışıyor.
-- Answer LLM endpoint'i eklendi; backend, semantik sonuçları Python'a verip Türkçe cevap alabiliyor.
-- Semantic search/answer endpoint'leri artık opsiyonel `contentId` filtresiyle tek bir linke odaklanabiliyor.
-- Sonraki pratik adım bunu Telegram doğal soru akışına bağlamak.
+Durum: Semantic search sonuçları Python Answer LLM'e gönderiliyor; Türkçe, kaynak-temelli cevap ve çelişen görüş karşılaştırması üretiliyor. `contentId` ile tek kayda odaklanma destekleniyor.
 
 ### 7. Clarify flow
 

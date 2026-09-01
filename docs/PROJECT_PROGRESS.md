@@ -29,9 +29,9 @@ Bu dosya projede neleri bitirdigimizi, her adimin hangi konuya denk geldigini ve
   - Konu: bot UX
 - [x] Telegram'dan gelen metin/link backend'e aktariliyor.
   - Konu: message handling, application service
-- [~] Telegram'da soru/listeme/kaydetme ayrimi calisiyor.
+- [x] Telegram'da soru/listeleme/kaydetme ayrimi LLM action'i ile calisiyor.
   - Konu: intent routing
-  - Not: Su an calisiyor ama Agent Router v1 ile daha temiz hale getirilecek.
+  - Not: LLM action'ı doğrudan backend action executor akışına bağlandı.
 
 ## 3. Persistence ve Veri Modeli
 
@@ -127,11 +127,14 @@ Bu dosya projede neleri bitirdigimizi, her adimin hangi konuya denk geldigini ve
   - Konu: routing
 - [x] Uzun icerik/metin `save` olarak korunuyor.
   - Konu: guardrail
-- [x] Soru cumlesi yanlislikla `save` veya `clarify` olursa `search`e cekiliyor.
-  - Konu: normalization, guardrail
-- [~] Backend hala `search` geldikten sonra liste mi cevap mi kararini kismen kendi veriyor.
-  - Konu: temporary orchestration
-  - Not: Bu kisim Agent Router v1 ile kaldirilacak.
+- [x] Backend LLM'in `action` alanina gore yalnızca action executor olarak calisiyor.
+  - Konu: LLM routing, action execution
+- [x] Python semantic action override guardrail'leri kaldirildi.
+  - Konu: schema validation vs semantic decision ownership
+- [x] Intent, answer ve summary Mistral akışlarında validation + repair/retry eklendi.
+  - Konu: structured output reliability
+- [x] Mistral provider'larında JSON Schema response formatı eklendi.
+  - Konu: constrained structured output
 
 ## 10. Postman ve Manuel Test
 
@@ -150,13 +153,11 @@ Bu dosya projede neleri bitirdigimizi, her adimin hangi konuya denk geldigini ve
   - Konu: source control
 - [x] Asamalar commitlere bolunerek pushlandi.
   - Konu: git hygiene
-- [x] Architecture, roadmap, manual test flow ve learning notes dosyalari eklendi.
+- [x] Architecture, roadmap, manual test flow ve handoff dosyalari eklendi.
   - Konu: project documentation
-- [~] Learning notes guncellenmeli.
-  - Konu: documentation maintenance
-  - Not: Embedding/RAG kisimlari eski bilgi iceriyor olabilir.
+- [x] Eski learning notes klasörü ve Markdown dosyası kaldırıldı.
 
-## Siradaki Buyuk Asama: Agent Router v1
+## Siradaki Buyuk Asama: Ortak structured-output ve agent router iyileştirmeleri
 
 - [ ] `IntentResponse` yerine `AgentDecisionResponse` tasarla.
   - Konu: LLM router, tool-based orchestration
@@ -167,9 +168,9 @@ Bu dosya projede neleri bitirdigimizi, her adimin hangi konuya denk geldigini ve
   - Konu: tool selection prompt
 - [ ] .NET tarafinda `ResolveIntentAsync` yerine `ResolveAgentDecisionAsync` kur.
   - Konu: backend orchestration
-- [ ] Backend'deki `ShouldUseSemanticAnswer` gibi karar kurallarini kaldir.
+- [x] Backend'deki `ShouldUseSemanticAnswer` gibi karar kurallari kaldirildi.
   - Konu: removing duplicated decision logic
-- [ ] Backend'i sadece action executor gibi calistir.
+- [x] Backend'i sadece action executor gibi calistir.
   - Konu: safe tool execution
 - [ ] Action bazli Telegram testleri yap.
   - Konu: end-to-end validation
@@ -212,9 +213,8 @@ Bu dosya projede neleri bitirdigimizi, her adimin hangi konuya denk geldigini ve
 - [x] RAG nedir?
 - [x] Citation/source grounding nedir?
 - [~] Agent nedir?
-  - Not: Agent Router v1 ile pratik olarak oturacak.
+  - Not: Tool calling ve agent orchestration sonraki öğrenme adımıdır.
 - [ ] Tool calling nedir?
 - [ ] Hybrid search nedir?
 - [ ] Re-ranking nedir?
 - [ ] Evaluation/RAGAS nedir?
-
