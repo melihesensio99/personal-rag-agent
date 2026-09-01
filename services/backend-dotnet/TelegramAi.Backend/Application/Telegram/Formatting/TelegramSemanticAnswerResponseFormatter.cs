@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.RegularExpressions;
 using TelegramAi.Backend.Application.Content.Queries;
 
 namespace TelegramAi.Backend.Application.Telegram.Formatting;
@@ -12,7 +13,7 @@ public sealed class TelegramSemanticAnswerResponseFormatter : ITelegramSemanticA
         var builder = new StringBuilder();
 
         builder.AppendLine("🤖 Cevap");
-        builder.AppendLine(result.Answer);
+        builder.AppendLine(CleanLlmAnswer(result.Answer));
 
         if (result.Sources.Count > 0)
         {
@@ -55,6 +56,18 @@ public sealed class TelegramSemanticAnswerResponseFormatter : ITelegramSemanticA
         }
 
         return $"{message[..TelegramSafeMessageLength]}\n\n…";
+    }
+
+    private static string CleanLlmAnswer(string answer)
+    {
+        var cleaned = answer.Trim();
+
+        // Telegram plain-text output should not expose Markdown control characters.
+        cleaned = Regex.Replace(cleaned, @"\*\*|__|`", string.Empty);
+        cleaned = Regex.Replace(cleaned, @"(?m)^\s*#{1,6}\s*", string.Empty);
+        cleaned = Regex.Replace(cleaned, @"\[([^\]]+)\]\((https?://[^)]+)\)", "$1 ($2)");
+
+        return cleaned;
     }
 
     private static bool IsHttpUrl(string value)
