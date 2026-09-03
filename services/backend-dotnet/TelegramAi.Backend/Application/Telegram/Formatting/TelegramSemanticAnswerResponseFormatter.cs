@@ -18,34 +18,39 @@ public sealed class TelegramSemanticAnswerResponseFormatter : ITelegramSemanticA
         if (result.Sources.Count > 0)
         {
             builder.AppendLine();
-            builder.AppendLine("📚 Kaynaklar");
-
-            foreach (var sourceGroup in result.Sources
-                         .GroupBy(source => source.ContentId)
-                         .Select(group => new
-                         {
-                             Source = group.First(),
-                             ChunkIndexes = group
-                                 .Select(source => source.ChunkIndex)
-                                 .Distinct()
-                                 .OrderBy(index => index)
-                                 .ToArray(),
-                         }))
-            {
-                builder.AppendLine("────────────────");
-                builder.AppendLine($"📌 {sourceGroup.Source.ContentTitle}");
-                builder.AppendLine($"📎 Tür: {sourceGroup.Source.SourceType}");
-
-                if (IsHttpUrl(sourceGroup.Source.ContentUrl))
-                {
-                    builder.AppendLine($"🔗 {sourceGroup.Source.ContentUrl}");
-                }
-
-                builder.AppendLine($"🧩 Kullanılan chunklar: {string.Join(", ", sourceGroup.ChunkIndexes)}");
-            }
+            builder.AppendLine("📚 Kaynaklar aşağıdaki mesajlarda gösteriliyor.");
         }
 
         return TruncateForTelegram(builder.ToString().Trim());
+    }
+
+    public IReadOnlyList<string> FormatSourceMessages(SemanticAnswerResult result)
+    {
+        return result.Sources
+            .GroupBy(source => source.ContentId)
+            .Select(group =>
+            {
+                var source = group.First();
+                var chunkIndexes = group
+                    .Select(item => item.ChunkIndex)
+                    .Distinct()
+                    .OrderBy(index => index)
+                    .ToArray();
+                var builder = new StringBuilder();
+
+                builder.AppendLine("────────────────");
+                builder.AppendLine($"📌 {source.ContentTitle}");
+                builder.AppendLine($"📎 Tür: {source.SourceType}");
+
+                if (IsHttpUrl(source.ContentUrl))
+                {
+                    builder.AppendLine($"🔗 {source.ContentUrl}");
+                }
+
+                builder.AppendLine($"🧩 Kullanılan chunklar: {string.Join(", ", chunkIndexes)}");
+                return TruncateForTelegram(builder.ToString().Trim());
+            })
+            .ToList();
     }
 
     private static string TruncateForTelegram(string message)

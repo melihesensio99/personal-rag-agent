@@ -5,5 +5,5 @@ namespace TelegramAi.Backend.Application.Telegram.Formatting;
 
 public interface ITelegramContentSearchResponseFormatter
 {
-    string Format(SearchContentsQuery query, IReadOnlyList<ContentItem> contents);
+    IReadOnlyList<string> FormatMessages(SearchContentsQuery query, IReadOnlyList<ContentItem> contents);
 }

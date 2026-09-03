@@ -8,4 +8,5 @@ public sealed record SearchContentsQuery(
     ContentSourceType? SourceType,
     DateTimeOffset? FromUtc,
     DateTimeOffset? ToUtc,
+    string? SemanticQuery = null,
     int MaxResults = 5);

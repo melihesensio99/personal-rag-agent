@@ -129,6 +129,12 @@ class MistralIntentProvider(IntentProvider):
 
             parsed = self._parse_json_object(output_text)
             response = IntentResponse.model_validate(parsed)
+            date_from, date_to = self._normalize_date_range(
+                response.date_from,
+                response.date_to,
+                request.message,
+                request.current_date,
+            )
             return response.model_copy(
                 update={
                     "query": (
@@ -143,8 +149,11 @@ class MistralIntentProvider(IntentProvider):
                     ),
                     "content_kind": self._normalize_optional_literal(response.content_kind, self._CONTENT_KIND_ALIASES),
                     "source_type": self._normalize_optional_literal(response.source_type, self._SOURCE_TYPE_ALIASES),
-                    "time_filter": self._normalize_required_literal(response.time_filter, self._TIME_FILTER_ALIASES, fallback="none"),
+                    "time_filter": self._normalize_time_filter(response.time_filter, request.message),
+                    "date_from": date_from,
+                    "date_to": date_to,
                     "keywords": self._normalize_keywords(response.keywords),
+                    "semantic_query": self._normalize_optional_text(response.semantic_query),
                     "needs_clarification": self._normalize_bool(response.needs_clarification),
                     "clarification_message": self._normalize_optional_text(response.clarification_message),
                 }
@@ -173,7 +182,9 @@ class MistralIntentProvider(IntentProvider):
             "content_kind must be text, video, image, or null. "
             "source_type must be article, youtube, pdf, image, telegram, or null. "
             "time_filter must be today, yesterday, two_days_ago, or none. "
+            "date_from and date_to must be ISO dates (YYYY-MM-DD) when the user gives a date range; date_to is exclusive. "
             "keywords must be an array of meaningful topic words. "
+            "semantic_query is an optional natural-language retrieval description for open-ended searches that do not map cleanly to keywords. "
             "The user usually writes in Turkish. "
             "Turkish search verbs include: getir, listele, göster, goster, bul, ara, neydi, hangisiydi. "
             "If the user asks to retrieve, list, show, find, or search previously saved records, choose action list_contents. "
@@ -189,15 +200,16 @@ class MistralIntentProvider(IntentProvider):
             "If the user says yazı, yazi, pdf, doküman, or dokuman, set content_kind to text. "
             "If the user says bugün or bugun, set time_filter to today. "
             "If the user says dün or dun, set time_filter to yesterday. "
-            "Do not include filler words in keywords: bugun, bugün, dun, dün, attigim, attığım, getir, listele, göster, goster, bul, link, video, videolar. "
+            "If the user says geçen hafta, geçen ay, or a specific date range, use date_from/date_to instead of time_filter. "
+            "Do not include content-type words or filler words in keywords: makale, makaleler, makaleleri, article, video, videolar, videoları, youtube, link, linkleri, bugun, bugün, dun, dün, attigim, attığım, getir, listele, göster, goster, bul. "
             "If the message is ambiguous and you cannot safely choose save/search, choose clarify. "
             "Examples: "
             "User: 'bugün attığım spor videolarını listele' => "
-            "{\"action\":\"list_contents\",\"intent\":\"search\",\"query\":\"bugün attığım spor videolarını listele\",\"content\":null,\"content_kind\":\"video\",\"source_type\":null,\"time_filter\":\"today\",\"keywords\":[\"spor\"],\"needs_clarification\":false,\"clarification_message\":null}. "
+            "{\"action\":\"list_contents\",\"intent\":\"search\",\"query\":\"bugün attığım spor videolarını listele\",\"content\":null,\"content_kind\":\"video\",\"source_type\":null,\"time_filter\":\"today\",\"date_from\":null,\"date_to\":null,\"keywords\":[\"spor\"],\"semantic_query\":null,\"needs_clarification\":false,\"clarification_message\":null}. "
             "User: 'geçen gün attığım sporla ilgili şeyi bulsana' => "
-            "{\"action\":\"list_contents\",\"intent\":\"search\",\"query\":\"geçen gün attığım sporla ilgili şeyi bulsana\",\"content\":null,\"content_kind\":null,\"source_type\":null,\"time_filter\":\"none\",\"keywords\":[\"spor\"],\"needs_clarification\":false,\"clarification_message\":null}. "
+            "{\"action\":\"list_contents\",\"intent\":\"search\",\"query\":\"geçen gün attığım sporla ilgili şeyi bulsana\",\"content\":null,\"content_kind\":null,\"source_type\":null,\"time_filter\":\"none\",\"date_from\":null,\"date_to\":null,\"keywords\":[\"spor\"],\"semantic_query\":\"spor\",\"needs_clarification\":false,\"clarification_message\":null}. "
             "User: 'bugün attığım makaleleri getir' => "
-            "{\"action\":\"list_contents\",\"intent\":\"search\",\"query\":\"bugün attığım makaleleri getir\",\"content\":null,\"content_kind\":null,\"source_type\":\"article\",\"time_filter\":\"today\",\"keywords\":[],\"needs_clarification\":false,\"clarification_message\":null}. "
+            "{\"action\":\"list_contents\",\"intent\":\"search\",\"query\":\"bugün attığım makaleleri getir\",\"content\":null,\"content_kind\":null,\"source_type\":\"article\",\"time_filter\":\"today\",\"date_from\":null,\"date_to\":null,\"keywords\":[],\"semantic_query\":null,\"needs_clarification\":false,\"clarification_message\":null}. "
             "User: 'Kas yapmak için günlük ne kadar protein almalıyım?' => "
             "{\"action\":\"answer_from_memory\",\"intent\":\"search\",\"query\":\"Kas yapmak için günlük ne kadar protein almalıyım?\",\"content\":null,\"content_kind\":null,\"source_type\":null,\"time_filter\":\"none\",\"keywords\":[\"kas yapmak\",\"protein\"],\"needs_clarification\":false,\"clarification_message\":null}. "
             "User: 'RAG nedir?' => "
@@ -370,6 +382,59 @@ class MistralIntentProvider(IntentProvider):
         return normalized or None
 
     @staticmethod
+    def _normalize_date(value: object) -> str | None:
+        if not isinstance(value, str):
+            return None
+        normalized = value.strip()
+        if len(normalized) != 10:
+            return None
+        try:
+            from datetime import date
+            date.fromisoformat(normalized)
+        except ValueError:
+            return None
+        return normalized
+
+    @classmethod
+    def _normalize_time_filter(cls, value: object, message: str) -> str:
+        normalized = cls._normalize_required_literal(value, cls._TIME_FILTER_ALIASES, fallback="none")
+        text = message.strip().lower()
+        has_explicit_date = any(
+            marker in text
+            for marker in ("bugün", "bugun", "dün", "dun", "geçen hafta", "gecen hafta", "geçen ay", "gecen ay")
+        )
+        return normalized if has_explicit_date else "none"
+
+    @classmethod
+    def _normalize_date_range(
+        cls,
+        date_from: object,
+        date_to: object,
+        message: str,
+        current_date: str,
+    ) -> tuple[str | None, str | None]:
+        from datetime import date, timedelta
+
+        try:
+            today = date.fromisoformat(current_date)
+        except ValueError:
+            today = date.today()
+
+        text = message.lower()
+        if "geçen ay" in text or "gecen ay" in text:
+            this_month = today.replace(day=1)
+            previous_month_end = this_month - timedelta(days=1)
+            previous_month_start = previous_month_end.replace(day=1)
+            return previous_month_start.isoformat(), this_month.isoformat()
+
+        if "geçen hafta" in text or "gecen hafta" in text:
+            week_start = today - timedelta(days=today.weekday())
+            previous_week_start = week_start - timedelta(days=7)
+            return previous_week_start.isoformat(), week_start.isoformat()
+
+        return cls._normalize_date(date_from), cls._normalize_date(date_to)
+
+    @staticmethod
     def _derive_action_from_intent(intent: str, message: str) -> str:
         if intent == "save":
             return "save_content"
@@ -414,6 +479,16 @@ class MistralIntentProvider(IntentProvider):
             "videolar",
             "videolari",
             "videoları",
+            "makale",
+            "makaleler",
+            "makaleleri",
+            "article",
+            "articles",
+            "youtube",
+            "kayıt",
+            "kayıtları",
+            "kayit",
+            "kayitlari",
         }
         keywords: list[str] = []
 

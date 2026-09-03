@@ -207,6 +207,9 @@ public sealed class AiServiceClient(HttpClient httpClient) : IAiServiceClient
             ContentKind: intent.ContentKind,
             SourceType: intent.SourceType,
             TimeFilter: intent.TimeFilter,
+            DateFrom: intent.DateFrom,
+            DateTo: intent.DateTo,
+            SemanticQuery: intent.SemanticQuery,
             Keywords: intent.Keywords,
             NeedsClarification: intent.NeedsClarification,
             ClarificationMessage: intent.ClarificationMessage);

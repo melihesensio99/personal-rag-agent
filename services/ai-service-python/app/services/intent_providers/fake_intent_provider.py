@@ -37,7 +37,7 @@ class FakeIntentProvider(IntentProvider):
                 time_filter = "two_days_ago"
 
             words = re.findall(r"\w+", lowered)
-            stop = {"bugün", "bugun", "dün", "dun", "attığım", "attigim", "listele", "getir", "göster", "goster", "kayıtları", "kayitlari", "kayıt", "kayit", "linkleri", "link", "pdfleri", "youtube", "videolarını", "videolari", "fotoğrafı", "fotografi", "resmi"}
+            stop = {"bugün", "bugun", "dün", "dun", "attığım", "attigim", "listele", "getir", "göster", "goster", "kayıtları", "kayitlari", "kayıt", "kayit", "linkleri", "link", "pdfleri", "youtube", "videolarını", "videolari", "fotoğrafı", "fotografi", "resmi", "makale", "makaleler", "makaleleri", "article", "articles", "video", "videolar"}
             keywords = [word for word in words if len(word) >= 3 and word not in stop][:5]
 
             return IntentResponse(

@@ -9,19 +9,21 @@ public sealed class TelegramContentSearchResponseFormatter : ITelegramContentSea
 {
     private const int TelegramSafeMessageLength = 3800;
 
-    public string Format(SearchContentsQuery query, IReadOnlyList<ContentItem> contents)
+    public IReadOnlyList<string> FormatMessages(SearchContentsQuery query, IReadOnlyList<ContentItem> contents)
     {
         if (contents.Count == 0)
         {
-            return "🔍 Aramana uygun bir kayıt bulamadım.";
+            return ["🔍 Aramana uygun bir kayıt bulamadım."];
         }
 
-        var builder = new StringBuilder();
-        builder.AppendLine(contents.Count == 1 ? "🔍 Bunu buldum" : "🔍 Bunları buldum");
-        builder.AppendLine();
+        var messages = new List<string>(contents.Count + 1)
+        {
+            contents.Count == 1 ? "🔍 Bunu buldum" : $"🔍 {contents.Count} kayıt buldum"
+        };
 
         foreach (var content in contents)
         {
+            var builder = new StringBuilder();
             builder.AppendLine("────────────────");
             builder.AppendLine($"📌 {content.Summary.Title}");
             builder.AppendLine($"📎 Tür: {content.SourceType}");
@@ -31,15 +33,15 @@ public sealed class TelegramContentSearchResponseFormatter : ITelegramContentSea
             builder.AppendLine(content.Summary.ShortSummary);
             builder.AppendLine("🔗 İçerik");
             builder.AppendLine(BuildRawContentPreview(content.RawText));
-            builder.AppendLine();
+            if (query.Keywords.Count > 0)
+            {
+                builder.AppendLine($"🏷️ Filtre: {string.Join(", ", query.Keywords)}");
+            }
+
+            messages.Add(TruncateForTelegram(builder.ToString().Trim()));
         }
 
-        if (query.Keywords.Count > 0)
-        {
-            builder.AppendLine($"🏷️ Filtre: {string.Join(", ", query.Keywords)}");
-        }
-
-        return TruncateForTelegram(builder.ToString().Trim());
+        return messages;
     }
 
     private static string BuildRawContentPreview(string rawText)

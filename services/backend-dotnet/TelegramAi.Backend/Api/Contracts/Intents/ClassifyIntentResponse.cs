@@ -8,6 +8,9 @@ public sealed record ClassifyIntentResponse(
     string? ContentKind,
     string? SourceType,
     string TimeFilter,
+    string? DateFrom,
+    string? DateTo,
+    string? SemanticQuery,
     IReadOnlyList<string> Keywords,
     bool NeedsClarification,
     string? ClarificationMessage);
