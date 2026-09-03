@@ -54,8 +54,19 @@ public sealed class AgentToolExecutor(
 
     private async Task<IReadOnlyList<string>> ExecuteSaveIncomingContentAsync(long chatId, string fallbackText, string? senderDisplayName, ClassifyIntentResponse decision, CancellationToken cancellationToken)
     {
-        var result = await telegramMessageApplicationService.ProcessAsync(new ProcessTelegramMessageCommand(chatId, string.IsNullOrWhiteSpace(decision.Content) ? fallbackText : decision.Content.Trim(), senderDisplayName), cancellationToken);
+        // For URL messages, always preserve the original URL. The intent model may
+        // return a preview/summary in `content`, which would prevent extraction.
+        var contentToSave = ContainsUrl(fallbackText)
+            ? fallbackText.Trim()
+            : string.IsNullOrWhiteSpace(decision.Content) ? fallbackText : decision.Content.Trim();
+        var result = await telegramMessageApplicationService.ProcessAsync(new ProcessTelegramMessageCommand(chatId, contentToSave, senderDisplayName), cancellationToken);
         return [messageFormatter.Format(result)];
+    }
+
+    private static bool ContainsUrl(string text)
+    {
+        return text.Contains("http://", StringComparison.OrdinalIgnoreCase) ||
+               text.Contains("https://", StringComparison.OrdinalIgnoreCase);
     }
 
     private static DateTimeOffset? ParseDate(string? value)

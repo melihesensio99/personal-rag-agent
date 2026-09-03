@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.services.extractors.article_extractor import ArticleExtractor
+from app.services.extractors.pmc_article_extractor import PmcArticleExtractor
 from app.services.extractors.youtube_extractor import YouTubeExtractor
 from app.services.extractors.youtube_transcript_provider import YouTubeTranscriptProvider, YouTubeTranscriptResult
 
@@ -117,6 +118,33 @@ def test_create_article_extraction_rejects_google_search_page() -> None:
     assert body["detected_content_kind"] == "unknown"
     assert body["extraction_status"] == "unsupported"
     assert body["metadata"]["extra"]["reason"] == "search_result_page"
+
+
+def test_create_pmc_extraction_uses_full_text_xml(monkeypatch) -> None:
+    monkeypatch.setattr(
+        PmcArticleExtractor,
+        "_fetch_xml",
+        lambda self, pmc_id: """<article><front><article-meta><article-title>PMC Study</article-title></article-meta></front>
+            <abstract><p>Abstract about low carbohydrate diets and diabetes outcomes.</p></abstract>
+            <body><sec><title>Results</title><p>This is the full text body with enough detail to be indexed and searched reliably.</p></sec></body>
+        </article>""",
+    )
+
+    response = client.post(
+        "/api/v1/extractions",
+        json={
+            "content_id": "content-pmc-1",
+            "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6566854/",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["source_type"] == "article"
+    assert body["extraction_status"] == "completed"
+    assert body["title"] == "PMC Study"
+    assert "low carbohydrate diets" in body["extracted_text"]
+    assert body["metadata"]["extra"]["pmc_id"] == "PMC6566854"
 
 
 def test_create_extraction_detects_source_type_when_not_provided(monkeypatch) -> None:

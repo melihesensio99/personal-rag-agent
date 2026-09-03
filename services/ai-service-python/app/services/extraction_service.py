@@ -1,5 +1,6 @@
 from app.contracts.extractions import ExtractionRequest, ExtractionResponse
 from app.services.extractors.article_extractor import ArticleExtractor
+from app.services.extractors.pmc_article_extractor import PmcArticleExtractor
 from app.services.extractors.youtube_extractor import YouTubeExtractor
 from urllib.parse import urlparse
 
@@ -8,14 +9,19 @@ class ExtractionService:
     def __init__(
         self,
         article_extractor: ArticleExtractor,
+        pmc_article_extractor: PmcArticleExtractor,
         youtube_extractor: YouTubeExtractor,
     ) -> None:
         self._article_extractor = article_extractor
+        self._pmc_article_extractor = pmc_article_extractor
         self._youtube_extractor = youtube_extractor
 
     def extract(self, request: ExtractionRequest) -> ExtractionResponse:
         detected_source_type = self._detect_source_type(request)
         normalized_request = request.model_copy(update={"source_type": detected_source_type})
+
+        if detected_source_type == "article" and normalized_request.url is not None and self._is_pmc_url(str(normalized_request.url)):
+            return self._pmc_article_extractor.extract(normalized_request)
 
         if detected_source_type == "article" and normalized_request.url is not None:
             return self._article_extractor.extract(normalized_request)
@@ -88,3 +94,8 @@ class ExtractionService:
         path = parsed.path.lower()
         host = parsed.netloc.lower()
         return "instagram.com" in host and ("/reel/" in path or "/reels/" in path)
+
+    @staticmethod
+    def _is_pmc_url(url: str) -> bool:
+        parsed = urlparse(url)
+        return "pmc.ncbi.nlm.nih.gov" in parsed.netloc.lower() and "/articles/pmc" in parsed.path.lower()
