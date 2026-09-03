@@ -126,7 +126,7 @@ public sealed class TelegramPollingHostedService(
             {
                 var semanticAnswer = await contentApplicationService.SemanticAnswerAsync(
                     ResolveQuestionText(decision, text),
-                    3,
+                    8,
                     null,
                     cancellationToken);
 

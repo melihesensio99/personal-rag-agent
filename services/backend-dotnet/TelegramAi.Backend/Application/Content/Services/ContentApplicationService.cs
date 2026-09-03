@@ -17,6 +17,12 @@ public sealed class ContentApplicationService(
     IContentRepository contentRepository,
     ILogger<ContentApplicationService> logger) : IContentApplicationService
 {
+    private const int SemanticCandidateLimit = 20;
+    private const int MaxChunksPerContent = 3;
+    private const int MaxAnswerChunks = 8;
+    private const int MaxAnswerContextCharacters = 12_000;
+    private const double MinimumAnswerSimilarity = 0.70;
+
     public async Task<ContentItem> CreateAsync(
         CreateContentCommand command,
         CancellationToken cancellationToken)
@@ -118,7 +124,22 @@ public sealed class ContentApplicationService(
         Guid? contentId,
         CancellationToken cancellationToken)
     {
-        var sources = await SemanticSearchChunksAsync(query, maxResults, contentId, cancellationToken);
+        var candidates = await SemanticSearchChunksAsync(
+            query,
+            Math.Max(maxResults, SemanticCandidateLimit),
+            contentId,
+            cancellationToken);
+        var sources = SelectAnswerSources(candidates, maxResults);
+
+        if (sources.Count == 0)
+        {
+            return new SemanticAnswerResult(
+                Query: query,
+                Answer: "Kayıtlı kaynaklarımda bu soruya cevap verecek yeterli bilgi bulunamadı.",
+                Provider: "backend",
+                UsedChunkIndexes: [],
+                Sources: []);
+        }
 
         var answer = await aiServiceClient.CreateAnswerAsync(
             new CreateAnswerRequest(
@@ -143,11 +164,26 @@ public sealed class ContentApplicationService(
     {
         var searchDebug = await SemanticSearchChunksDebugAsync(
             query,
-            maxResults,
+            Math.Max(maxResults, SemanticCandidateLimit),
             contentId,
             cancellationToken);
 
-        var contextChunks = BuildAnswerChunks(searchDebug.Results);
+        var selectedSources = SelectAnswerSources(searchDebug.Results, maxResults);
+        var contextChunks = BuildAnswerChunks(selectedSources);
+
+        if (contextChunks.Count == 0)
+        {
+            return new SemanticAnswerDebugResult(
+                Query: query,
+                EmbeddingModel: searchDebug.EmbeddingModel,
+                EmbeddingDimension: searchDebug.EmbeddingDimension,
+                QueryEmbeddingPreview: searchDebug.QueryEmbeddingPreview,
+                AnswerProvider: "backend",
+                Answer: "Kayıtlı kaynaklarımda bu soruya cevap verecek yeterli bilgi bulunamadı.",
+                UsedChunkIndexes: [],
+                ContextChunksSentToLlm: [],
+                Sources: []);
+        }
 
         var answer = await aiServiceClient.CreateAnswerAsync(
             new CreateAnswerRequest(
@@ -165,7 +201,7 @@ public sealed class ContentApplicationService(
             Answer: answer.Answer,
             UsedChunkIndexes: answer.UsedChunkIndexes,
             ContextChunksSentToLlm: contextChunks,
-            Sources: searchDebug.Results);
+            Sources: selectedSources);
     }
 
     private async Task<(CreateEmbeddingsResponse Response, IReadOnlyList<float> QueryEmbedding)> CreateQueryEmbeddingAsync(
@@ -199,6 +235,47 @@ public sealed class ContentApplicationService(
             Text: source.ChunkText,
             Distance: source.Distance,
             Similarity: Math.Max(0, 1 - source.Distance))).ToList();
+    }
+
+    private static IReadOnlyList<SemanticSearchChunkResult> SelectAnswerSources(
+        IReadOnlyList<SemanticSearchChunkResult> candidates,
+        int requestedMaxResults)
+    {
+        var totalLimit = Math.Clamp(requestedMaxResults, 1, MaxAnswerChunks);
+        var groups = candidates
+            .Where(candidate => Math.Max(0, 1 - candidate.Distance) >= MinimumAnswerSimilarity)
+            .GroupBy(candidate => candidate.ContentId)
+            .Select(group => group
+                .OrderByDescending(candidate => 1 - candidate.Distance)
+                .Take(MaxChunksPerContent)
+                .ToList())
+            .OrderByDescending(group => 1 - group[0].Distance)
+            .ToList();
+
+        var selected = new List<SemanticSearchChunkResult>();
+        var totalCharacters = 0;
+
+        for (var round = 0; round < MaxChunksPerContent && selected.Count < totalLimit; round++)
+        {
+            foreach (var group in groups)
+            {
+                if (round >= group.Count || selected.Count >= totalLimit)
+                {
+                    continue;
+                }
+
+                var candidate = group[round];
+                if (selected.Count > 0 && totalCharacters + candidate.ChunkText.Length > MaxAnswerContextCharacters)
+                {
+                    continue;
+                }
+
+                selected.Add(candidate);
+                totalCharacters += candidate.ChunkText.Length;
+            }
+        }
+
+        return selected;
     }
 
     private async Task<CreateExtractionResponse?> TryExtractAsync(
