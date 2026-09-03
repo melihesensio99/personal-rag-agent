@@ -34,8 +34,10 @@ Each service owns its implementation and persistence schema. Cross-service acces
 
 ## Current Telegram flow
 
-Telegram belongs to the .NET backend, not the Python AI service. The bot is treated as an inbound product channel. Each message is first sent to the Python intent service. The returned action is one of `save_content`, `list_contents`, `answer_from_memory`, or `ask_clarification`; .NET only executes that action.
+Telegram belongs to the .NET backend, not the Python AI service. The bot is treated as an inbound product channel. Each message is first sent to the Python intent service. The returned action is converted into an `AgentPlan` by `AgentOrchestrator`, then executed by `AgentToolExecutor`.
 
-For saving, .NET calls extraction, summary and chunk/embedding endpoints, then persists the content and chunks in PostgreSQL. For questions, .NET performs pgvector semantic retrieval and sends the selected chunks to the Python answer provider.
+The active tools are named by their behavior: `SaveIncomingContent`, `SearchSavedContent`, `AnswerUsingSavedContent`, and `AskUserForClarification`. This is an internal tool-executor layer; native provider `tool_calls` and multi-step planning are future extensions.
+
+For saving, `SaveIncomingContent` calls extraction, summary and chunk/embedding endpoints, then persists the content and chunks in PostgreSQL. For listing, `SearchSavedContent` applies type, date and normalized keyword filters. For questions, `AnswerUsingSavedContent` calls `SemanticAnswerAsync`, which performs pgvector semantic retrieval and sends the selected chunks to the Python answer provider.
 
 Mistral providers use JSON Schema structured output, Pydantic validation and repair/retry. Python does not override the LLM's semantic action with regex heuristics; it only validates and normalizes technical fields.

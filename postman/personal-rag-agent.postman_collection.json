@@ -371,7 +371,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"query\": \"Kas yapmak için günlük ne kadar protein almalıyım?\",\n  \"maxResults\": 5,\n  \"contentId\": \"{{content_id}}\"\n}"
+              "raw": "{\n  \"query\": \"Kas yapmak için günlük ne kadar protein almalıyım?\",\n  \"maxResults\": 20\n}"
             },
             "url": {
               "raw": "{{backend_base_url}}/api/v1/search/semantic",
@@ -400,7 +400,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"query\": \"Kas yapmak için günlük ne kadar protein almalıyım?\",\n  \"maxResults\": 5,\n  \"contentId\": \"{{content_id}}\"\n}"
+              "raw": "{\n  \"query\": \"Kas yapmak için günlük ne kadar protein almalıyım?\",\n  \"maxResults\": 8\n}"
             },
             "url": {
               "raw": "{{backend_base_url}}/api/v1/search/answer",
@@ -429,7 +429,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"query\": \"Kas yapmak için günlük ne kadar protein almalıyım?\",\n  \"maxResults\": 5,\n  \"contentId\": \"{{content_id}}\"\n}"
+              "raw": "{\n  \"query\": \"İlk insan kimdir?\",\n  \"maxResults\": 20\n}"
             },
             "url": {
               "raw": "{{backend_base_url}}/api/v1/search/semantic/debug",
@@ -459,7 +459,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"query\": \"Kas yapmak için günlük ne kadar protein almalıyım?\",\n  \"maxResults\": 5,\n  \"contentId\": \"{{content_id}}\"\n}"
+              "raw": "{\n  \"query\": \"İlk insan kimdir?\",\n  \"maxResults\": 8\n}"
             },
             "url": {
               "raw": "{{backend_base_url}}/api/v1/search/answer/debug",

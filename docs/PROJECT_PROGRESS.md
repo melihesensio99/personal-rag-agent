@@ -157,20 +157,21 @@ Bu dosya projede neleri bitirdigimizi, her adimin hangi konuya denk geldigini ve
   - Konu: project documentation
 - [x] Eski learning notes klasörü ve Markdown dosyası kaldırıldı.
 
-## Siradaki Buyuk Asama: Ortak structured-output ve agent router iyileştirmeleri
+## Siradaki Buyuk Asama: Tool tabanli agent akisi
 
-- [ ] `IntentResponse` yerine `AgentDecisionResponse` tasarla.
-  - Konu: LLM router, tool-based orchestration
-- [ ] Action enumlarini netlestir.
-  - Konu: structured decision
-  - Planlanan actionlar: `save_content`, `list_contents`, `answer_from_memory`, `ask_clarification`
-- [ ] Python router prompt'unu action sececek hale getir.
-  - Konu: tool selection prompt
-- [ ] .NET tarafinda `ResolveIntentAsync` yerine `ResolveAgentDecisionAsync` kur.
-  - Konu: backend orchestration
+- [x] `AgentPlan`, `AgentTool` ve `AgentToolCall` modelleri eklendi.
+  - Konu: tool-based orchestration
+- [x] `AgentOrchestrator` ve `AgentToolExecutor` ayrıştırıldı.
+  - Konu: planlama ve işlem yürütme sorumluluklarının ayrılması
+- [x] Tool isimleri davranışı açıkça anlatacak şekilde yenilendi.
+  - Konu: `SaveIncomingContent`, `SearchSavedContent`, `AnswerUsingSavedContent`, `AskUserForClarification`
+- [ ] Native provider `tool_calls` çıktısını planner'a bağla.
+  - Konu: provider-level function calling
+- [ ] Tool sonuçlarını tekrar LLM'ye göndererek çok adımlı agent loop ekle.
+  - Konu: iterative retrieval, source comparison, final answer
 - [x] Backend'deki `ShouldUseSemanticAnswer` gibi karar kurallari kaldirildi.
   - Konu: removing duplicated decision logic
-- [x] Backend'i sadece action executor gibi calistir.
+- [x] Backend'i yalnızca planlanan tool'ları çalıştıran executor katmanı olarak çalıştır.
   - Konu: safe tool execution
 - [ ] Action bazli Telegram testleri yap.
   - Konu: end-to-end validation

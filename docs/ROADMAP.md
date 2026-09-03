@@ -144,7 +144,28 @@ Notlar:
 - Gemini provider kodda durabilir ama aktif değil.
 - Provider çıktıları doğrudan backend'e güvenilerek aktarılmamalı; validate/normalize edilmeli.
 
-### 9. Dosya/görsel/PDF desteği
+### 9. Belirli kaynak bağlamında soru-cevap
+
+Amaç: Aynı konuya ait birçok makale veya video varken kullanıcının yalnızca seçtiği kaynağa göre cevap alabilmesi.
+
+Planlanan kullanıcı deneyimleri:
+
+- Kullanıcı soruya link ekler: `Bu makaleye göre mikroservis ne zaman mantıklı? https://...`
+- Kullanıcı kaydedilmiş kaynak mesajına Telegram reply ile soru sorar.
+- Kullanıcı başlık veya URL seçerek kaynak bağlamını belirtir.
+
+Teknik akış:
+
+```text
+Kaynak URL/kimliği çöz
+→ contentId belirle
+→ semantic search'ü contentId ile sınırla
+→ yalnızca seçilen kaynağın chunk'larını Answer LLM'e gönder
+```
+
+Not: Backend API'si `contentId` filtresini şimdiden destekliyor; eksik olan Telegram tarafında kullanıcının doğal mesajından doğru kaynağı çözme deneyimidir. YouTube ve makaleler aynı akışı kullanır.
+
+### 10. Dosya/görsel/PDF desteği
 
 Amaç: Telegram'dan direkt PDF veya görsel yüklendiğinde de işleyebilmek.
 
