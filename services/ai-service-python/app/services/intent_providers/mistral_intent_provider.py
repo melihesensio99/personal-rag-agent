@@ -153,7 +153,11 @@ class MistralIntentProvider(IntentProvider):
                     "date_from": date_from,
                     "date_to": date_to,
                     "keywords": self._normalize_keywords(response.keywords),
-                    "semantic_query": self._normalize_optional_text(response.semantic_query),
+            "semantic_query": (
+                self._normalize_optional_text(response.semantic_query)
+                if response.action == "answer_from_memory"
+                else None
+            ),
                     "needs_clarification": self._normalize_bool(response.needs_clarification),
                     "clarification_message": self._normalize_optional_text(response.clarification_message),
                 }
@@ -184,7 +188,7 @@ class MistralIntentProvider(IntentProvider):
             "time_filter must be today, yesterday, two_days_ago, or none. "
             "date_from and date_to must be ISO dates (YYYY-MM-DD) when the user gives a date range; date_to is exclusive. "
             "keywords must be an array of meaningful topic words. "
-            "semantic_query is an optional natural-language retrieval description for open-ended searches that do not map cleanly to keywords. "
+            "For answer_from_memory, semantic_query is required: write a concise natural-language retrieval description that preserves the user's topic, entities, and requested comparison. Do not introduce new topics or claims. For other actions semantic_query must be null. "
             "The user usually writes in Turkish. "
             "Turkish search verbs include: getir, listele, göster, goster, bul, ara, neydi, hangisiydi. "
             "If the user asks to retrieve, list, show, find, or search previously saved records, choose action list_contents. "
@@ -198,6 +202,7 @@ class MistralIntentProvider(IntentProvider):
             "If the user says youtube, set source_type to youtube and content_kind to video. "
             "If the user says makale or article, set source_type to article and content_kind to null unless they explicitly ask for text content in general. "
             "If the user says yazı, yazi, pdf, doküman, or dokuman, set content_kind to text. "
+            "If the user says not, notlar, notlarımı, or kendime not, set source_type to telegram and content_kind to text when listing saved notes. "
             "If the user says bugün or bugun, set time_filter to today. "
             "If the user says dün or dun, set time_filter to yesterday. "
             "If the user says geçen hafta, geçen ay, or a specific date range, use date_from/date_to instead of time_filter. "

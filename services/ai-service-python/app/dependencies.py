@@ -14,6 +14,7 @@ from app.services.embedding_providers.fake_embedding_provider import FakeEmbeddi
 from app.services.embedding_providers.mistral_embedding_provider import MistralEmbeddingProvider
 from app.services.extractors.article_extractor import ArticleExtractor
 from app.services.extractors.pmc_article_extractor import PmcArticleExtractor
+from app.services.extractors.pubmed_article_extractor import PubMedArticleExtractor
 from app.services.extractors.youtube_extractor import YouTubeExtractor
 from app.services.intent_providers.fake_intent_provider import FakeIntentProvider
 from app.services.intent_providers.gemini_intent_provider import GeminiIntentProvider
@@ -135,7 +136,7 @@ def get_embedding_service() -> EmbeddingService:
 def get_extraction_service() -> ExtractionService:
     article_extractor = ArticleExtractor()
     youtube_extractor = YouTubeExtractor()
-    return ExtractionService(article_extractor, PmcArticleExtractor(), youtube_extractor)
+    return ExtractionService(article_extractor, PmcArticleExtractor(), PubMedArticleExtractor(), youtube_extractor)
 
 
 @lru_cache

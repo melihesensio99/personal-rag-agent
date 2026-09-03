@@ -46,7 +46,8 @@ public sealed class AgentToolExecutor(
 
     private async Task<IReadOnlyList<string>> ExecuteAnswerUsingSavedContentAsync(ClassifyIntentResponse decision, string fallbackText, CancellationToken cancellationToken)
     {
-        var result = await contentApplicationService.SemanticAnswerAsync(string.IsNullOrWhiteSpace(decision.Query) ? fallbackText : decision.Query.Trim(), 8, null, cancellationToken);
+        var question = string.IsNullOrWhiteSpace(decision.Query) ? fallbackText : decision.Query.Trim();
+        var result = await contentApplicationService.SemanticAnswerAsync(question, 8, null, cancellationToken, decision.SemanticQuery);
         var messages = new List<string> { answerFormatter.Format(result) };
         messages.AddRange(answerFormatter.FormatSourceMessages(result));
         return messages;

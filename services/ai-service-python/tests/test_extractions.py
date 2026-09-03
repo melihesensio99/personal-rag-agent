@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.services.extractors.article_extractor import ArticleExtractor
 from app.services.extractors.pmc_article_extractor import PmcArticleExtractor
+from app.services.extractors.pubmed_article_extractor import PubMedArticleExtractor
 from app.services.extractors.youtube_extractor import YouTubeExtractor
 from app.services.extractors.youtube_transcript_provider import YouTubeTranscriptProvider, YouTubeTranscriptResult
 
@@ -145,6 +146,31 @@ def test_create_pmc_extraction_uses_full_text_xml(monkeypatch) -> None:
     assert body["title"] == "PMC Study"
     assert "low carbohydrate diets" in body["extracted_text"]
     assert body["metadata"]["extra"]["pmc_id"] == "PMC6566854"
+
+
+def test_create_pubmed_extraction_uses_ncbi_xml(monkeypatch) -> None:
+    monkeypatch.setattr(
+        PubMedArticleExtractor,
+        "_fetch_xml",
+        lambda self, pmid: """<PubmedArticleSet><PubmedArticle><MedlineCitation><Article>
+            <ArticleTitle>PubMed Study</ArticleTitle><Abstract>
+            <AbstractText Label=\"BACKGROUND\">Abstract about nutrition and diabetes.</AbstractText>
+            <AbstractText>Results support further research.</AbstractText>
+            </Abstract></Article></MedlineCitation></PubmedArticle></PubmedArticleSet>""",
+    )
+
+    response = client.post(
+        "/api/v1/extractions",
+        json={"content_id": "content-pubmed-1", "url": "https://pubmed.ncbi.nlm.nih.gov/19049813/"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["source_type"] == "article"
+    assert body["extraction_status"] == "completed"
+    assert body["title"] == "PubMed Study"
+    assert "BACKGROUND: Abstract about nutrition" in body["extracted_text"]
+    assert body["metadata"]["extra"]["pmid"] == "19049813"
 
 
 def test_create_extraction_detects_source_type_when_not_provided(monkeypatch) -> None:

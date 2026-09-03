@@ -24,7 +24,8 @@ public interface IContentApplicationService
         string query,
         int maxResults,
         Guid? contentId,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        string? retrievalQuery = null);
     Task<SemanticAnswerDebugResult> SemanticAnswerDebugAsync(
         string query,
         int maxResults,

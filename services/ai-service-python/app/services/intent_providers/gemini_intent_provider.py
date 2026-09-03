@@ -68,7 +68,11 @@ class GeminiIntentProvider(IntentProvider):
             time_filter=parsed.get("time_filter", "none"),
             date_from=self._normalize_date(parsed.get("date_from")),
             date_to=self._normalize_date(parsed.get("date_to")),
-            semantic_query=self._normalize_optional_text(parsed.get("semantic_query")),
+            semantic_query=(
+                self._normalize_optional_text(parsed.get("semantic_query"))
+                if action == "answer_from_memory"
+                else None
+            ),
             keywords=parsed.get("keywords", []),
             needs_clarification=parsed.get("needs_clarification", False),
             clarification_message=self._normalize_optional_text(parsed.get("clarification_message")),
@@ -128,7 +132,7 @@ class GeminiIntentProvider(IntentProvider):
             "content_kind must be text, video, image, or null. "
             "source_type must be article, youtube, pdf, image, telegram, or null. "
             "time_filter must be today, yesterday, two_days_ago, or none. "
-            "keywords should contain only meaningful topic words and should not include filler words like getir, listele, attığım, linkleri. "
+            "keywords should contain only meaningful topic words and should not include filler words like getir, listele, attığım, linkleri. For answer_from_memory, semantic_query is required: produce a concise retrieval description preserving the user's topic and entities without adding new claims. For other actions semantic_query must be null. "
             "If the user asks for videos in general, set content_kind to video even when source_type is null. "
             "If the user asks for articles, writings, PDFs, or text-like records in general, set content_kind to text unless a stricter source_type is clearly requested. "
             "If the user asks for images, visuals, photos, or screenshots, set content_kind to image. "

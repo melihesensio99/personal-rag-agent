@@ -122,10 +122,11 @@ public sealed class ContentApplicationService(
         string query,
         int maxResults,
         Guid? contentId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? retrievalQuery = null)
     {
         var candidates = await SemanticSearchChunksAsync(
-            query,
+            string.IsNullOrWhiteSpace(retrievalQuery) ? query : retrievalQuery.Trim(),
             Math.Max(maxResults, SemanticCandidateLimit),
             contentId,
             cancellationToken);
