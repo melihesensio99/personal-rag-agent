@@ -217,7 +217,7 @@ class MistralIntentProvider(IntentProvider):
             "If the user says makale or article, set source_type to article and content_kind to null unless they explicitly ask for text content in general. "
             "If the user says yazı, yazi, pdf, doküman, or dokuman, set content_kind to text. "
             "If the user says not, notlar, notlarımı, or kendime not, set source_type to telegram and content_kind to text when listing saved notes. "
-            "For expressions such as bugün, dün, bu hafta, geçen hafta, geçen ay, 10 gün önce or son 3 gün, calculate date_from/date_to from current_date. For bu hafta, use Monday of the current calendar week as date_from and tomorrow as the exclusive date_to. "
+            "For expressions such as bugün, dün, bu hafta, bu ay, geçen hafta, geçen ay, 10 gün önce, 2 hafta önce, 2 ay önce or son 3 gün, calculate date_from/date_to from current_date. For bu hafta, use Monday of the current calendar week as date_from and tomorrow as the exclusive date_to. For N hafta önce, use the complete calendar week N weeks before the current week. For N ay önce, use the complete calendar month N months before the current month. "
             "Do not include content-type words or filler words in keywords: makale, makaleler, makaleleri, article, video, videolar, videoları, youtube, link, linkleri, bugun, bugün, dun, dün, attigim, attığım, getir, listele, göster, goster, bul. "
             "If the message is ambiguous and you cannot safely choose save/search, choose clarify. "
             "Examples: "
@@ -456,7 +456,27 @@ class MistralIntentProvider(IntentProvider):
             week_start = today - timedelta(days=today.weekday())
             return week_start.isoformat(), (today + timedelta(days=1)).isoformat()
 
+        if "bu ay" in text or "buay" in text:
+            month_start = today.replace(day=1)
+            return month_start.isoformat(), (today + timedelta(days=1)).isoformat()
+
         import re
+        match = re.search(r"(\d+)\s*(?:hafta|haft)\s+önce(?:ki)?", text)
+        if match:
+            current_week_start = today - timedelta(days=today.weekday())
+            target_week_start = current_week_start - timedelta(weeks=int(match.group(1)))
+            return target_week_start.isoformat(), (target_week_start + timedelta(days=7)).isoformat()
+
+        match = re.search(r"(\d+)\s*ay\s+önce(?:ki)?", text)
+        if match:
+            months_back = int(match.group(1))
+            absolute_month = today.year * 12 + (today.month - 1) - months_back
+            target_year, target_month_zero_based = divmod(absolute_month, 12)
+            target_month_start = date(target_year, target_month_zero_based + 1, 1)
+            next_month = target_month_start.replace(day=28) + timedelta(days=4)
+            target_month_end = next_month.replace(day=1)
+            return target_month_start.isoformat(), target_month_end.isoformat()
+
         match = re.search(
             r"(?:son\s+|yaklaşık\s+|yaklasik\s+)?(\d+)\s*(?:gün|gun|gn)\s+önce(?:ki)?",
             text,
