@@ -22,7 +22,9 @@ public sealed class ContentApplicationService(
     private const int MaxChunksPerContent = 3;
     private const int MaxAnswerChunks = 8;
     private const int MaxAnswerContextCharacters = 12_000;
-    private const double MinimumAnswerSimilarity = 0.70;
+    // Embedding retrieval is a broad candidate stage; the local cross-encoder
+    // reranker performs the stricter relevance decision afterward.
+    private const double MinimumAnswerSimilarity = 0.50;
 
     public async Task<ContentItem> CreateAsync(
         CreateContentCommand command,
