@@ -185,8 +185,8 @@ class MistralIntentProvider(IntentProvider):
             "clarification_message is a short Turkish message for ask_clarification. "
             "content_kind must be text, video, image, or null. "
             "source_type must be article, youtube, pdf, image, telegram, or null. "
-            "time_filter must be today, yesterday, two_days_ago, or none. "
-            "date_from and date_to must be ISO dates (YYYY-MM-DD) when the user gives a date range; date_to is exclusive. "
+            "time_filter is a legacy compatibility field; keep it as none unless needed for compatibility. "
+            "Always resolve any relative or absolute date expression into date_from/date_to as ISO dates (YYYY-MM-DD); date_to is exclusive. "
             "keywords must be an array of meaningful topic words. "
             "For answer_from_memory, semantic_query is required: write a concise natural-language retrieval description that preserves the user's topic, entities, and requested comparison. Do not introduce new topics or claims. For other actions semantic_query must be null. "
             "The user usually writes in Turkish. "
@@ -203,9 +203,7 @@ class MistralIntentProvider(IntentProvider):
             "If the user says makale or article, set source_type to article and content_kind to null unless they explicitly ask for text content in general. "
             "If the user says yazı, yazi, pdf, doküman, or dokuman, set content_kind to text. "
             "If the user says not, notlar, notlarımı, or kendime not, set source_type to telegram and content_kind to text when listing saved notes. "
-            "If the user says bugün or bugun, set time_filter to today. "
-            "If the user says dün or dun, set time_filter to yesterday. "
-            "If the user says geçen hafta, geçen ay, or a specific date range, use date_from/date_to instead of time_filter. "
+            "For expressions such as bugün, dün, geçen hafta, geçen ay, 10 gün önce or son 3 gün, calculate date_from/date_to from current_date. "
             "Do not include content-type words or filler words in keywords: makale, makaleler, makaleleri, article, video, videolar, videoları, youtube, link, linkleri, bugun, bugün, dun, dün, attigim, attığım, getir, listele, göster, goster, bul. "
             "If the message is ambiguous and you cannot safely choose save/search, choose clarify. "
             "Examples: "
@@ -426,6 +424,30 @@ class MistralIntentProvider(IntentProvider):
             today = date.today()
 
         text = message.lower()
+        normalized_from = cls._normalize_date(date_from)
+        normalized_to = cls._normalize_date(date_to)
+        if normalized_from or normalized_to:
+            return normalized_from, normalized_to
+
+        # Relative date expressions are resolved once here, so the backend
+        # only needs to execute the resulting ISO date range.
+        if "bugün" in text or "bugun" in text:
+            return today.isoformat(), (today + timedelta(days=1)).isoformat()
+        if "dün" in text or "dun" in text:
+            return (today - timedelta(days=1)).isoformat(), today.isoformat()
+        if "iki gün önce" in text or "iki gun once" in text:
+            return (today - timedelta(days=2)).isoformat(), (today - timedelta(days=1)).isoformat()
+
+        import re
+        match = re.search(r"(?:son|son\s+|yaklaşık\s+|yaklasik\s+)?(\d+)\s+gün\s+önce", text)
+        if match:
+            start = today - timedelta(days=int(match.group(1)))
+            return start.isoformat(), (start + timedelta(days=1)).isoformat()
+
+        match = re.search(r"son\s+(\d+)\s+gün", text)
+        if match:
+            return (today - timedelta(days=int(match.group(1)) - 1)).isoformat(), (today + timedelta(days=1)).isoformat()
+
         if "geçen ay" in text or "gecen ay" in text:
             this_month = today.replace(day=1)
             previous_month_end = this_month - timedelta(days=1)
@@ -437,7 +459,7 @@ class MistralIntentProvider(IntentProvider):
             previous_week_start = week_start - timedelta(days=7)
             return previous_week_start.isoformat(), week_start.isoformat()
 
-        return cls._normalize_date(date_from), cls._normalize_date(date_to)
+        return None, None
 
     @staticmethod
     def _derive_action_from_intent(intent: str, message: str) -> str:

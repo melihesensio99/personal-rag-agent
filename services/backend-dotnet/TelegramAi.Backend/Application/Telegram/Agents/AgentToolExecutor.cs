@@ -35,12 +35,11 @@ public sealed class AgentToolExecutor(
 
     private async Task<IReadOnlyList<string>> ExecuteSearchSavedContentAsync(ClassifyIntentResponse decision, CancellationToken cancellationToken)
     {
-        var (fromUtc, toUtc) = ResolveDateRange(decision);
         var query = new SearchContentsQuery(
             decision.Keywords.Where(x => !string.IsNullOrWhiteSpace(x) && !InstructionWords.Contains(x.Trim())).Distinct(StringComparer.OrdinalIgnoreCase).Take(8).ToArray(),
             Enum.TryParse<ContentKind>(decision.ContentKind, true, out var kind) ? kind : null,
             Enum.TryParse<ContentSourceType>(decision.SourceType, true, out var source) ? source : null,
-            fromUtc, toUtc, decision.SemanticQuery);
+            ParseDate(decision.DateFrom), ParseDate(decision.DateTo), decision.SemanticQuery);
         var contents = await contentApplicationService.SearchAsync(query, cancellationToken);
         return searchFormatter.FormatMessages(query, contents);
     }
@@ -77,22 +76,4 @@ public sealed class AgentToolExecutor(
         return parsed.Date;
     }
 
-    private static (DateTimeOffset? FromUtc, DateTimeOffset? ToUtc) ResolveDateRange(ClassifyIntentResponse decision)
-    {
-        var explicitFrom = ParseDate(decision.DateFrom);
-        var explicitTo = ParseDate(decision.DateTo);
-        if (explicitFrom.HasValue || explicitTo.HasValue)
-        {
-            return (explicitFrom, explicitTo);
-        }
-
-        var todayUtc = DateTimeOffset.UtcNow.Date;
-        return decision.TimeFilter.ToLowerInvariant() switch
-        {
-            "today" => (todayUtc, todayUtc.AddDays(1)),
-            "yesterday" => (todayUtc.AddDays(-1), todayUtc),
-            "two_days_ago" => (todayUtc.AddDays(-2), todayUtc.AddDays(-1)),
-            _ => (null, null),
-        };
-    }
 }
