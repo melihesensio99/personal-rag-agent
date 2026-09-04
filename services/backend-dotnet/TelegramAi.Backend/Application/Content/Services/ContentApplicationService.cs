@@ -269,7 +269,9 @@ public sealed class ContentApplicationService(
         var scoresByIndex = rerankResponse.Scores.ToDictionary(score => score.Index, score => score.Score);
         var reranked = candidates
             .Select((candidate, index) => new { Candidate = candidate, Index = index, Score = scoresByIndex.GetValueOrDefault(index) })
-            .Where(item => item.Score >= 0.50)
+            // 0.50 is the sigmoid neutral baseline for this model; neutral
+            // scores must not be treated as evidence of relevance.
+            .Where(item => item.Score > 0.5001)
             .OrderByDescending(item => item.Score)
             .Select(item => item.Candidate)
             .ToList();
