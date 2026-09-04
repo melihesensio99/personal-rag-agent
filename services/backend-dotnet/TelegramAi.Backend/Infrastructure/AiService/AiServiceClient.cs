@@ -6,6 +6,7 @@ using TelegramAi.Backend.Api.Contracts.Health;
 using TelegramAi.Backend.Api.Contracts.Extractions;
 using TelegramAi.Backend.Api.Contracts.Intents;
 using TelegramAi.Backend.Api.Contracts.Summaries;
+using TelegramAi.Backend.Api.Contracts.Reranking;
 using TelegramAi.Backend.Infrastructure.AiService.Contracts;
 
 namespace TelegramAi.Backend.Infrastructure.AiService;
@@ -131,6 +132,24 @@ public sealed class AiServiceClient(HttpClient httpClient) : IAiServiceClient
                     Index: embedding.Index,
                     Embedding: embedding.Embedding))
                 .ToList());
+    }
+
+    public async Task<RerankResponse> RerankAsync(
+        RerankRequest request,
+        CancellationToken cancellationToken)
+    {
+        var aiRequest = new AiServiceRerankRequest(
+            request.Query,
+            request.Documents.Select(document => new AiServiceRerankDocument(document.Index, document.Text)).ToList());
+
+        var httpResponse = await httpClient.PostAsJsonAsync("/api/v1/rerank", aiRequest, cancellationToken);
+        await EnsureSuccessWithDetailsAsync(httpResponse, cancellationToken);
+        var response = await httpResponse.Content.ReadFromJsonAsync<AiServiceRerankResponse>(cancellationToken)
+            ?? throw new InvalidOperationException("AI service returned an empty rerank response.");
+
+        return new RerankResponse(
+            response.Model,
+            response.Scores.Select(score => new RerankScore(score.Index, score.Score)).ToList());
     }
 
     public async Task<CreateAnswerResponse> CreateAnswerAsync(

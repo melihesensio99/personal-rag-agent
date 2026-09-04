@@ -23,6 +23,7 @@ from app.services.summary_service import SummaryService
 from app.services.summary_providers.fake_summary_provider import FakeSummaryProvider
 from app.services.summary_providers.gemini_summary_provider import GeminiSummaryProvider
 from app.services.summary_providers.mistral_summary_provider import MistralSummaryProvider
+from app.services.reranking_service import RerankingService
 
 
 @lru_cache
@@ -130,6 +131,11 @@ def get_embedding_service() -> EmbeddingService:
         )
 
     raise ValueError(f"Unsupported embedding_provider: {settings.embedding_provider}.")
+
+
+@lru_cache
+def get_reranking_service() -> RerankingService:
+    return RerankingService()
 
 
 @lru_cache

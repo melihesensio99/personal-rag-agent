@@ -5,6 +5,7 @@ using TelegramAi.Backend.Api.Contracts.Embeddings;
 using TelegramAi.Backend.Api.Contracts.Extractions;
 using TelegramAi.Backend.Api.Contracts.Intents;
 using TelegramAi.Backend.Api.Contracts.Summaries;
+using TelegramAi.Backend.Api.Contracts.Reranking;
 
 namespace TelegramAi.Backend.Infrastructure.AiService;
 
@@ -19,6 +20,9 @@ public interface IAiServiceClient
         CancellationToken cancellationToken);
     Task<CreateEmbeddingsResponse> CreateEmbeddingsAsync(
         CreateEmbeddingsRequest request,
+        CancellationToken cancellationToken);
+    Task<RerankResponse> RerankAsync(
+        RerankRequest request,
         CancellationToken cancellationToken);
     Task<CreateAnswerResponse> CreateAnswerAsync(
         CreateAnswerRequest request,

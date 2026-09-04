@@ -9,6 +9,7 @@ using TelegramAi.Backend.Application.Content.Exceptions;
 using TelegramAi.Backend.Application.Content.Queries;
 using TelegramAi.Backend.Domain.Content;
 using TelegramAi.Backend.Infrastructure.AiService;
+using TelegramAi.Backend.Api.Contracts.Reranking;
 
 namespace TelegramAi.Backend.Application.Content.Services;
 
@@ -130,7 +131,11 @@ public sealed class ContentApplicationService(
             Math.Max(maxResults, SemanticCandidateLimit),
             contentId,
             cancellationToken);
-        var sources = SelectAnswerSources(candidates, maxResults);
+        var sources = await RerankAndSelectAnswerSourcesAsync(
+            query,
+            candidates,
+            maxResults,
+            cancellationToken);
 
         if (sources.Count == 0)
         {
@@ -169,7 +174,11 @@ public sealed class ContentApplicationService(
             contentId,
             cancellationToken);
 
-        var selectedSources = SelectAnswerSources(searchDebug.Results, maxResults);
+        var selectedSources = await RerankAndSelectAnswerSourcesAsync(
+            query,
+            searchDebug.Results,
+            maxResults,
+            cancellationToken);
         var contextChunks = BuildAnswerChunks(selectedSources);
 
         if (contextChunks.Count == 0)
@@ -236,6 +245,34 @@ public sealed class ContentApplicationService(
             Text: source.ChunkText,
             Distance: source.Distance,
             Similarity: Math.Max(0, 1 - source.Distance))).ToList();
+    }
+
+    private async Task<IReadOnlyList<SemanticSearchChunkResult>> RerankAndSelectAnswerSourcesAsync(
+        string query,
+        IReadOnlyList<SemanticSearchChunkResult> candidates,
+        int requestedMaxResults,
+        CancellationToken cancellationToken)
+    {
+        if (candidates.Count == 0)
+        {
+            return [];
+        }
+
+        var rerankResponse = await aiServiceClient.RerankAsync(
+            new RerankRequest(
+                query,
+                candidates.Select((candidate, index) => new RerankDocument(index, candidate.ChunkText)).ToList()),
+            cancellationToken);
+
+        var scoresByIndex = rerankResponse.Scores.ToDictionary(score => score.Index, score => score.Score);
+        var reranked = candidates
+            .Select((candidate, index) => new { Candidate = candidate, Index = index, Score = scoresByIndex.GetValueOrDefault(index) })
+            .Where(item => item.Score >= 0.50)
+            .OrderByDescending(item => item.Score)
+            .Select(item => item.Candidate)
+            .ToList();
+
+        return SelectAnswerSources(reranked, requestedMaxResults);
     }
 
     private static IReadOnlyList<SemanticSearchChunkResult> SelectAnswerSources(
