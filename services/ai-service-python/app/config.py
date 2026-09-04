@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     mistral_answer_model: str = "ministral-8b-2512"
     mistral_embedding_model: str = "mistral-embed-2312"
     mistral_timeout_seconds: int = 20
+    mistral_response_format: str = "json_schema"
 
     model_config = SettingsConfigDict(
         env_prefix="AI_SERVICE_",

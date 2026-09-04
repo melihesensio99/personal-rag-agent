@@ -24,6 +24,7 @@ namespace TelegramAi.Backend.Infrastructure.Persistence.Migrations
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.HasPostgresExtension("vector");
+            modelBuilder.HasPostgresExtension("pg_trgm");
 
             modelBuilder.Entity("TelegramAi.Backend.Domain.Content.ContentChunk", b =>
                 {

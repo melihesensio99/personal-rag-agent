@@ -2,7 +2,7 @@ FROM python:3.12-slim
 WORKDIR /app
 COPY services/ai-service-python/pyproject.toml .
 COPY services/ai-service-python/app ./app
-RUN pip install --no-cache-dir .
+RUN pip install --no-cache-dir ".[reranker]"
+RUN python -c "from sentence_transformers import CrossEncoder; CrossEncoder('BAAI/bge-reranker-v2-m3')"
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-

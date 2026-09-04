@@ -54,7 +54,27 @@ def test_create_chunks_normalizes_whitespace() -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["total_chunks"] == 1
-    assert body["chunks"][0]["text"] == "RAG uses retrieval. LLM uses context."
+    assert body["chunks"][0]["text"] == "RAG uses\n\nretrieval. LLM uses context."
+
+
+def test_create_chunks_prefers_sentence_or_word_boundaries() -> None:
+    response = client.post(
+        "/api/v1/chunks",
+        json={
+            "content_id": "chunk-demo-boundary",
+            "text": "Birinci cumle burada biter. Ikinci cumle kelime sinirinda bolunmeli.",
+            "chunk_size": 35,
+            "overlap": 0,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [chunk["text"] for chunk in body["chunks"]] == [
+        "Birinci cumle burada biter.",
+        "Ikinci cumle kelime sinirinda",
+        "bolunmeli.",
+    ]
 
 
 def test_create_chunks_accepts_long_extracted_text() -> None:

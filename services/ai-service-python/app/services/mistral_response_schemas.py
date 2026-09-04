@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import os
+from app.config import settings
 
 
 def response_format(name: str, schema: dict[str, object]) -> dict[str, object]:
-    if os.getenv("AI_SERVICE_MISTRAL_RESPONSE_FORMAT", "json_schema").strip().lower() == "json_object":
+    if settings.mistral_response_format.strip().lower() == "json_object":
         return {"type": "json_object"}
 
     return {
