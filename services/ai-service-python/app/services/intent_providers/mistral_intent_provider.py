@@ -137,6 +137,18 @@ class MistralIntentProvider(IntentProvider):
             )
             if response.action == "list_contents" and (date_from is None) != (date_to is None):
                 raise ValueError("date_from and date_to must either both be set or both be null.")
+            normalized_keywords = self._normalize_keywords(response.keywords)
+            # For listing requests, keywords must come from the user's text.
+            # This prevents the LLM from inventing a topic (for example
+            # ``spor`` in "dün attığım videoları listele") and accidentally
+            # filtering out otherwise valid records.
+            if response.action == "list_contents":
+                normalized_keywords = [
+                    keyword
+                    for keyword in normalized_keywords
+                    if self._keyword_appears_in_message(keyword, request.message)
+                ]
+
             return response.model_copy(
                 update={
                     "query": (
@@ -154,7 +166,7 @@ class MistralIntentProvider(IntentProvider):
                     "time_filter": self._normalize_time_filter(response.time_filter, request.message),
                     "date_from": date_from,
                     "date_to": date_to,
-                    "keywords": self._normalize_keywords(response.keywords),
+                    "keywords": normalized_keywords,
             "semantic_query": (
                 self._normalize_optional_text(response.semantic_query)
                 if response.action == "answer_from_memory"
@@ -205,7 +217,7 @@ class MistralIntentProvider(IntentProvider):
             "If the user says makale or article, set source_type to article and content_kind to null unless they explicitly ask for text content in general. "
             "If the user says yazı, yazi, pdf, doküman, or dokuman, set content_kind to text. "
             "If the user says not, notlar, notlarımı, or kendime not, set source_type to telegram and content_kind to text when listing saved notes. "
-            "For expressions such as bugün, dün, geçen hafta, geçen ay, 10 gün önce or son 3 gün, calculate date_from/date_to from current_date. "
+            "For expressions such as bugün, dün, bu hafta, geçen hafta, geçen ay, 10 gün önce or son 3 gün, calculate date_from/date_to from current_date. For bu hafta, use Monday of the current calendar week as date_from and tomorrow as the exclusive date_to. "
             "Do not include content-type words or filler words in keywords: makale, makaleler, makaleleri, article, video, videolar, videoları, youtube, link, linkleri, bugun, bugün, dun, dün, attigim, attığım, getir, listele, göster, goster, bul. "
             "If the message is ambiguous and you cannot safely choose save/search, choose clarify. "
             "Examples: "
@@ -440,8 +452,17 @@ class MistralIntentProvider(IntentProvider):
         if "iki gün önce" in text or "iki gun once" in text:
             return (today - timedelta(days=2)).isoformat(), (today - timedelta(days=1)).isoformat()
 
+        # "Bu hafta" means the current calendar week (Monday through today),
+        # not a rolling seven-day window. The upper bound is exclusive.
+        if "bu hafta" in text or "buhafta" in text:
+            week_start = today - timedelta(days=today.weekday())
+            return week_start.isoformat(), (today + timedelta(days=1)).isoformat()
+
         import re
-        match = re.search(r"(?:son|son\s+|yaklaşık\s+|yaklasik\s+)?(\d+)\s*gün\s+önce", text)
+        match = re.search(
+            r"(?:son\s+|yaklaşık\s+|yaklasik\s+)?(\d+)\s*(?:gün|gun|gn)\s+önce(?:ki)?",
+            text,
+        )
         if match:
             start = today - timedelta(days=int(match.group(1)))
             return start.isoformat(), (start + timedelta(days=1)).isoformat()
@@ -535,6 +556,30 @@ class MistralIntentProvider(IntentProvider):
                 break
 
         return keywords
+
+    @staticmethod
+    def _keyword_appears_in_message(keyword: str, message: str) -> bool:
+        """Keep list filters only when the user actually supplied the topic.
+
+        Intent models may return plausible but unrelated keywords.  A listing
+        query should never gain a new topic from the model because that turns a
+        broad date/type request into an empty database search.
+        """
+        import re
+        import unicodedata
+
+        def normalize(value: str) -> str:
+            folded = unicodedata.normalize("NFKD", value.lower())
+            return "".join(char for char in folded if not unicodedata.combining(char))
+
+        source = normalize(message)
+        terms = [term for term in re.findall(r"[\wçğıöşü]+", normalize(keyword)) if len(term) > 1]
+        if not terms:
+            return False
+        source_terms = set(re.findall(r"[\wçğıöşü]+", source))
+        # Turkish case suffixes commonly attach to the topic ("sporla",
+        # "RAG'la"). A topic is therefore accepted when it is a token prefix.
+        return all(any(token.startswith(term) for token in source_terms) for term in terms)
 
     @staticmethod
     def _normalize_bool(value: object) -> bool:
