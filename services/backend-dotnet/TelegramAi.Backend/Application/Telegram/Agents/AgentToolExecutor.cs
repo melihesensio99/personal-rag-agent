@@ -72,8 +72,11 @@ public sealed class AgentToolExecutor(
 
     private static DateTimeOffset? ParseDate(string? value)
     {
-        if (!DateTimeOffset.TryParse(value, out var parsed)) return null;
-        return parsed.Date;
+        // Intent dates are ISO calendar dates. Build an explicit UTC boundary
+        // instead of using DateTimeOffset.Date, which creates an unspecified
+        // DateTime and can fail when EF/Npgsql binds the timestamp parameter.
+        if (!DateOnly.TryParseExact(value, "yyyy-MM-dd", out var date)) return null;
+        return new DateTimeOffset(date.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
     }
 
 }
