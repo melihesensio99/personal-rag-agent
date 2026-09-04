@@ -440,8 +440,6 @@ class MistralIntentProvider(IntentProvider):
         text = message.lower()
         normalized_from = cls._normalize_date(date_from)
         normalized_to = cls._normalize_date(date_to)
-        if normalized_from and normalized_to:
-            return normalized_from, normalized_to
 
         # Relative date expressions are resolved once here, so the backend
         # only needs to execute the resulting ISO date range.
@@ -481,6 +479,12 @@ class MistralIntentProvider(IntentProvider):
             week_start = today - timedelta(days=today.weekday())
             previous_week_start = week_start - timedelta(days=7)
             return previous_week_start.isoformat(), week_start.isoformat()
+
+        # If the message had no relative expression, preserve valid absolute
+        # dates returned by the model. Relative expressions above always win,
+        # preventing hallucinated ranges such as 4–8 September for "bu hafta".
+        if normalized_from and normalized_to:
+            return normalized_from, normalized_to
 
         return None, None
 
