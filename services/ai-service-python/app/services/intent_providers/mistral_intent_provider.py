@@ -135,6 +135,8 @@ class MistralIntentProvider(IntentProvider):
                 request.message,
                 request.current_date,
             )
+            if response.action == "list_contents" and (date_from is None) != (date_to is None):
+                raise ValueError("date_from and date_to must either both be set or both be null.")
             return response.model_copy(
                 update={
                     "query": (
@@ -426,7 +428,7 @@ class MistralIntentProvider(IntentProvider):
         text = message.lower()
         normalized_from = cls._normalize_date(date_from)
         normalized_to = cls._normalize_date(date_to)
-        if normalized_from or normalized_to:
+        if normalized_from and normalized_to:
             return normalized_from, normalized_to
 
         # Relative date expressions are resolved once here, so the backend
@@ -439,7 +441,7 @@ class MistralIntentProvider(IntentProvider):
             return (today - timedelta(days=2)).isoformat(), (today - timedelta(days=1)).isoformat()
 
         import re
-        match = re.search(r"(?:son|son\s+|yaklaşık\s+|yaklasik\s+)?(\d+)\s+gün\s+önce", text)
+        match = re.search(r"(?:son|son\s+|yaklaşık\s+|yaklasik\s+)?(\d+)\s*gün\s+önce", text)
         if match:
             start = today - timedelta(days=int(match.group(1)))
             return start.isoformat(), (start + timedelta(days=1)).isoformat()
