@@ -8,13 +8,14 @@ Import these two files into Postman:
 Suggested order while debugging:
 
 1. `01 - AI Service / Health`
-2. `01 - AI Service / Extraction - Auto detect source/content kind`
-3. `01 - AI Service / Intent - Search request`
-4. `01 - AI Service / Summary - Direct text`
-5. `02 - Backend / Health`
-6. `02 - Backend / System Health (backend + ai-service)`
-7. `02 - Backend / Create Content - Manual text`
-8. `02 - Backend / Get Content By Id`
+2. `01 - AI Service / Rerank - Local Cross-Encoder`
+3. `01 - AI Service / Extraction - Auto detect source/content kind`
+4. `01 - AI Service / Intent - Search request`
+5. `01 - AI Service / Summary - Direct text`
+6. `02 - Backend / Health`
+7. `02 - Backend / System Health (backend + ai-service)`
+8. `02 - Backend / Create Content - Manual text`
+9. `02 - Backend / Get Content By Id`
 
 Default local URLs:
 

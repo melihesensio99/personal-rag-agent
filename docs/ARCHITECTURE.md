@@ -38,6 +38,6 @@ Telegram belongs to the .NET backend, not the Python AI service. The bot is trea
 
 The active tools are named by their behavior: `SaveIncomingContent`, `SearchSavedContent`, `AnswerUsingSavedContent`, and `AskUserForClarification`. This is an internal tool-executor layer; native provider `tool_calls` and multi-step planning are future extensions.
 
-For saving, `SaveIncomingContent` calls extraction, summary and chunk/embedding endpoints, then persists the content and chunks in PostgreSQL. For listing, `SearchSavedContent` applies type, date and normalized keyword filters. For questions, `AnswerUsingSavedContent` calls `SemanticAnswerAsync`, which performs pgvector semantic retrieval and sends the selected chunks to the Python answer provider.
+For saving, `SaveIncomingContent` calls extraction, summary and chunk/embedding endpoints, then persists the content and chunks in PostgreSQL. For listing, `SearchSavedContent` applies type, date and normalized keyword filters. For questions, `AnswerUsingSavedContent` calls `SemanticAnswerAsync`, which performs pgvector retrieval, reranks candidates with the local Cross-Encoder, and forwards only relevant chunks to the Python answer provider.
 
 Mistral providers use JSON Schema structured output, Pydantic validation and repair/retry. Python does not override the LLM's semantic action with regex heuristics; it only validates and normalizes technical fields.

@@ -73,6 +73,34 @@
           }
         },
         {
+          "name": "Rerank - Local Cross-Encoder",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"Fasted cardio yağ kaybını artırır mı?\",\n  \"documents\": [\n    {\n      \"index\": 0,\n      \"text\": \"Aç karnına kardiyo sırasında yağ oksidasyonu artabilir ancak uzun vadeli yağ kaybı kesin olarak artmayabilir.\"\n    },\n    {\n      \"index\": 1,\n      \"text\": \"Kahve tüketimi kalp damar sağlığını ve kan basıncını etkileyebilir.\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{ai_service_base_url}}/api/v1/rerank",
+              "host": [
+                "{{ai_service_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "rerank"
+              ]
+            },
+            "description": "Tests the local BGE cross-encoder. The fasted-cardio document should score higher than the unrelated coffee document. The first request downloads the model if it is not cached."
+          }
+        },
+        {
           "name": "Intent - Search request",
           "request": {
             "method": "POST",

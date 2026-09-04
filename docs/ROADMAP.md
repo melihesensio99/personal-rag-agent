@@ -106,6 +106,13 @@ Durum:
 
 Tamamlanan sonuç: Semantic search ve Answer LLM Telegram soru akışına bağlandı; cevap kaynak chunk'larıyla birlikte dönüyor.
 
+### 5.1 Local Cross-Encoder reranking (tamamlandı)
+
+Embedding adayları, cevap LLM'ine gönderilmeden önce yerel
+`BAAI/bge-reranker-v2-m3` modeliyle yeniden sıralanıyor. Normalize relevance
+skoru `0.50` altında kalan chunk'lar eleniyor; eski skor-farkı filtresi
+kullanılmıyor. Python servisi `POST /api/v1/rerank` endpoint'ini sağlıyor.
+
 ### 6. Answer LLM (tamamlandı)
 
 Amaç: Search sonucu bulunan kayıtları sadece listelemek yerine LLM ile doğal cevap üretmek.
@@ -164,6 +171,10 @@ Kaynak URL/kimliği çöz
 ```
 
 Not: Backend API'si `contentId` filtresini şimdiden destekliyor; eksik olan Telegram tarafında kullanıcının doğal mesajından doğru kaynağı çözme deneyimidir. YouTube ve makaleler aynı akışı kullanır.
+
+### Ertelenen: Native tool calling ve çok adımlı agent
+
+Mevcut `AgentOrchestrator` ve `AgentToolExecutor` yapısı aktif olarak kullanılmaya devam eder. Provider-level native `tool_calls` ve çok adımlı agent loop şu an gerekli görülmediği için ertelendi. İleride tarih/tür/kaynak filtrelerinin semantic cevap akışına aktarılması ve `search_memory → compare_sources → answer_from_sources` zinciri gerektiğinde uygulanacaktır.
 
 ### 10. Dosya/görsel/PDF desteği
 

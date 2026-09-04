@@ -165,10 +165,12 @@ Bu dosya projede neleri bitirdigimizi, her adimin hangi konuya denk geldigini ve
   - Konu: planlama ve işlem yürütme sorumluluklarının ayrılması
 - [x] Tool isimleri davranışı açıkça anlatacak şekilde yenilendi.
   - Konu: `SaveIncomingContent`, `SearchSavedContent`, `AnswerUsingSavedContent`, `AskUserForClarification`
-- [ ] Native provider `tool_calls` çıktısını planner'a bağla.
+- [ ] Native provider `tool_calls` çıktısını planner'a bağla (ertelendi).
   - Konu: provider-level function calling
-- [ ] Tool sonuçlarını tekrar LLM'ye göndererek çok adımlı agent loop ekle.
+  - Not: Mevcut `SemanticAnswerAsync` basit/orta karmaşıklıktaki sorular için yeterli. Tarih, tür ve kaynak filtresini semantic answer akışına aktarma ihtiyacı oluştuğunda ele alınacak.
+- [ ] Tool sonuçlarını tekrar LLM'ye göndererek çok adımlı agent loop ekle (ertelendi).
   - Konu: iterative retrieval, source comparison, final answer
+  - Tetikleyici: “dünkü makaleleri bul, akademik olanları ayır, karşılaştır ve kaynakları göster” gibi çok aşamalı görevler.
 - [x] Backend'deki `ShouldUseSemanticAnswer` gibi karar kurallari kaldirildi.
   - Konu: removing duplicated decision logic
 - [x] Backend'i yalnızca planlanan tool'ları çalıştıran executor katmanı olarak çalıştır.
@@ -217,5 +219,6 @@ Bu dosya projede neleri bitirdigimizi, her adimin hangi konuya denk geldigini ve
   - Not: Tool calling ve agent orchestration sonraki öğrenme adımıdır.
 - [ ] Tool calling nedir?
 - [ ] Hybrid search nedir?
-- [ ] Re-ranking nedir?
+- [x] Re-ranking nedir?
+  - Not: Semantic answer akışına local `BAAI/bge-reranker-v2-m3` Cross-Encoder eklendi; relevance skoru 0.50 altında kalan chunk'lar LLM'e gönderilmiyor.
 - [ ] Evaluation/RAGAS nedir?

@@ -167,6 +167,10 @@ PostgreSQL/pgvector compares the query embedding with stored chunk embeddings.
 Response returns the closest chunks. Lower distance means more similar.
 This is retrieval only; natural answer generation is the next step.
 
+The answer flow additionally reranks candidate chunks with the local
+`BAAI/bge-reranker-v2-m3` Cross-Encoder. Chunks with a normalized relevance
+score below `0.50` are removed before the answer LLM receives the context.
+
 If you want the search to focus on a single saved link, add the optional `contentId` field:
 
 ```json
