@@ -34,6 +34,9 @@ services:
     build:
       context: .
       dockerfile: services/ai-service-python/Dockerfile
+    environment:
+      # Never store the provider key in this file; inject it from the host environment.
+      AI_SERVICE_MISTRAL_API_KEY: ${AI_SERVICE_MISTRAL_API_KEY:?Set AI_SERVICE_MISTRAL_API_KEY before starting Compose}
     ports:
       - "8000:8000"
     healthcheck:
