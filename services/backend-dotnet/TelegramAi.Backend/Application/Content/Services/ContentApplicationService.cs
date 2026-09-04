@@ -274,7 +274,14 @@ public sealed class ContentApplicationService(
             .Select(item => item.Candidate)
             .ToList();
 
-        return SelectAnswerSources(reranked, requestedMaxResults);
+        // A cross-encoder score is model-dependent and may cluster around its
+        // neutral 0.50 baseline. If every score falls just below the cutoff,
+        // keep the embedding candidates; SelectAnswerSources still applies
+        // the minimum embedding similarity guard before sending context to
+        // the answer model.
+        return SelectAnswerSources(
+            reranked.Count > 0 ? reranked : candidates,
+            requestedMaxResults);
     }
 
     private static IReadOnlyList<SemanticSearchChunkResult> SelectAnswerSources(
