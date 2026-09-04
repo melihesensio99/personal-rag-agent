@@ -4,6 +4,7 @@ using TelegramAi.Backend.Infrastructure.AiService;
 using TelegramAi.Backend.Infrastructure.Persistence;
 using TelegramAi.Backend.Infrastructure.Telegram;
 using TelegramAi.Backend.Infrastructure.Telegram.TelegramApi;
+using TelegramAi.Backend.Application.Content.Services;
 using Microsoft.EntityFrameworkCore;
 using Pgvector.EntityFrameworkCore;
 
@@ -39,6 +40,12 @@ public static class DependencyInjection
         services
             .AddOptions<TelegramBotOptions>()
             .Bind(configuration.GetSection(TelegramBotOptions.SectionName));
+
+        services
+            .AddOptions<AnswerRetrievalOptions>()
+            .Bind(configuration.GetSection(AnswerRetrievalOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
 
         services.AddHttpClient<ITelegramBotApiClient, TelegramBotApiClient>(httpClient =>
         {

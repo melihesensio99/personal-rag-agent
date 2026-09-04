@@ -10,13 +10,15 @@ using TelegramAi.Backend.Application.Content.Queries;
 using TelegramAi.Backend.Domain.Content;
 using TelegramAi.Backend.Infrastructure.AiService;
 using TelegramAi.Backend.Api.Contracts.Reranking;
+using Microsoft.Extensions.Options;
 
 namespace TelegramAi.Backend.Application.Content.Services;
 
 public sealed class ContentApplicationService(
     IAiServiceClient aiServiceClient,
     IContentRepository contentRepository,
-    ILogger<ContentApplicationService> logger) : IContentApplicationService
+    ILogger<ContentApplicationService> logger,
+    IOptions<AnswerRetrievalOptions> retrievalOptions) : IContentApplicationService
 {
     private const int SemanticCandidateLimit = 20;
     private const int MaxChunksPerContent = 3;
@@ -271,7 +273,7 @@ public sealed class ContentApplicationService(
             .Select((candidate, index) => new { Candidate = candidate, Index = index, Score = scoresByIndex.GetValueOrDefault(index) })
             // 0.50 is the sigmoid neutral baseline for this model; neutral
             // scores must not be treated as evidence of relevance.
-            .Where(item => item.Score > 0.5001)
+            .Where(item => item.Score >= retrievalOptions.Value.MinimumRerankScore)
             .OrderByDescending(item => item.Score)
             .Select(item => item.Candidate)
             .ToList();
