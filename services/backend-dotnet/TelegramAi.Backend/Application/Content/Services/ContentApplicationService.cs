@@ -267,7 +267,7 @@ public sealed class ContentApplicationService(
         var scoresByIndex = rerankResponse.Scores.ToDictionary(score => score.Index, score => score.Score);
         var reranked = candidates
             .Select((candidate, index) => new { Candidate = candidate, Index = index, Score = scoresByIndex.GetValueOrDefault(index) })
-            .Where(item => item.Score >= 0.50)
+            .Where(item => item.Score >= 0.60)
             .OrderByDescending(item => item.Score)
             .Select(item => item.Candidate)
             .ToList();

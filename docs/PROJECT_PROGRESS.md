@@ -220,5 +220,5 @@ Bu dosya projede neleri bitirdigimizi, her adimin hangi konuya denk geldigini ve
 - [ ] Tool calling nedir?
 - [ ] Hybrid search nedir?
 - [x] Re-ranking nedir?
-  - Not: Semantic answer akışına local `BAAI/bge-reranker-v2-m3` Cross-Encoder eklendi; relevance skoru 0.50 altında kalan chunk'lar LLM'e gönderilmiyor.
+  - Not: Semantic answer akışına local `BAAI/bge-reranker-v2-m3` Cross-Encoder eklendi; relevance skoru 0.60 altında kalan chunk'lar LLM'e gönderilmiyor.
 - [ ] Evaluation/RAGAS nedir?

@@ -169,7 +169,7 @@ This is retrieval only; natural answer generation is the next step.
 
 The answer flow additionally reranks candidate chunks with the local
 `BAAI/bge-reranker-v2-m3` Cross-Encoder. Chunks with a normalized relevance
-score below `0.50` are removed before the answer LLM receives the context.
+score below `0.60` are removed before the answer LLM receives the context.
 
 If you want the search to focus on a single saved link, add the optional `contentId` field:
 
