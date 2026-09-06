@@ -19,6 +19,10 @@ python -m venv .venv
 .venv\Scripts\python -m uvicorn app.main:app --reload
 ```
 
+The local cross-encoder reranker is loaded during application startup. Wait for
+`Application startup complete` before sending requests. The first startup can
+take longer, but subsequent requests reuse the model already held in memory.
+
 Run the .NET backend in another terminal:
 
 ```powershell

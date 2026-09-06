@@ -14,6 +14,22 @@ class FakeRerankModel:
         return [2.0, -2.0]
 
 
+def test_warm_up_loads_model() -> None:
+    service = RerankingService()
+    calls = 0
+
+    def load_model() -> FakeRerankModel:
+        nonlocal calls
+        calls += 1
+        return FakeRerankModel()
+
+    service._get_model = load_model  # type: ignore[method-assign]
+
+    service.warm_up()
+
+    assert calls == 1
+
+
 def _fake_reranking_service() -> RerankingService:
     service = RerankingService()
     service._get_model = lambda: FakeRerankModel()  # type: ignore[method-assign]

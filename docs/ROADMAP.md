@@ -110,8 +110,18 @@ Tamamlanan sonuç: Semantic search ve Answer LLM Telegram soru akışına bağla
 
 Embedding adayları, cevap LLM'ine gönderilmeden önce yerel
 `BAAI/bge-reranker-v2-m3` modeliyle yeniden sıralanıyor. Normalize relevance
-skoru `0.60` altında kalan chunk'lar eleniyor; eski skor-farkı filtresi
-kullanılmıyor. Python servisi `POST /api/v1/rerank` endpoint'ini sağlıyor.
+skoru yapılandırılabilir `MinimumRerankScore` (`0.5001`) eşiğinin altında kalan
+chunk'lar eleniyor; eski skor-farkı filtresi kullanılmıyor. Python servisi
+`POST /api/v1/rerank` endpoint'ini sağlıyor. Model Python servisi başlarken
+RAM'e yükleniyor; servis model hazır olmadan health kontrolüne cevap vermiyor.
+
+### 5.2 RAG regression testleri (başlatıldı)
+
+- Reranker'ın ilgili chunk'ı geçirip nötr/alakasız chunk'ı elemesi doğrulanıyor.
+- Tüm chunk'lar elenirse Answer LLM'in çağrılmaması doğrulanıyor.
+- Telegram cevap ve kaynak formatları ayrı unit testlerle korunuyor.
+- Sonraki adım gerçek kayıtlarla sabit bir Türkçe değerlendirme veri seti ve
+  retrieval kalite metrikleri oluşturmaktır.
 
 ### 6. Answer LLM (tamamlandı)
 

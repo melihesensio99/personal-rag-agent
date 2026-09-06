@@ -1,4 +1,3 @@
-from functools import lru_cache
 import math
 
 from app.contracts.reranking import RerankRequest, RerankResponse, RerankScore
@@ -12,6 +11,10 @@ class RerankingService:
     def __init__(self) -> None:
         self._model = None
 
+    def warm_up(self) -> None:
+        """Load the model before the service starts accepting requests."""
+        self._get_model()
+
     def rerank(self, request: RerankRequest) -> RerankResponse:
         model = self._get_model()
         pairs = [[request.query, document.text] for document in request.documents]
@@ -22,8 +25,10 @@ class RerankingService:
         ]
         return RerankResponse(model=self.MODEL_NAME, scores=scores)
 
-    @lru_cache(maxsize=1)
     def _get_model(self):
+        if self._model is not None:
+            return self._model
+
         try:
             from sentence_transformers import CrossEncoder
         except ImportError as exception:
@@ -31,7 +36,8 @@ class RerankingService:
                 "Local reranker requires the sentence-transformers package."
             ) from exception
 
-        return CrossEncoder(self.MODEL_NAME)
+        self._model = CrossEncoder(self.MODEL_NAME)
+        return self._model
 
 
 def _sigmoid(value: float) -> float:
