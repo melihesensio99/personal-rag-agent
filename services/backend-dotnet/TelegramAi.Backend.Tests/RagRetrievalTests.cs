@@ -55,6 +55,30 @@ public sealed class RagRetrievalTests
         Assert.Contains("yeterli bilgi bulunamadı", result.Answer);
     }
 
+    [Fact]
+    public async Task SemanticAnswerDebug_ReportsRerankDecisionAndStageTimings()
+    {
+        var coffee = Result("Kahvenin kalbe etkileri", "Kahve kan basıncı ve kalp sağlığını etkileyebilir.", 0.20);
+        var muscle = Result("Maksimum kas artışı", "Direnç egzersizi hipertrofiyi destekler.", 0.21);
+        var aiClient = new StubAiServiceClient([
+            new RerankScore(0, 0.82),
+            new RerankScore(1, 0.50)]);
+        var service = CreateService(aiClient, new StubContentRepository([coffee, muscle]));
+
+        var result = await service.SemanticAnswerDebugAsync(
+            "Kahve kalbe zararlı mı?",
+            8,
+            null,
+            CancellationToken.None);
+
+        Assert.Equal(0.5001, result.MinimumRerankScore);
+        Assert.Equal(2, result.RerankCandidates.Count);
+        Assert.Equal("selected_for_answer", result.RerankCandidates.Single(item => item.ContentTitle.StartsWith("Kahve")).Decision);
+        Assert.Equal("below_rerank_threshold", result.RerankCandidates.Single(item => item.ContentTitle.StartsWith("Maksimum")).Decision);
+        Assert.NotNull(result.Timing);
+        Assert.Single(result.ContextChunksSentToLlm);
+    }
+
     private static ContentApplicationService CreateService(
         IAiServiceClient aiClient,
         IContentRepository repository)

@@ -143,7 +143,23 @@ public static class SearchEndpoints
                 Similarity: chunk.Similarity,
                 TextLength: chunk.Text.Length,
                 TextPreview: BuildPreview(chunk.Text))).ToList(),
-            Sources: result.Sources.Select(ToSemanticSearchResultResponse).ToList()));
+            Sources: result.Sources.Select(ToSemanticSearchResultResponse).ToList(),
+            MinimumRerankScore: result.MinimumRerankScore,
+            RerankCandidates: result.RerankCandidates.Select(candidate => new SemanticAnswerRerankCandidateDebugResponse(
+                CandidateIndex: candidate.CandidateIndex,
+                ContentId: candidate.ContentId,
+                ChunkId: candidate.ChunkId,
+                ContentTitle: candidate.ContentTitle,
+                ChunkIndex: candidate.ChunkIndex,
+                Similarity: candidate.Similarity,
+                RerankScore: candidate.RerankScore,
+                Accepted: candidate.Accepted,
+                Decision: candidate.Decision)).ToList(),
+            Timing: new SemanticAnswerTimingDebugResponse(
+                RetrievalMilliseconds: result.Timing.RetrievalMilliseconds,
+                RerankMilliseconds: result.Timing.RerankMilliseconds,
+                AnswerMilliseconds: result.Timing.AnswerMilliseconds,
+                TotalMilliseconds: result.Timing.TotalMilliseconds)));
     }
 
     private static SemanticSearchResultResponse ToSemanticSearchResultResponse(

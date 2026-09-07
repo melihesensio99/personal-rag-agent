@@ -9,7 +9,10 @@ public sealed record SemanticAnswerDebugResponse(
     SemanticEmbeddingDebugResponse QueryEmbedding,
     IReadOnlyList<int> UsedChunkIndexes,
     IReadOnlyList<SemanticAnswerContextChunkDebugResponse> ContextChunksSentToLlm,
-    IReadOnlyList<SemanticSearchResultResponse> Sources);
+    IReadOnlyList<SemanticSearchResultResponse> Sources,
+    double MinimumRerankScore,
+    IReadOnlyList<SemanticAnswerRerankCandidateDebugResponse> RerankCandidates,
+    SemanticAnswerTimingDebugResponse Timing);
 
 public sealed record SemanticAnswerContextChunkDebugResponse(
     int Index,
@@ -24,3 +27,20 @@ public sealed record SemanticAnswerContextChunkDebugResponse(
     double Similarity,
     int TextLength,
     string TextPreview);
+
+public sealed record SemanticAnswerRerankCandidateDebugResponse(
+    int CandidateIndex,
+    Guid ContentId,
+    Guid ChunkId,
+    string ContentTitle,
+    int ChunkIndex,
+    double Similarity,
+    double RerankScore,
+    bool Accepted,
+    string Decision);
+
+public sealed record SemanticAnswerTimingDebugResponse(
+    long RetrievalMilliseconds,
+    long RerankMilliseconds,
+    long AnswerMilliseconds,
+    long TotalMilliseconds);

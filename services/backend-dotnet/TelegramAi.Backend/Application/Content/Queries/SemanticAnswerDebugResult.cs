@@ -11,4 +11,7 @@ public sealed record SemanticAnswerDebugResult(
     string Answer,
     IReadOnlyList<int> UsedChunkIndexes,
     IReadOnlyList<CreateAnswerChunkRequest> ContextChunksSentToLlm,
-    IReadOnlyList<SemanticSearchChunkResult> Sources);
+    IReadOnlyList<SemanticSearchChunkResult> Sources,
+    double MinimumRerankScore,
+    IReadOnlyList<RagRerankCandidateDiagnostic> RerankCandidates,
+    RagPipelineTiming Timing);

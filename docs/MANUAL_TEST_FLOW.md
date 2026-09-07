@@ -168,8 +168,10 @@ Response returns the closest chunks. Lower distance means more similar.
 This is retrieval only; natural answer generation is the next step.
 
 The answer flow additionally reranks candidate chunks with the local
-`BAAI/bge-reranker-v2-m3` Cross-Encoder. Chunks with a normalized relevance
-score below `0.60` are removed before the answer LLM receives the context.
+`BAAI/bge-reranker-v2-m3` Cross-Encoder. Chunks below the configured
+`AnswerRetrieval:MinimumRerankScore` (default `0.5001`) are removed before the
+answer LLM receives the context. The old cosine-similarity gate is not applied
+after reranking.
 
 If you want the search to focus on a single saved link, add the optional `contentId` field:
 
@@ -215,6 +217,20 @@ If you want the answer to rely on only one saved link, send the same optional `c
 }
 ```
 ```
+
+## 5.1 RAG Evaluation Report
+
+Backend ve AI service çalışırken gerçek veritabanındaki sabit senaryoları
+otomatik kontrol etmek için proje kökünden çalıştır:
+
+```powershell
+.\scripts\run-rag-evaluation.ps1
+```
+
+Script `evaluation/rag-answer-cases.json` içindeki soruları debug endpointine
+gönderir; beklenen ve yasaklı kaynakları karşılaştırır, ayrıca aşama sürelerini
+`artifacts/rag-evaluation-report.md` dosyasına yazar. Backend çalışmıyorsa script
+başarısız senaryoları raporlayıp çıkış kodunu 1 yapar.
 
 ## 6. Current Important Limits
 

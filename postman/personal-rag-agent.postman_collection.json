@@ -502,7 +502,7 @@
                 "debug"
               ]
             },
-            "description": "Debug view for the full RAG answer flow. Shows retrieval output, the exact context chunk previews sent to the LLM, used_chunk_indexes, answer provider, and final answer."
+            "description": "Debug view for the full RAG answer flow. Shows retrieval output, reranker scores and decisions for every candidate, the exact context chunks sent to the LLM, stage timings, used_chunk_indexes, answer provider, and final answer."
           }
         },
         {

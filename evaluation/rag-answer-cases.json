@@ -1,0 +1,20 @@
+[
+  {
+    "name": "coffee-heart",
+    "query": "Kahve kalbe zararlı mı?",
+    "expectedAny": ["kahve", "coffee", "kardiyovasküler"],
+    "forbidden": ["kas art", "hipertrofi", "fasted cardio", "oruçlu kardiyo"]
+  },
+  {
+    "name": "fasted-cardio",
+    "query": "Aç karnına kardiyo daha fazla yağ yaktırır mı?",
+    "expectedAny": ["fasted cardio", "oruçlu kardiyo", "yağ yanma"],
+    "forbidden": ["kahve", "coffee", "kas art", "hipertrofi"]
+  },
+  {
+    "name": "breakfast",
+    "query": "Sabah uyanınca kahvaltı yapılmalı mı yoksa atlanmalı mı?",
+    "expectedAny": ["kahvaltı", "breakfast"],
+    "forbidden": ["kas art", "hipertrofi", "fasted cardio"]
+  }
+]

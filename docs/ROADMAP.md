@@ -123,6 +123,13 @@ RAM'e yükleniyor; servis model hazır olmadan health kontrolüne cevap vermiyor
 - Sonraki adım gerçek kayıtlarla sabit bir Türkçe değerlendirme veri seti ve
   retrieval kalite metrikleri oluşturmaktır.
 
+### 5.3 RAG değerlendirme ve gözlemlenebilirlik
+
+- `evaluation/rag-answer-cases.json` beklenen ve yasaklı kaynak kalıplarını tutar.
+- `scripts/run-rag-evaluation.ps1` çalışan backend'e debug endpointi üzerinden istek atar ve Markdown raporu üretir.
+- Debug cevabı her adayın reranker skorunu, kararını ve retrieval/rerank/answer sürelerini gösterir.
+- Normal answer akışı da aynı aşamaları structured log alanlarıyla yazar.
+
 ### 6. Answer LLM (tamamlandı)
 
 Amaç: Search sonucu bulunan kayıtları sadece listelemek yerine LLM ile doğal cevap üretmek.

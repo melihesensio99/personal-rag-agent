@@ -11,6 +11,7 @@ using TelegramAi.Backend.Domain.Content;
 using TelegramAi.Backend.Infrastructure.AiService;
 using TelegramAi.Backend.Api.Contracts.Reranking;
 using Microsoft.Extensions.Options;
+using System.Diagnostics;
 
 namespace TelegramAi.Backend.Application.Content.Services;
 
@@ -24,9 +25,6 @@ public sealed class ContentApplicationService(
     private const int MaxChunksPerContent = 3;
     private const int MaxAnswerChunks = 8;
     private const int MaxAnswerContextCharacters = 12_000;
-    // Embedding retrieval is a broad candidate stage; the local cross-encoder
-    // reranker performs the stricter relevance decision afterward.
-    private const double MinimumAnswerSimilarity = 0.50;
 
     public async Task<ContentItem> CreateAsync(
         CreateContentCommand command,
@@ -130,19 +128,36 @@ public sealed class ContentApplicationService(
         CancellationToken cancellationToken,
         string? retrievalQuery = null)
     {
+        var totalTimer = Stopwatch.StartNew();
+        var stageTimer = Stopwatch.StartNew();
         var candidates = await SemanticSearchChunksAsync(
             string.IsNullOrWhiteSpace(retrievalQuery) ? query : retrievalQuery.Trim(),
             Math.Max(maxResults, SemanticCandidateLimit),
             contentId,
             cancellationToken);
-        var sources = await RerankAndSelectAnswerSourcesAsync(
+        var retrievalMilliseconds = stageTimer.ElapsedMilliseconds;
+
+        stageTimer.Restart();
+        var selection = await RerankAndSelectAnswerSourcesAsync(
             query,
             candidates,
             maxResults,
             cancellationToken);
+        var rerankMilliseconds = stageTimer.ElapsedMilliseconds;
+        var sources = selection.Sources;
 
         if (sources.Count == 0)
         {
+            totalTimer.Stop();
+            LogAnswerPipeline(
+                query,
+                candidates.Count,
+                sources.Count,
+                retrievalMilliseconds,
+                rerankMilliseconds,
+                0,
+                totalTimer.ElapsedMilliseconds);
+
             return new SemanticAnswerResult(
                 Query: query,
                 Answer: "Kayıtlı kaynaklarımda bu soruya cevap verecek yeterli bilgi bulunamadı.",
@@ -151,12 +166,24 @@ public sealed class ContentApplicationService(
                 Sources: []);
         }
 
+        stageTimer.Restart();
         var answer = await aiServiceClient.CreateAnswerAsync(
             new CreateAnswerRequest(
                 ContentId: "semantic-answer-query",
                 Question: query,
                 Chunks: BuildAnswerChunks(sources)),
             cancellationToken);
+        var answerMilliseconds = stageTimer.ElapsedMilliseconds;
+        totalTimer.Stop();
+
+        LogAnswerPipeline(
+            query,
+            candidates.Count,
+            sources.Count,
+            retrievalMilliseconds,
+            rerankMilliseconds,
+            answerMilliseconds,
+            totalTimer.ElapsedMilliseconds);
 
         return new SemanticAnswerResult(
             Query: query,
@@ -172,21 +199,28 @@ public sealed class ContentApplicationService(
         Guid? contentId,
         CancellationToken cancellationToken)
     {
+        var totalTimer = Stopwatch.StartNew();
+        var stageTimer = Stopwatch.StartNew();
         var searchDebug = await SemanticSearchChunksDebugAsync(
             query,
             Math.Max(maxResults, SemanticCandidateLimit),
             contentId,
             cancellationToken);
+        var retrievalMilliseconds = stageTimer.ElapsedMilliseconds;
 
-        var selectedSources = await RerankAndSelectAnswerSourcesAsync(
+        stageTimer.Restart();
+        var selection = await RerankAndSelectAnswerSourcesAsync(
             query,
             searchDebug.Results,
             maxResults,
             cancellationToken);
+        var rerankMilliseconds = stageTimer.ElapsedMilliseconds;
+        var selectedSources = selection.Sources;
         var contextChunks = BuildAnswerChunks(selectedSources);
 
         if (contextChunks.Count == 0)
         {
+            totalTimer.Stop();
             return new SemanticAnswerDebugResult(
                 Query: query,
                 EmbeddingModel: searchDebug.EmbeddingModel,
@@ -196,15 +230,25 @@ public sealed class ContentApplicationService(
                 Answer: "Kayıtlı kaynaklarımda bu soruya cevap verecek yeterli bilgi bulunamadı.",
                 UsedChunkIndexes: [],
                 ContextChunksSentToLlm: [],
-                Sources: []);
+                Sources: [],
+                MinimumRerankScore: retrievalOptions.Value.MinimumRerankScore,
+                RerankCandidates: selection.Candidates,
+                Timing: new RagPipelineTiming(
+                    retrievalMilliseconds,
+                    rerankMilliseconds,
+                    0,
+                    totalTimer.ElapsedMilliseconds));
         }
 
+        stageTimer.Restart();
         var answer = await aiServiceClient.CreateAnswerAsync(
             new CreateAnswerRequest(
                 ContentId: "semantic-answer-query",
                 Question: query,
                 Chunks: contextChunks),
             cancellationToken);
+        var answerMilliseconds = stageTimer.ElapsedMilliseconds;
+        totalTimer.Stop();
 
         return new SemanticAnswerDebugResult(
             Query: query,
@@ -215,7 +259,14 @@ public sealed class ContentApplicationService(
             Answer: answer.Answer,
             UsedChunkIndexes: answer.UsedChunkIndexes,
             ContextChunksSentToLlm: contextChunks,
-            Sources: selectedSources);
+            Sources: selectedSources,
+            MinimumRerankScore: retrievalOptions.Value.MinimumRerankScore,
+            RerankCandidates: selection.Candidates,
+            Timing: new RagPipelineTiming(
+                retrievalMilliseconds,
+                rerankMilliseconds,
+                answerMilliseconds,
+                totalTimer.ElapsedMilliseconds));
     }
 
     private async Task<(CreateEmbeddingsResponse Response, IReadOnlyList<float> QueryEmbedding)> CreateQueryEmbeddingAsync(
@@ -251,7 +302,7 @@ public sealed class ContentApplicationService(
             Similarity: Math.Max(0, 1 - source.Distance))).ToList();
     }
 
-    private async Task<IReadOnlyList<SemanticSearchChunkResult>> RerankAndSelectAnswerSourcesAsync(
+    private async Task<RerankSelectionResult> RerankAndSelectAnswerSourcesAsync(
         string query,
         IReadOnlyList<SemanticSearchChunkResult> candidates,
         int requestedMaxResults,
@@ -259,7 +310,7 @@ public sealed class ContentApplicationService(
     {
         if (candidates.Count == 0)
         {
-            return [];
+            return new RerankSelectionResult([], []);
         }
 
         var rerankResponse = await aiServiceClient.RerankAsync(
@@ -269,31 +320,51 @@ public sealed class ContentApplicationService(
             cancellationToken);
 
         var scoresByIndex = rerankResponse.Scores.ToDictionary(score => score.Index, score => score.Score);
-        var reranked = candidates
-            .Select((candidate, index) => new { Candidate = candidate, Index = index, Score = scoresByIndex.GetValueOrDefault(index) })
-            // 0.50 is the sigmoid neutral baseline for this model; neutral
-            // scores must not be treated as evidence of relevance.
-            .Where(item => item.Score >= retrievalOptions.Value.MinimumRerankScore)
-            .OrderByDescending(item => item.Score)
-            .Select(item => item.Candidate)
+        var minimumScore = retrievalOptions.Value.MinimumRerankScore;
+        var scoredCandidates = candidates
+            .Select((candidate, index) => new ScoredAnswerCandidate(
+                CandidateIndex: index,
+                Candidate: candidate,
+                RerankScore: scoresByIndex.GetValueOrDefault(index),
+                HasRerankScore: scoresByIndex.ContainsKey(index)))
             .ToList();
 
-        return SelectAnswerSources(reranked, requestedMaxResults);
+        var passedCandidates = scoredCandidates
+            .Where(item => item.HasRerankScore && item.RerankScore >= minimumScore)
+            .OrderByDescending(item => item.RerankScore)
+            .ToList();
+        var selectedSources = SelectAnswerSources(passedCandidates, requestedMaxResults);
+        var selectedChunkIds = selectedSources.Select(source => source.ChunkId).ToHashSet();
+
+        var diagnostics = scoredCandidates
+            .Select(item => new RagRerankCandidateDiagnostic(
+                CandidateIndex: item.CandidateIndex,
+                ContentId: item.Candidate.ContentId,
+                ChunkId: item.Candidate.ChunkId,
+                ContentTitle: item.Candidate.ContentTitle,
+                ChunkIndex: item.Candidate.ChunkIndex,
+                Similarity: Math.Max(0, 1 - item.Candidate.Distance),
+                RerankScore: item.RerankScore,
+                Accepted: selectedChunkIds.Contains(item.Candidate.ChunkId),
+                Decision: ResolveRerankDecision(item, minimumScore, selectedChunkIds)))
+            .OrderByDescending(item => item.RerankScore)
+            .ToList();
+
+        return new RerankSelectionResult(selectedSources, diagnostics);
     }
 
     private static IReadOnlyList<SemanticSearchChunkResult> SelectAnswerSources(
-        IReadOnlyList<SemanticSearchChunkResult> candidates,
+        IReadOnlyList<ScoredAnswerCandidate> candidates,
         int requestedMaxResults)
     {
         var totalLimit = Math.Clamp(requestedMaxResults, 1, MaxAnswerChunks);
         var groups = candidates
-            .Where(candidate => Math.Max(0, 1 - candidate.Distance) >= MinimumAnswerSimilarity)
-            .GroupBy(candidate => candidate.ContentId)
+            .GroupBy(candidate => candidate.Candidate.ContentId)
             .Select(group => group
-                .OrderByDescending(candidate => 1 - candidate.Distance)
+                .OrderByDescending(candidate => candidate.RerankScore)
                 .Take(MaxChunksPerContent)
                 .ToList())
-            .OrderByDescending(group => 1 - group[0].Distance)
+            .OrderByDescending(group => group[0].RerankScore)
             .ToList();
 
         var selected = new List<SemanticSearchChunkResult>();
@@ -308,7 +379,7 @@ public sealed class ContentApplicationService(
                     continue;
                 }
 
-                var candidate = group[round];
+                var candidate = group[round].Candidate;
                 if (selected.Count > 0 && totalCharacters + candidate.ChunkText.Length > MaxAnswerContextCharacters)
                 {
                     continue;
@@ -321,6 +392,53 @@ public sealed class ContentApplicationService(
 
         return selected;
     }
+
+    private static string ResolveRerankDecision(
+        ScoredAnswerCandidate candidate,
+        double minimumScore,
+        IReadOnlySet<Guid> selectedChunkIds)
+    {
+        if (!candidate.HasRerankScore)
+        {
+            return "missing_rerank_score";
+        }
+
+        if (candidate.RerankScore < minimumScore)
+        {
+            return "below_rerank_threshold";
+        }
+
+        return selectedChunkIds.Contains(candidate.Candidate.ChunkId)
+            ? "selected_for_answer"
+            : "excluded_by_context_limits";
+    }
+
+    private void LogAnswerPipeline(
+        string query,
+        int candidateCount,
+        int selectedCount,
+        long retrievalMilliseconds,
+        long rerankMilliseconds,
+        long answerMilliseconds,
+        long totalMilliseconds)
+    {
+        logger.LogInformation(
+            "RAG answer completed. Query={Query} Candidates={CandidateCount} Selected={SelectedCount} " +
+            "RetrievalMs={RetrievalMs} RerankMs={RerankMs} AnswerMs={AnswerMs} TotalMs={TotalMs}",
+            query,
+            candidateCount,
+            selectedCount,
+            retrievalMilliseconds,
+            rerankMilliseconds,
+            answerMilliseconds,
+            totalMilliseconds);
+    }
+
+    private sealed record ScoredAnswerCandidate(
+        int CandidateIndex,
+        SemanticSearchChunkResult Candidate,
+        double RerankScore,
+        bool HasRerankScore);
 
     private async Task<CreateExtractionResponse?> TryExtractAsync(
         Guid contentId,
