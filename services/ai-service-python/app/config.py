@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     service_version: str = "1.0"
     summary_prompt_path: str = "app/prompts/content_summary_v1.txt"
     answer_prompt_path: str = "app/prompts/content_answer_v1.txt"
+    intent_prompt_path: str = "app/prompts/content_intent_v1.txt"
     summary_provider: str = "mistral"
     answer_provider: str = "mistral"
     intent_provider: str = "mistral"

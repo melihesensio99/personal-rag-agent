@@ -8,6 +8,6 @@ class PromptLoader:
     def load(self) -> str:
         prompt = self._prompt_path.read_text(encoding="utf-8").strip()
         if not prompt:
-            raise ValueError("System prompt must be loaded before summarization.")
+            raise ValueError(f"Prompt file is empty: {self._prompt_path}")
 
         return prompt

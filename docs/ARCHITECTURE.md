@@ -36,6 +36,11 @@ Each service owns its implementation and persistence schema. Cross-service acces
 
 Telegram belongs to the .NET backend, not the Python AI service. The bot is treated as an inbound product channel. Each message is first sent to the Python intent service. The returned action is converted into an `AgentPlan` by `AgentOrchestrator`, then executed by `AgentToolExecutor`.
 
+Intent talimatları `services/ai-service-python/app/prompts/content_intent_v1.txt`
+dosyasında tutulur. Mistral ve Gemini intent provider'ları aynı prompt dosyasını
+`AI_SERVICE_INTENT_PROMPT_PATH` ayarı üzerinden yükler; provider kodu yalnızca
+API isteği, çıktı doğrulama ve normalizasyon sorumluluğundadır.
+
 The active tools are named by their behavior: `SaveIncomingContent`, `SearchSavedContent`, `AnswerUsingSavedContent`, and `AskUserForClarification`. This is an internal tool-executor layer; native provider `tool_calls` and multi-step planning are future extensions.
 
 For saving, `SaveIncomingContent` calls extraction, summary and chunk/embedding endpoints, then persists the content and chunks in PostgreSQL. For listing, `SearchSavedContent` applies type, date and normalized keyword filters. For questions, `AnswerUsingSavedContent` calls `SemanticAnswerAsync`, which performs pgvector retrieval, reranks candidates with the local Cross-Encoder, and forwards only relevant chunks to the Python answer provider.

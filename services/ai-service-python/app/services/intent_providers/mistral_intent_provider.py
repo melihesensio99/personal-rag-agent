@@ -8,6 +8,7 @@ from pydantic import ValidationError
 
 from app.contracts.intents import IntentRequest, IntentResponse
 from app.services.intent_providers.base import IntentProvider
+from app.services.prompt_loader import PromptLoader
 from app.services.structured_output_runner import run_with_retries
 from app.services.mistral_response_schemas import INTENT_SCHEMA, response_format
 
@@ -114,11 +115,13 @@ class MistralIntentProvider(IntentProvider):
         model: str,
         base_url: str,
         timeout_seconds: int,
+        prompt_loader: PromptLoader | None = None,
     ) -> None:
         self._api_key = api_key
         self._model = model
         self._base_url = base_url.rstrip("/")
         self._timeout_seconds = timeout_seconds
+        self._prompt_loader = prompt_loader or PromptLoader("app/prompts/content_intent_v1.txt")
 
     def classify(self, request: IntentRequest) -> IntentResponse:
         def operation(repair_hint: str | None) -> IntentResponse:
@@ -188,56 +191,7 @@ class MistralIntentProvider(IntentProvider):
     def _send_request(self, request: IntentRequest, repair_hint: str | None = None) -> dict[str, object]:
         endpoint = f"{self._base_url}/chat/completions"
 
-        system_prompt = (
-            "You classify messages for a personal content assistant. "
-            "Return only a JSON object that matches the exact schema. "
-            "Do not use aliases, paraphrases, or extra keys. "
-            "action must be save_content, list_contents, answer_from_memory, or ask_clarification. "
-            "intent must be save, search, or clarify. "
-            "query is the user's search/question text for list_contents or answer_from_memory. "
-            "content is the text to save for save_content. "
-            "clarification_message is a short Turkish message for ask_clarification. "
-            "content_kind must be text, video, image, or null. "
-            "source_type must be article, youtube, pdf, image, telegram, or null. "
-            "time_filter is a legacy compatibility field; keep it as none unless needed for compatibility. "
-            "Always resolve any relative or absolute date expression into date_from/date_to as ISO dates (YYYY-MM-DD); date_to is exclusive. "
-            "keywords must be an array of meaningful topic words. "
-            "For answer_from_memory, semantic_query is required: write a concise natural-language retrieval description that preserves the user's topic, entities, and requested comparison. Do not introduce new topics or claims. For other actions semantic_query must be null. "
-            "The user usually writes in Turkish. "
-            "Turkish search verbs include: getir, listele, göster, goster, bul, ara, neydi, hangisiydi. "
-            "If the user asks to retrieve, list, show, find, or search previously saved records, choose action list_contents. "
-            "If the user asks a factual or conceptual question that should be answered from saved knowledge, choose action answer_from_memory even when they do not use retrieve/list/search verbs. "
-            "Question signals include: ?, nedir, nasil, nasıl, neden, ne kadar, kac, kaç, hangi, hangisi, onerir, önerir, almaliyim, almalıyım. "
-            "A long conceptual question comparing approaches is still a search/answer request, not clarify. "
-            "Do not choose save for a standalone question unless the user explicitly says it is a note to save. "
-            "If the user sends article-like content, long pasted text, or text starting with Baslik/Başlık/Title, choose save. "
-            "If the user sends a URL, article text, note, or content to save without asking to retrieve old records, choose save. "
-            "If the user asks for videos in general, set content_kind to video and source_type to null unless YouTube is explicitly requested. "
-            "If the user says youtube, set source_type to youtube and content_kind to video. "
-            "If the user says makale or article, set source_type to article and content_kind to null unless they explicitly ask for text content in general. "
-            "If the user says yazı, yazi, pdf, doküman, or dokuman, set content_kind to text. "
-            "If the user says not, notlar, notlarımı, or kendime not, set source_type to telegram and content_kind to text when listing saved notes. "
-            "For expressions such as bugün, dün, bu hafta, bu ay, geçen hafta, geçen ay, 10 gün önce, 2 hafta önce, 2 ay önce or son 3 gün, calculate date_from/date_to from current_date. For bu hafta, use Monday of the current calendar week as date_from and tomorrow as the exclusive date_to. For N hafta önce, use the complete calendar week N weeks before the current week. For N ay önce, use the complete calendar month N months before the current month. "
-            "Do not include content-type words or filler words in keywords: makale, makaleler, makaleleri, article, video, videolar, videoları, youtube, link, linkleri, bugun, bugün, dun, dün, attigim, attığım, getir, listele, göster, goster, bul. "
-            "If the message is ambiguous and you cannot safely choose save/search, choose clarify. "
-            "Examples: "
-            "User: 'bugün attığım spor videolarını listele' => "
-            "{\"action\":\"list_contents\",\"intent\":\"search\",\"query\":\"bugün attığım spor videolarını listele\",\"content\":null,\"content_kind\":\"video\",\"source_type\":null,\"time_filter\":\"today\",\"date_from\":null,\"date_to\":null,\"keywords\":[\"spor\"],\"semantic_query\":null,\"needs_clarification\":false,\"clarification_message\":null}. "
-            "User: 'geçen gün attığım sporla ilgili şeyi bulsana' => "
-            "{\"action\":\"list_contents\",\"intent\":\"search\",\"query\":\"geçen gün attığım sporla ilgili şeyi bulsana\",\"content\":null,\"content_kind\":null,\"source_type\":null,\"time_filter\":\"none\",\"date_from\":null,\"date_to\":null,\"keywords\":[\"spor\"],\"semantic_query\":\"spor\",\"needs_clarification\":false,\"clarification_message\":null}. "
-            "User: 'bugün attığım makaleleri getir' => "
-            "{\"action\":\"list_contents\",\"intent\":\"search\",\"query\":\"bugün attığım makaleleri getir\",\"content\":null,\"content_kind\":null,\"source_type\":\"article\",\"time_filter\":\"today\",\"date_from\":null,\"date_to\":null,\"keywords\":[],\"semantic_query\":null,\"needs_clarification\":false,\"clarification_message\":null}. "
-            "User: 'Kas yapmak için günlük ne kadar protein almalıyım?' => "
-            "{\"action\":\"answer_from_memory\",\"intent\":\"search\",\"query\":\"Kas yapmak için günlük ne kadar protein almalıyım?\",\"content\":null,\"content_kind\":null,\"source_type\":null,\"time_filter\":\"none\",\"keywords\":[\"kas yapmak\",\"protein\"],\"needs_clarification\":false,\"clarification_message\":null}. "
-            "User: 'RAG nedir?' => "
-            "{\"action\":\"answer_from_memory\",\"intent\":\"search\",\"query\":\"RAG nedir?\",\"content\":null,\"content_kind\":null,\"source_type\":null,\"time_filter\":\"none\",\"keywords\":[\"rag\"],\"needs_clarification\":false,\"clarification_message\":null}. "
-            "User: 'Geniş doküman kümesinde RAG kurarken indeksleme aşamasında mı derinleşmeliyiz yoksa inference anında aramaya mı güvenmeliyiz?' => "
-            "{\"action\":\"answer_from_memory\",\"intent\":\"search\",\"query\":\"Geniş doküman kümesinde RAG kurarken indeksleme aşamasında mı derinleşmeliyiz yoksa inference anında aramaya mı güvenmeliyiz?\",\"content\":null,\"content_kind\":null,\"source_type\":null,\"time_filter\":\"none\",\"keywords\":[\"rag\",\"indexing\",\"inference\",\"retrieval\"],\"needs_clarification\":false,\"clarification_message\":null}. "
-            "User: 'Başlık: Sabah Antrenmanı Daha Verimlidir Sabah saatlerinde yapılan antrenmanlar...' => "
-            "{\"action\":\"save_content\",\"intent\":\"save\",\"query\":null,\"content\":\"Başlık: Sabah Antrenmanı Daha Verimlidir Sabah saatlerinde yapılan antrenmanlar...\",\"content_kind\":\"text\",\"source_type\":\"telegram\",\"time_filter\":\"none\",\"keywords\":[],\"needs_clarification\":false,\"clarification_message\":null}. "
-            "User: 'kendime not: RAG chunking önemli' => "
-            "{\"action\":\"save_content\",\"intent\":\"save\",\"query\":null,\"content\":\"kendime not: RAG chunking önemli\",\"content_kind\":\"text\",\"source_type\":\"telegram\",\"time_filter\":\"none\",\"keywords\":[],\"needs_clarification\":false,\"clarification_message\":null}."
-        )
+        system_prompt = self._prompt_loader.load()
 
         if repair_hint is not None:
             system_prompt = (

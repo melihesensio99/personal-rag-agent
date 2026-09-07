@@ -6,6 +6,7 @@ from urllib.request import Request, urlopen
 
 from app.contracts.intents import IntentRequest, IntentResponse
 from app.services.intent_providers.base import IntentProvider
+from app.services.prompt_loader import PromptLoader
 
 
 class GeminiIntentProvider(IntentProvider):
@@ -40,11 +41,13 @@ class GeminiIntentProvider(IntentProvider):
         model: str,
         base_url: str,
         timeout_seconds: int,
+        prompt_loader: PromptLoader | None = None,
     ) -> None:
         self._api_key = api_key
         self._model = model
         self._base_url = base_url.rstrip("/")
         self._timeout_seconds = timeout_seconds
+        self._prompt_loader = prompt_loader or PromptLoader("app/prompts/content_intent_v1.txt")
 
     def classify(self, request: IntentRequest) -> IntentResponse:
         payload = self._send_request(request)
@@ -120,29 +123,8 @@ class GeminiIntentProvider(IntentProvider):
         endpoint = f"{self._base_url}/models/{self._model}:generateContent"
 
         prompt = (
-            f"Today's date is {request.current_date}. "
-            "Classify the user's message for a personal content assistant. "
-            "Return only JSON. "
-            "action must be save_content, list_contents, answer_from_memory, or ask_clarification. "
-            "intent must be save, search, or clarify. "
-            "For backwards compatibility, intent must be save when action is save_content, search when action is list_contents or answer_from_memory, and clarify when action is ask_clarification. "
-            "query is the user's search/question text for list_contents or answer_from_memory. "
-            "content is the text to save for save_content. "
-            "clarification_message is a short Turkish message for ask_clarification. "
-            "content_kind must be text, video, image, or null. "
-            "source_type must be article, youtube, pdf, image, telegram, or null. "
-            "time_filter must be today, yesterday, two_days_ago, or none. "
-            "keywords should contain only meaningful topic words and should not include filler words like getir, listele, attığım, linkleri. For answer_from_memory, semantic_query is required: produce a concise retrieval description preserving the user's topic and entities without adding new claims. For other actions semantic_query must be null. "
-            "If the user asks for videos in general, set content_kind to video even when source_type is null. "
-            "If the user asks for articles, writings, PDFs, or text-like records in general, set content_kind to text unless a stricter source_type is clearly requested. "
-            "If the user asks for images, visuals, photos, or screenshots, set content_kind to image. "
-            "If the user wants previously saved records, choose action list_contents. "
-            "If the user asks a factual or conceptual question that should be answered from saved knowledge, choose action answer_from_memory even when they do not use retrieve/list/search verbs. "
-            "Question signals include: ?, nedir, nasil, nasıl, neden, ne kadar, kac, kaç, hangi, hangisi, onerir, önerir, almaliyim, almalıyım. "
-            "A long conceptual question comparing approaches is still a search/answer request, not clarify. "
-            "Do not choose save for a standalone question unless the user explicitly says it is a note to save. "
-            "If the user sends article-like content, long pasted text, or text starting with Baslik/Başlık/Title, choose save. "
-            "If the user sends content or a link to save, choose save.\n\n"
+            f"Today's date is {request.current_date}.\n\n"
+            f"{self._prompt_loader.load()}\n\n"
             f"User message: {request.message}"
         )
 

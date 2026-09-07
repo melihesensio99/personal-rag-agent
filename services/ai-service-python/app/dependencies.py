@@ -148,12 +148,14 @@ def get_extraction_service() -> ExtractionService:
 @lru_cache
 def get_intent_service() -> IntentService:
     provider_name = settings.intent_provider.lower()
+    prompt_loader = PromptLoader(settings.intent_prompt_path)
 
     if provider_name == "gemini":
         if not settings.gemini_api_key.strip():
             raise ValueError("AI_SERVICE_GEMINI_API_KEY must be set when intent_provider=gemini.")
 
         provider = GeminiIntentProvider(
+            prompt_loader=prompt_loader,
             api_key=settings.gemini_api_key,
             model=settings.gemini_model,
             base_url=settings.gemini_base_url,
@@ -166,6 +168,7 @@ def get_intent_service() -> IntentService:
             raise ValueError("AI_SERVICE_MISTRAL_API_KEY must be set when intent_provider=mistral.")
 
         provider = MistralIntentProvider(
+            prompt_loader=prompt_loader,
             api_key=settings.mistral_api_key,
             model=settings.mistral_intent_model,
             base_url=settings.mistral_base_url,
