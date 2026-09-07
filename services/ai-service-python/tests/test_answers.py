@@ -4,8 +4,8 @@ from fastapi.testclient import TestClient
 
 from app.dependencies import get_answer_service
 from app.main import app
-from app.services.answer_providers.fake_answer_provider import FakeAnswerProvider
-from app.services.answer_providers.mistral_answer_provider import MistralAnswerProvider
+from app.providers.answer.fake_answer_provider import FakeAnswerProvider
+from app.providers.answer.mistral_answer_provider import MistralAnswerProvider
 from app.services.answer_service import AnswerService
 from app.services.prompt_loader import PromptLoader
 from app.contracts.answers import AnswerContextChunk, AnswerRequest

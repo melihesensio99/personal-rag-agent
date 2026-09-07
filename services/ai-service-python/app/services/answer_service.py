@@ -1,5 +1,5 @@
 from app.contracts.answers import AnswerRequest, AnswerResponse
-from app.services.answer_providers.base import AnswerProvider
+from app.providers.answer.base import AnswerProvider
 
 
 class AnswerService:

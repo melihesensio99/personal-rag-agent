@@ -1,7 +1,7 @@
 import hashlib
 import math
 
-from app.services.embedding_providers.base import EmbeddingProvider
+from app.providers.embedding.base import EmbeddingProvider
 
 
 class FakeEmbeddingProvider(EmbeddingProvider):

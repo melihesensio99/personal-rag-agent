@@ -1,7 +1,7 @@
 import re
 
 from app.contracts.intents import IntentRequest, IntentResponse
-from app.services.intent_providers.base import IntentProvider
+from app.providers.intent.base import IntentProvider
 
 
 class FakeIntentProvider(IntentProvider):

@@ -1,8 +1,8 @@
 from app.contracts.extractions import ExtractionRequest, ExtractionResponse
-from app.services.extractors.article_extractor import ArticleExtractor
-from app.services.extractors.pmc_article_extractor import PmcArticleExtractor
-from app.services.extractors.pubmed_article_extractor import PubMedArticleExtractor
-from app.services.extractors.youtube_extractor import YouTubeExtractor
+from app.providers.extractors.article_extractor import ArticleExtractor
+from app.providers.extractors.pmc_article_extractor import PmcArticleExtractor
+from app.providers.extractors.pubmed_article_extractor import PubMedArticleExtractor
+from app.providers.extractors.youtube_extractor import YouTubeExtractor
 from urllib.parse import urlparse
 
 

@@ -2,7 +2,7 @@ import re
 
 from app.contracts.summaries import SummaryRequest, SummaryResponse
 from app.services.prompt_loader import PromptLoader
-from app.services.summary_providers.base import SummaryProvider
+from app.providers.summary.base import SummaryProvider
 
 
 class FakeSummaryProvider(SummaryProvider):

@@ -2,7 +2,7 @@ import json
 
 from app.contracts.summaries import SummaryRequest
 from app.services.prompt_loader import PromptLoader
-from app.services.summary_providers.gemini_summary_provider import GeminiSummaryProvider
+from app.providers.summary.gemini_summary_provider import GeminiSummaryProvider
 
 
 def test_gemini_summary_provider_parses_structured_output(monkeypatch, tmp_path) -> None:

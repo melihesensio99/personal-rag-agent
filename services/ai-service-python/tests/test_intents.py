@@ -3,8 +3,8 @@ import pytest
 
 from app.dependencies import get_intent_service
 from app.main import app
-from app.services.intent_providers.fake_intent_provider import FakeIntentProvider
-from app.services.intent_providers.mistral_intent_provider import MistralIntentProvider
+from app.providers.intent.fake_intent_provider import FakeIntentProvider
+from app.providers.intent.mistral_intent_provider import MistralIntentProvider
 from app.services.intent_service import IntentService
 from app.contracts.intents import IntentRequest
 

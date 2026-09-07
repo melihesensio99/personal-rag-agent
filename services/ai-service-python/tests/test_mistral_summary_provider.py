@@ -2,7 +2,7 @@ import json
 
 from app.contracts.summaries import SummaryRequest
 from app.services.prompt_loader import PromptLoader
-from app.services.summary_providers.mistral_summary_provider import MistralSummaryProvider
+from app.providers.summary.mistral_summary_provider import MistralSummaryProvider
 
 
 def test_mistral_summary_provider_parses_structured_output(monkeypatch, tmp_path) -> None:

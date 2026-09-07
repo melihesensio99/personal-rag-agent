@@ -4,12 +4,13 @@ import json
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from app.contracts.answers import AnswerRequest, AnswerResponse
-from app.services.answer_providers.base import AnswerProvider
+from app.contracts.summaries import SummaryRequest, SummaryResponse
 from app.services.prompt_loader import PromptLoader
+from app.services.summary_input_preparer import SummaryInputPreparer
+from app.providers.summary.base import SummaryProvider
 
 
-class GeminiAnswerProvider(AnswerProvider):
+class GeminiSummaryProvider(SummaryProvider):
     def __init__(
         self,
         prompt_loader: PromptLoader,
@@ -24,9 +25,9 @@ class GeminiAnswerProvider(AnswerProvider):
         self._base_url = base_url.rstrip("/")
         self._timeout_seconds = timeout_seconds
 
-    def create_answer(self, request: AnswerRequest) -> AnswerResponse:
-        prepared_chunks = self._build_prepared_chunks(request)
-        payload = self._send_request(" ".join(request.question.split()), prepared_chunks)
+    def create_summary(self, request: SummaryRequest) -> SummaryResponse:
+        prepared_text = SummaryInputPreparer.prepare(request.text)
+        payload = self._send_request(prepared_text)
         output_text = self._extract_output_text(payload)
 
         if not isinstance(output_text, str) or not output_text.strip():
@@ -34,15 +35,17 @@ class GeminiAnswerProvider(AnswerProvider):
 
         parsed = self._parse_json_output(output_text)
 
-        return AnswerResponse(
+        return SummaryResponse(
             content_id=request.content_id,
-            answer=self._read_text(parsed, "answer", fallback="Yeterli bilgi bulunamadı."),
-            used_chunk_indexes=self._read_int_list(parsed, "used_chunk_indexes"),
+            title=self._read_text(parsed, "title", fallback="Basliksiz icerik"),
+            short_summary=self._read_text(parsed, "short_summary", fallback=prepared_text[:280]),
+            key_points=self._read_text_list(parsed, "key_points", fallback=[prepared_text[:140]]),
+            tags=self._read_text_list(parsed, "tags", fallback=self._build_fallback_tags(prepared_text)),
             language=self._read_text(parsed, "language", fallback="tr"),
             provider="gemini",
         )
 
-    def _send_request(self, question: str, prepared_chunks: str) -> dict[str, object]:
+    def _send_request(self, prepared_text: str) -> dict[str, object]:
         endpoint = f"{self._base_url}/models/{self._model}:generateContent"
 
         body = {
@@ -53,7 +56,12 @@ class GeminiAnswerProvider(AnswerProvider):
                         {
                             "text": (
                                 f"{self._prompt_loader.load()}\n\n"
-                                f"Question:\n{question}\n\nRetrieved chunks:\n{prepared_chunks}"
+                                "Summarize the saved content below. "
+                                "Return only a JSON object with these exact fields: "
+                                "title, short_summary, key_points, tags, language. "
+                                "key_points and tags must be arrays of strings. "
+                                "language must be tr.\n\n"
+                                f"Content:\n{prepared_text}"
                             )
                         }
                     ],
@@ -80,43 +88,19 @@ class GeminiAnswerProvider(AnswerProvider):
                 raw = response.read().decode("utf-8", errors="ignore")
         except HTTPError as exception:
             details = exception.read().decode("utf-8", errors="ignore")
-            raise RuntimeError(f"Gemini answer request failed with HTTP {exception.code}: {details}") from exception
+            raise RuntimeError(f"Gemini summary request failed with HTTP {exception.code}: {details}") from exception
         except URLError as exception:
-            raise RuntimeError(f"Gemini answer request failed: {exception.reason}") from exception
+            raise RuntimeError(f"Gemini summary request failed: {exception.reason}") from exception
         except TimeoutError as exception:
-            raise RuntimeError("Gemini answer request timed out.") from exception
+            raise RuntimeError("Gemini summary request timed out.") from exception
 
         parsed = json.loads(raw)
         if not isinstance(parsed, dict):
-            raise ValueError("Gemini answer response payload was invalid.")
+            raise ValueError("Gemini response payload was invalid.")
 
         return parsed
 
-    @staticmethod
-    def _build_prepared_chunks(request: AnswerRequest) -> str:
-        lines: list[str] = []
-
-        for chunk in request.chunks:
-            lines.append(
-                "\n".join(
-                    [
-                        f"Index: {chunk.index}",
-                        f"Content title: {chunk.content_title}",
-                        f"Content URL: {chunk.content_url}",
-                        f"Source type: {chunk.source_type}",
-                        f"Content kind: {chunk.content_kind}",
-                        f"Chunk index: {chunk.chunk_index}",
-                        f"Distance: {chunk.distance}",
-                        f"Similarity: {chunk.similarity}",
-                        f"Text: {chunk.text}",
-                    ]
-                )
-            )
-
-        return "\n\n---\n\n".join(lines) if lines else "[NO CHUNKS]"
-
-    @staticmethod
-    def _extract_output_text(payload: dict[str, object]) -> str | None:
+    def _extract_output_text(self, payload: dict[str, object]) -> str | None:
         candidates = payload.get("candidates")
         if not isinstance(candidates, list):
             return None
@@ -148,7 +132,7 @@ class GeminiAnswerProvider(AnswerProvider):
 
         parsed = json.loads(clean_text)
         if not isinstance(parsed, dict):
-            raise ValueError("Gemini answer JSON output was invalid.")
+            raise ValueError("Gemini summary JSON output was invalid.")
 
         return parsed
 
@@ -159,10 +143,30 @@ class GeminiAnswerProvider(AnswerProvider):
 
         return fallback.strip()
 
-    @staticmethod
-    def _read_int_list(parsed: dict[str, object], key: str) -> list[int]:
+    def _read_text_list(self, parsed: dict[str, object], key: str, fallback: list[str]) -> list[str]:
         value = parsed.get(key)
-        if not isinstance(value, list):
-            return []
+        if isinstance(value, list):
+            items = [item.strip() for item in value if isinstance(item, str) and item.strip()]
+            if items:
+                return items
 
-        return [item for item in value if isinstance(item, int)]
+        return fallback
+
+    def _build_fallback_tags(self, text: str) -> list[str]:
+        words = [
+            word.strip(".,:;!?()[]{}\"'").lower()
+            for word in text.split()
+            if len(word.strip(".,:;!?()[]{}\"'")) >= 4
+        ]
+        unique_words: list[str] = []
+
+        for word in words:
+            if word in unique_words:
+                continue
+
+            unique_words.append(word)
+
+            if len(unique_words) == 4:
+                break
+
+        return unique_words or ["genel"]

@@ -5,7 +5,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from app.contracts.intents import IntentRequest, IntentResponse
-from app.services.intent_providers.base import IntentProvider
+from app.providers.intent.base import IntentProvider
 from app.services.prompt_loader import PromptLoader
 
 

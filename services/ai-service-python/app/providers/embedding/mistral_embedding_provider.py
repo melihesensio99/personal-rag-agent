@@ -4,7 +4,7 @@ import json
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from app.services.embedding_providers.base import EmbeddingProvider
+from app.providers.embedding.base import EmbeddingProvider
 
 
 class MistralEmbeddingProvider(EmbeddingProvider):

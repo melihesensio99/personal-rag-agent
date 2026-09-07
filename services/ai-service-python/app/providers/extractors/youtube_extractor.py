@@ -10,7 +10,7 @@ from app.contracts.extractions import (
     ExtractionRequest,
     ExtractionResponse,
 )
-from app.services.extractors.youtube_transcript_provider import YouTubeTranscriptProvider
+from app.providers.extractors.youtube_transcript_provider import YouTubeTranscriptProvider
 
 
 class YouTubeExtractor:

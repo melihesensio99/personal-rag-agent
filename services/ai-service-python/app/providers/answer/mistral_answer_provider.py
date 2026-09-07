@@ -5,10 +5,10 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from app.contracts.answers import AnswerRequest, AnswerResponse
-from app.services.answer_providers.base import AnswerProvider
+from app.providers.answer.base import AnswerProvider
 from app.services.prompt_loader import PromptLoader
 from app.services.structured_output_runner import run_with_retries
-from app.services.mistral_response_schemas import ANSWER_SCHEMA, response_format
+from app.schemas.mistral_response_schemas import ANSWER_SCHEMA, response_format
 
 
 class MistralAnswerProvider(AnswerProvider):

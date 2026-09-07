@@ -46,3 +46,27 @@ The active tools are named by their behavior: `SaveIncomingContent`, `SearchSave
 For saving, `SaveIncomingContent` calls extraction, summary and chunk/embedding endpoints, then persists the content and chunks in PostgreSQL. For listing, `SearchSavedContent` applies type, date and normalized keyword filters. For questions, `AnswerUsingSavedContent` calls `SemanticAnswerAsync`, which performs pgvector retrieval, reranks candidates with the local Cross-Encoder, and forwards only relevant chunks to the Python answer provider.
 
 Mistral providers use JSON Schema structured output, Pydantic validation and repair/retry. Python does not override the LLM's semantic action with regex heuristics; it only validates and normalizes technical fields.
+
+## Python AI service layout
+
+The Python service separates transport models, LLM schemas, integrations and
+business workflows:
+
+```text
+app/
+  contracts/       # FastAPI request/response DTOs
+  schemas/         # LLM structured-output schemas
+  prompts/         # Versioned system prompts (.txt)
+  providers/       # External integrations and provider implementations
+    answer/
+    embedding/
+    extractors/
+    intent/
+    summary/
+  services/        # Provider-independent application/domain workflows
+```
+
+Provider modules own calls to Mistral, Gemini, Hugging Face and source
+extractors. Services compose those providers and contain orchestration or
+business rules without embedding vendor-specific implementations. This keeps
+provider swaps and prompt/schema changes isolated from the API contracts.

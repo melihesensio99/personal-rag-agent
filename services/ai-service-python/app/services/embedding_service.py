@@ -1,5 +1,5 @@
 from app.contracts.embeddings import EmbeddingRequest, EmbeddingResponse, TextEmbedding
-from app.services.embedding_providers.base import EmbeddingProvider
+from app.providers.embedding.base import EmbeddingProvider
 
 
 class EmbeddingService:

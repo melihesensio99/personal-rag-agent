@@ -2,7 +2,7 @@ from fastapi.testclient import TestClient
 
 from app.dependencies import get_embedding_service
 from app.main import app
-from app.services.embedding_providers.fake_embedding_provider import FakeEmbeddingProvider
+from app.providers.embedding.fake_embedding_provider import FakeEmbeddingProvider
 from app.services.embedding_service import EmbeddingService
 
 app.dependency_overrides[get_embedding_service] = lambda: EmbeddingService(
