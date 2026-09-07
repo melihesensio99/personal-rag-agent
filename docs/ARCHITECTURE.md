@@ -57,6 +57,7 @@ app/
   contracts/       # FastAPI request/response DTOs
   schemas/         # LLM structured-output schemas
   prompts/         # Versioned system prompts (.txt)
+  utils/           # Reusable technical helpers (prompt loading, retries)
   providers/       # External integrations and provider implementations
     answer/
     embedding/
@@ -67,6 +68,8 @@ app/
 ```
 
 Provider modules own calls to Mistral, Gemini, Hugging Face and source
-extractors. Services compose those providers and contain orchestration or
+extractors. Utilities contain provider-agnostic technical helpers such as
+loading prompt files and retrying structured-output calls; they do not contain
+product decisions. Services compose providers and contain orchestration or
 business rules without embedding vendor-specific implementations. This keeps
 provider swaps and prompt/schema changes isolated from the API contracts.

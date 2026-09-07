@@ -1,7 +1,7 @@
 import json
 
 from app.contracts.summaries import SummaryRequest
-from app.services.prompt_loader import PromptLoader
+from app.utils.prompt_loader import PromptLoader
 from app.providers.summary.mistral_summary_provider import MistralSummaryProvider
 
 

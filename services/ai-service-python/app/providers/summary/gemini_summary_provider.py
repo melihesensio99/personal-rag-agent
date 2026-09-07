@@ -5,7 +5,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from app.contracts.summaries import SummaryRequest, SummaryResponse
-from app.services.prompt_loader import PromptLoader
+from app.utils.prompt_loader import PromptLoader
 from app.services.summary_input_preparer import SummaryInputPreparer
 from app.providers.summary.base import SummaryProvider
 

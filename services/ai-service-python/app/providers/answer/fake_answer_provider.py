@@ -4,7 +4,7 @@ import re
 
 from app.contracts.answers import AnswerRequest, AnswerResponse
 from app.providers.answer.base import AnswerProvider
-from app.services.prompt_loader import PromptLoader
+from app.utils.prompt_loader import PromptLoader
 
 
 class FakeAnswerProvider(AnswerProvider):

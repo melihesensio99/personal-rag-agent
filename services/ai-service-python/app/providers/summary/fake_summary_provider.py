@@ -1,7 +1,7 @@
 import re
 
 from app.contracts.summaries import SummaryRequest, SummaryResponse
-from app.services.prompt_loader import PromptLoader
+from app.utils.prompt_loader import PromptLoader
 from app.providers.summary.base import SummaryProvider
 
 

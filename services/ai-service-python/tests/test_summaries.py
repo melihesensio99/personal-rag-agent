@@ -2,7 +2,7 @@ from fastapi.testclient import TestClient
 
 from app.dependencies import get_summary_service
 from app.main import app
-from app.services.prompt_loader import PromptLoader
+from app.utils.prompt_loader import PromptLoader
 from app.providers.summary.fake_summary_provider import FakeSummaryProvider
 from app.services.summary_service import SummaryService
 

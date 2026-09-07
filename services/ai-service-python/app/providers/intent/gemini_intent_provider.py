@@ -6,7 +6,7 @@ from urllib.request import Request, urlopen
 
 from app.contracts.intents import IntentRequest, IntentResponse
 from app.providers.intent.base import IntentProvider
-from app.services.prompt_loader import PromptLoader
+from app.utils.prompt_loader import PromptLoader
 
 
 class GeminiIntentProvider(IntentProvider):

@@ -9,7 +9,7 @@ from app.providers.answer.mistral_answer_provider import MistralAnswerProvider
 from app.services.embedding_service import EmbeddingService
 from app.services.extraction_service import ExtractionService
 from app.services.intent_service import IntentService
-from app.services.prompt_loader import PromptLoader
+from app.utils.prompt_loader import PromptLoader
 from app.providers.embedding.fake_embedding_provider import FakeEmbeddingProvider
 from app.providers.embedding.mistral_embedding_provider import MistralEmbeddingProvider
 from app.providers.extractors.article_extractor import ArticleExtractor

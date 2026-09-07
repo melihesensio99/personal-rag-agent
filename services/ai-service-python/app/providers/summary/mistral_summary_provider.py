@@ -5,10 +5,10 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from app.contracts.summaries import SummaryRequest, SummaryResponse
-from app.services.prompt_loader import PromptLoader
+from app.utils.prompt_loader import PromptLoader
 from app.services.summary_input_preparer import SummaryInputPreparer
 from app.providers.summary.base import SummaryProvider
-from app.services.structured_output_runner import run_with_retries
+from app.utils.structured_output_runner import run_with_retries
 from app.schemas.mistral_response_schemas import SUMMARY_SCHEMA, response_format
 
 
