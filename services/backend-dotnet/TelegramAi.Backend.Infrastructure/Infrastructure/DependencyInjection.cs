@@ -59,7 +59,8 @@ public static class DependencyInjection
             var options = serviceProvider.GetRequiredService<IOptions<AiServiceOptions>>().Value;
             httpClient.BaseAddress = options.BaseUrl;
             httpClient.Timeout = options.Timeout;
-        });
+        })
+        .AddStandardResilienceHandler();
 
         return services;
     }
