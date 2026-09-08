@@ -4,11 +4,11 @@ using TelegramAi.Backend.Domain.Content;
 
 namespace TelegramAi.Backend.Application.Features.Content.Get;
 
-public sealed record GetContentRequest(Guid Id) : IRequest<ContentItem?>;
+public sealed record GetContentQuery(Guid Id) : IRequest<ContentItem?>;
 
-public sealed class GetContentRequestHandler(IContentRepository repository)
-    : IRequestHandler<GetContentRequest, ContentItem?>
+public sealed class GetContentQueryHandler(IContentRepository repository)
+    : IRequestHandler<GetContentQuery, ContentItem?>
 {
-    public Task<ContentItem?> Handle(GetContentRequest request, CancellationToken cancellationToken) =>
+    public Task<ContentItem?> Handle(GetContentQuery request, CancellationToken cancellationToken) =>
         repository.GetByIdAsync(request.Id, cancellationToken);
 }

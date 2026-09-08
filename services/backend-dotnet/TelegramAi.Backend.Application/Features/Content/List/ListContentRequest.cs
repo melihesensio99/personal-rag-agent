@@ -5,13 +5,13 @@ using TelegramAi.Backend.Domain.Content;
 
 namespace TelegramAi.Backend.Application.Features.Content.List;
 
-public sealed record ListContentRequest(ListContentsQuery Query) : IRequest<PagedResult<ContentItem>>;
+public sealed record ListContentQuery(ListContentsQuery Query) : IRequest<PagedResult<ContentItem>>;
 
-public sealed class ListContentRequestHandler(IContentRepository repository)
-    : IRequestHandler<ListContentRequest, PagedResult<ContentItem>>
+public sealed class ListContentQueryHandler(IContentRepository repository)
+    : IRequestHandler<ListContentQuery, PagedResult<ContentItem>>
 {
     public Task<PagedResult<ContentItem>> Handle(
-        ListContentRequest request,
+        ListContentQuery request,
         CancellationToken cancellationToken)
     {
         var query = request.Query with

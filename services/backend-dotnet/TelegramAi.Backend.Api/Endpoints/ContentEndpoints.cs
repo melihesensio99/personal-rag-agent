@@ -7,12 +7,10 @@ using TelegramAi.Backend.Api.Contracts.Common;
 
 using TelegramAi.Backend.Api.Validation;
 using TelegramAi.Backend.Application.Features.Content.Create;
+using TelegramAi.Backend.Application.Features.Content.Get;
+using TelegramAi.Backend.Application.Features.Content.GetChunks;
 using TelegramAi.Backend.Application.Features.Content.List;
-using CreateContentMediatorRequest = TelegramAi.Backend.Application.Features.Content.Create.CreateContentRequest;
 using CreateContentApiRequest = TelegramAi.Backend.Api.Contracts.Content.CreateContentRequest;
-using GetContentMediatorRequest = TelegramAi.Backend.Application.Features.Content.Get.GetContentRequest;
-using GetContentChunksMediatorRequest = TelegramAi.Backend.Application.Features.Content.GetChunks.GetContentChunksRequest;
-using ListContentMediatorRequest = TelegramAi.Backend.Application.Features.Content.List.ListContentRequest;
 using MediatR;
 
 namespace TelegramAi.Backend.Api;
@@ -39,14 +37,10 @@ public static class ContentEndpoints
         ContentSourceType? sourceType = null;
         if (!string.IsNullOrWhiteSpace(request.SourceType))
         {
-            if (!ContentSourceTypeParser.TryParse(request.SourceType, out var parsedSourceType))
-                return Results.BadRequest(new { error = "Invalid sourceType." });
-            sourceType = parsedSourceType;
+            ContentSourceTypeParser.TryParse(request.SourceType, out sourceType);
         }
-        if (request.FromUtc.HasValue && request.ToUtc.HasValue && request.FromUtc >= request.ToUtc)
-            return Results.BadRequest(new { error = "fromUtc must be earlier than toUtc." });
 
-        var result = await sender.Send(new ListContentMediatorRequest(new ListContentsQuery(
+        var result = await sender.Send(new ListContentQuery(new ListContentsQuery(
             request.Search, sourceType, request.FromUtc, request.ToUtc, request.Page, request.PageSize)), cancellationToken);
         return Results.Ok(new PagedResponse<ContentResponse>(
             result.Items.Select(ContentResponseMapper.Map).ToList(), result.Page, result.PageSize,
@@ -62,18 +56,10 @@ public static class ContentEndpoints
 
         if (!string.IsNullOrWhiteSpace(request.SourceType))
         {
-            if (!ContentSourceTypeParser.TryParse(request.SourceType, out var parsedSourceType))
-            {
-                return Results.BadRequest(new
-                {
-                    error = "Invalid sourceType. Use Manual, Telegram, Instagram, Article, YouTube, Pdf or Image."
-                });
-            }
-
-            sourceType = parsedSourceType;
+            ContentSourceTypeParser.TryParse(request.SourceType, out sourceType);
         }
 
-        var contentItem = await sender.Send(new CreateContentMediatorRequest(
+        var contentItem = await sender.Send(new CreateContentCommandRequest(
             new CreateContentCommand(
                 Text: request.Text,
                 SourceType: sourceType)), cancellationToken);
@@ -86,7 +72,7 @@ public static class ContentEndpoints
         ISender sender,
         CancellationToken cancellationToken)
     {
-        var contentItem = await sender.Send(new GetContentMediatorRequest(id), cancellationToken);
+        var contentItem = await sender.Send(new GetContentQuery(id), cancellationToken);
 
         return contentItem is null
             ? Results.NotFound()
@@ -98,7 +84,7 @@ public static class ContentEndpoints
         ISender sender,
         CancellationToken cancellationToken)
     {
-        var chunks = await sender.Send(new GetContentChunksMediatorRequest(id), cancellationToken);
+        var chunks = await sender.Send(new GetContentChunksQuery(id), cancellationToken);
 
         return Results.Ok(chunks.Select(chunk => new ContentChunkResponse(
             Id: chunk.Id,
