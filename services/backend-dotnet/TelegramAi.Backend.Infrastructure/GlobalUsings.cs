@@ -3,6 +3,7 @@ global using Microsoft.Extensions.DependencyInjection;
 global using Microsoft.Extensions.Hosting;
 global using Microsoft.Extensions.Logging;
 global using TelegramAi.Backend.Application.Features.Content.Create;
+global using TelegramAi.Backend.Application.Features.Content.Discovery;
 global using TelegramAi.Backend.Application.Features.Content.List;
 global using TelegramAi.Backend.Application.Features.Content.SemanticSearch;
 global using TelegramAi.Backend.Application.Features.Content.SemanticAnswer;

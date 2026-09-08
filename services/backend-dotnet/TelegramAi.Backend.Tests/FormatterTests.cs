@@ -11,7 +11,7 @@ public sealed class FormatterTests
     public void SearchFormatter_ReturnsNotFoundMessageForEmptyResults()
     {
         var formatter = new TelegramContentSearchResponseFormatter();
-        var query = new SearchContentsQuery([], null, null, null, null);
+        var query = new FindContentsQuery([], null, null, null, null);
 
         var messages = formatter.FormatMessages(query, []);
 
@@ -23,7 +23,7 @@ public sealed class FormatterTests
     public void SearchFormatter_KeepsUrlPreviewAndAddsKeywordFilter()
     {
         var formatter = new TelegramContentSearchResponseFormatter();
-        var query = new SearchContentsQuery(["rag"], ContentKind.Video, null, null, null);
+        var query = new FindContentsQuery(["rag"], ContentKind.Video, null, null, null);
         var content = ContentItem.Create(
             Guid.NewGuid(),
             ContentSourceType.YouTube,

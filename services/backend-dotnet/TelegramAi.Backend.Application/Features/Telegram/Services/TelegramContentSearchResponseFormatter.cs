@@ -9,7 +9,7 @@ public sealed class TelegramContentSearchResponseFormatter : ITelegramContentSea
 {
     private const int TelegramSafeMessageLength = 3800;
 
-    public IReadOnlyList<string> FormatMessages(SearchContentsQuery query, IReadOnlyList<ContentItem> contents)
+    public IReadOnlyList<string> FormatMessages(FindContentsQuery query, IReadOnlyList<ContentItem> contents)
     {
         if (contents.Count == 0)
         {

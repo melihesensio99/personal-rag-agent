@@ -46,7 +46,7 @@ public sealed class EfCoreContentRepository(ApplicationDbContext dbContext) : IC
     }
 
     public async Task<IReadOnlyList<ContentItem>> SearchAsync(
-        SearchContentsQuery query,
+        FindContentsQuery query,
         CancellationToken cancellationToken)
     {
         var dbQuery = dbContext.Contents

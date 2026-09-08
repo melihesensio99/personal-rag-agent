@@ -23,6 +23,7 @@ public static class DependencyInjection
         services.AddSingleton<ITelegramMessageResponseFormatter, TelegramMessageResponseFormatter>();
         services.AddSingleton<ITelegramContentSearchResponseFormatter, TelegramContentSearchResponseFormatter>();
         services.AddSingleton<ITelegramSemanticAnswerResponseFormatter, TelegramSemanticAnswerResponseFormatter>();
+        services.AddSingleton<ITelegramResponseFormatter, TelegramResponseFormatter>();
 
         return services;
     }

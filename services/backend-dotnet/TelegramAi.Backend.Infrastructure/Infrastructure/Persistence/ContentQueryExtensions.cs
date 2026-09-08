@@ -29,7 +29,7 @@ internal static class ContentQueryExtensions
 
     public static IQueryable<ContentItem> ApplyFilters(
         this IQueryable<ContentItem> query,
-        SearchContentsQuery filter)
+        FindContentsQuery filter)
     {
         if (filter.ContentKind.HasValue)
             query = query.Where(content => content.ContentKind == filter.ContentKind.Value);

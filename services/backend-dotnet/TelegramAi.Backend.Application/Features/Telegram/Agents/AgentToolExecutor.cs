@@ -11,17 +11,8 @@ namespace TelegramAi.Backend.Application.Features.Telegram.Agents;
 
 public sealed class AgentToolExecutor(
     ISender sender,
-    ITelegramContentSearchResponseFormatter searchFormatter,
-    ITelegramSemanticAnswerResponseFormatter answerFormatter,
-    ITelegramMessageResponseFormatter messageFormatter) : IAgentToolExecutor
+    ITelegramResponseFormatter responseFormatter) : IAgentToolExecutor
 {
-    private static readonly HashSet<string> InstructionWords = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "makale", "makaleler", "makaleleri", "article", "articles", "video", "videolar", "videoları", "videolari",
-        "youtube", "link", "linkleri", "kayıt", "kayıtları", "kayit", "kayitlari", "getir", "listele", "bul",
-        "göster", "goster", "bugün", "bugun", "dün", "dun", "attığım", "attigim"
-    };
-
     public async Task<IReadOnlyList<string>> ExecuteAsync(AgentPlan plan, long chatId, string fallbackText, string? senderDisplayName, CancellationToken cancellationToken)
     {
         return plan.Tool switch
@@ -35,21 +26,21 @@ public sealed class AgentToolExecutor(
 
     private async Task<IReadOnlyList<string>> ExecuteSearchSavedContentAsync(IntentDecision decision, CancellationToken cancellationToken)
     {
-        var query = new SearchContentsQuery(
-            decision.Keywords.Where(x => !string.IsNullOrWhiteSpace(x) && !InstructionWords.Contains(x.Trim())).Distinct(StringComparer.OrdinalIgnoreCase).Take(8).ToArray(),
+        var query = new FindContentsQuery(
+            decision.Keywords.Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).Take(8).ToArray(),
             Enum.TryParse<ContentKind>(decision.ContentKind, true, out var kind) ? kind : null,
             Enum.TryParse<ContentSourceType>(decision.SourceType, true, out var source) ? source : null,
             ParseDate(decision.DateFrom), ParseDate(decision.DateTo), decision.SemanticQuery);
-        var contents = await sender.Send(new SearchContentsRequest(query), cancellationToken);
-        return searchFormatter.FormatMessages(query, contents);
+        var contents = await sender.Send(new FindContentsRequest(query), cancellationToken);
+        return responseFormatter.FormatSearch(query, contents);
     }
 
     private async Task<IReadOnlyList<string>> ExecuteAnswerUsingSavedContentAsync(IntentDecision decision, string fallbackText, CancellationToken cancellationToken)
     {
         var question = string.IsNullOrWhiteSpace(decision.Query) ? fallbackText : decision.Query.Trim();
         var result = await sender.Send(new SemanticAnswerQuery(question, 8, null), cancellationToken);
-        var messages = new List<string> { answerFormatter.Format(result) };
-        messages.AddRange(answerFormatter.FormatSourceMessages(result));
+        var messages = new List<string> { responseFormatter.FormatAnswer(result) };
+        messages.AddRange(responseFormatter.FormatAnswerSources(result));
         return messages;
     }
 
@@ -61,7 +52,7 @@ public sealed class AgentToolExecutor(
             ? fallbackText.Trim()
             : string.IsNullOrWhiteSpace(decision.Content) ? fallbackText : decision.Content.Trim();
         var result = await sender.Send(new ProcessTelegramMessageRequest(new ProcessTelegramMessageCommand(chatId, contentToSave, senderDisplayName)), cancellationToken);
-        return [messageFormatter.Format(result)];
+        return [responseFormatter.Format(result)];
     }
 
     private static DateTimeOffset? ParseDate(string? value)

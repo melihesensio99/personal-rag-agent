@@ -114,7 +114,7 @@ public sealed class RagRetrievalTests
         public Task AddChunksAsync(IReadOnlyList<ContentChunk> chunks, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<ContentItem?> GetByIdAsync(Guid id, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyList<ContentChunk>> GetChunksByContentIdAsync(Guid contentId, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<IReadOnlyList<ContentItem>> SearchAsync(SearchContentsQuery query, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyList<ContentItem>> SearchAsync(FindContentsQuery query, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<TelegramAi.Backend.Application.Shared.Common.Pagination.PagedResult<ContentItem>> ListAsync(ListContentsQuery query, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 
