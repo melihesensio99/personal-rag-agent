@@ -1,6 +1,14 @@
 using TelegramAi.Backend.Api.Contracts.Answers;
 using TelegramAi.Backend.Api.Contracts.Search;
 using TelegramAi.Backend.Application.Features.Content.Services;
+using MediatR;
+using SemanticSearchMediatorRequest = TelegramAi.Backend.Application.Features.Content.SemanticSearch.SemanticSearchRequest;
+using SemanticSearchDebugMediatorRequest = TelegramAi.Backend.Application.Features.Content.SemanticSearch.SemanticSearchDebugRequest;
+using SemanticAnswerMediatorRequest = TelegramAi.Backend.Application.Features.Content.SemanticAnswer.SemanticAnswerRequest;
+using SemanticAnswerDebugMediatorRequest = TelegramAi.Backend.Application.Features.Content.SemanticAnswer.SemanticAnswerDebugRequest;
+using SemanticSearchApiRequest = TelegramAi.Backend.Api.Contracts.Search.SemanticSearchRequest;
+using SemanticAnswerApiRequest = TelegramAi.Backend.Api.Contracts.Answers.SemanticAnswerRequest;
+using TelegramAi.Backend.Api.Validation;
 
 namespace TelegramAi.Backend.Api;
 
@@ -8,31 +16,25 @@ public static class SearchEndpoints
 {
     public static IEndpointRouteBuilder MapSearchEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapPost("/api/v1/search/semantic", SemanticSearchAsync);
-        endpoints.MapPost("/api/v1/search/answer", SemanticAnswerAsync);
-        endpoints.MapPost("/api/v1/search/semantic/debug", SemanticSearchDebugAsync);
-        endpoints.MapPost("/api/v1/search/answer/debug", SemanticAnswerDebugAsync);
+        endpoints.MapPost("/api/v1/search/semantic", SemanticSearchAsync).AddEndpointFilter<FluentValidationEndpointFilter<SemanticSearchApiRequest>>();
+        endpoints.MapPost("/api/v1/search/answer", SemanticAnswerAsync).AddEndpointFilter<FluentValidationEndpointFilter<SemanticAnswerApiRequest>>();
+        endpoints.MapPost("/api/v1/search/semantic/debug", SemanticSearchDebugAsync).AddEndpointFilter<FluentValidationEndpointFilter<SemanticSearchApiRequest>>();
+        endpoints.MapPost("/api/v1/search/answer/debug", SemanticAnswerDebugAsync).AddEndpointFilter<FluentValidationEndpointFilter<SemanticAnswerApiRequest>>();
 
         return endpoints;
     }
 
     private static async Task<IResult> SemanticSearchAsync(
-        SemanticSearchRequest request,
-        IContentApplicationService contentApplicationService,
+        SemanticSearchApiRequest request,
+        ISender sender,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.Query))
-        {
-            return Results.BadRequest(new { error = "Query cannot be empty." });
-        }
-
         var query = request.Query.Trim();
         var maxResults = Math.Clamp(request.MaxResults, 1, 20);
-        var results = await contentApplicationService.SemanticSearchChunksAsync(
+        var results = await sender.Send(new SemanticSearchMediatorRequest(
             query,
             maxResults,
-            request.ContentId,
-            cancellationToken);
+            request.ContentId), cancellationToken);
 
         return Results.Ok(new SemanticSearchResponse(
             Query: query,
@@ -51,22 +53,16 @@ public static class SearchEndpoints
     }
 
     private static async Task<IResult> SemanticSearchDebugAsync(
-        SemanticSearchRequest request,
-        IContentApplicationService contentApplicationService,
+        SemanticSearchApiRequest request,
+        ISender sender,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.Query))
-        {
-            return Results.BadRequest(new { error = "Query cannot be empty." });
-        }
-
         var query = request.Query.Trim();
         var maxResults = Math.Clamp(request.MaxResults, 1, 20);
-        var result = await contentApplicationService.SemanticSearchChunksDebugAsync(
+        var result = await sender.Send(new SemanticSearchDebugMediatorRequest(
             query,
             maxResults,
-            request.ContentId,
-            cancellationToken);
+            request.ContentId), cancellationToken);
 
         return Results.Ok(new SemanticSearchDebugResponse(
             Query: result.Query,
@@ -78,22 +74,16 @@ public static class SearchEndpoints
     }
 
     private static async Task<IResult> SemanticAnswerAsync(
-        SemanticAnswerRequest request,
-        IContentApplicationService contentApplicationService,
+        SemanticAnswerApiRequest request,
+        ISender sender,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.Query))
-        {
-            return Results.BadRequest(new { error = "Query cannot be empty." });
-        }
-
         var query = request.Query.Trim();
         var maxResults = Math.Clamp(request.MaxResults, 1, 20);
-        var result = await contentApplicationService.SemanticAnswerAsync(
+        var result = await sender.Send(new SemanticAnswerMediatorRequest(
             query,
             maxResults,
-            request.ContentId,
-            cancellationToken);
+            request.ContentId), cancellationToken);
 
         return Results.Ok(new SemanticAnswerResponse(
             Query: result.Query,
@@ -104,22 +94,16 @@ public static class SearchEndpoints
     }
 
     private static async Task<IResult> SemanticAnswerDebugAsync(
-        SemanticAnswerRequest request,
-        IContentApplicationService contentApplicationService,
+        SemanticAnswerApiRequest request,
+        ISender sender,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.Query))
-        {
-            return Results.BadRequest(new { error = "Query cannot be empty." });
-        }
-
         var query = request.Query.Trim();
         var maxResults = Math.Clamp(request.MaxResults, 1, 20);
-        var result = await contentApplicationService.SemanticAnswerDebugAsync(
+        var result = await sender.Send(new SemanticAnswerDebugMediatorRequest(
             query,
             maxResults,
-            request.ContentId,
-            cancellationToken);
+            request.ContentId), cancellationToken);
 
         return Results.Ok(new SemanticAnswerDebugResponse(
             Query: result.Query,
@@ -163,7 +147,7 @@ public static class SearchEndpoints
     }
 
     private static SemanticSearchResultResponse ToSemanticSearchResultResponse(
-        Application.Features.Content.Queries.SemanticSearchChunkResult result)
+        Application.Features.Content.SemanticSearch.SemanticSearchChunkResult result)
     {
         return new SemanticSearchResultResponse(
             ContentId: result.ContentId,

@@ -1,6 +1,6 @@
 using TelegramAi.Backend.Application.Contracts.Answers;
 
-namespace TelegramAi.Backend.Application.Features.Content.Queries;
+namespace TelegramAi.Backend.Application.Features.Content.SemanticAnswer;
 
 public sealed record SemanticAnswerDebugResult(
     string Query,

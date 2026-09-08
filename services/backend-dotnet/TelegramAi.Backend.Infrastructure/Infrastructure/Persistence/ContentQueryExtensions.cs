@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using TelegramAi.Backend.Application.Features.Content.Queries;
+
 using TelegramAi.Backend.Domain.Content;
 
 namespace TelegramAi.Backend.Infrastructure.Persistence;

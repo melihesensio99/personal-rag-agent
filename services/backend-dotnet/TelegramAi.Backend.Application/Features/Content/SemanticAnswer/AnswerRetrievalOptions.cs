@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace TelegramAi.Backend.Application.Features.Content.Services;
+namespace TelegramAi.Backend.Application.Features.Content.SemanticAnswer;
 
 public sealed class AnswerRetrievalOptions
 {

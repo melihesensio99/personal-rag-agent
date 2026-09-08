@@ -11,7 +11,7 @@
   <ItemGroup>
     <ProjectReference Include="..\TelegramAi.Backend.Application\TelegramAi.Backend.Application.csproj" />
     <ProjectReference Include="..\TelegramAi.Backend.Domain\TelegramAi.Backend.Domain.csproj" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.4">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>

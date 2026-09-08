@@ -1,6 +1,6 @@
 using TelegramAi.Backend.Domain.Content;
 
-namespace TelegramAi.Backend.Application.Features.Content.Queries;
+namespace TelegramAi.Backend.Application.Features.Content.List;
 
 public sealed record ListContentsQuery(
     string? Search,

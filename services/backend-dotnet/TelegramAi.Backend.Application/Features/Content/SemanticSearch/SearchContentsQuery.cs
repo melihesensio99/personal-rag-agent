@@ -1,6 +1,6 @@
 using TelegramAi.Backend.Domain.Content;
 
-namespace TelegramAi.Backend.Application.Features.Content.Queries;
+namespace TelegramAi.Backend.Application.Features.Content.SemanticSearch;
 
 public sealed record SearchContentsQuery(
     IReadOnlyList<string> Keywords,

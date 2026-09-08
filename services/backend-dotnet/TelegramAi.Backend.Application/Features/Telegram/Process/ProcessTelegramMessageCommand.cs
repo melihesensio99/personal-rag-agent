@@ -1,4 +1,4 @@
-namespace TelegramAi.Backend.Application.Features.Telegram.Commands;
+namespace TelegramAi.Backend.Application.Features.Telegram.Process;
 
 public sealed record ProcessTelegramMessageCommand(
     long ChatId,

@@ -1,6 +1,6 @@
 using System.Text;
 using System.Text.RegularExpressions;
-using TelegramAi.Backend.Application.Features.Content.Queries;
+
 
 namespace TelegramAi.Backend.Application.Features.Telegram.Formatting;
 

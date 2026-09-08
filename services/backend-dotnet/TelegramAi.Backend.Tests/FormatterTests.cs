@@ -1,4 +1,4 @@
-using TelegramAi.Backend.Application.Features.Content.Queries;
+
 using TelegramAi.Backend.Application.Features.Telegram.Formatting;
 using TelegramAi.Backend.Domain.Content;
 using Xunit;

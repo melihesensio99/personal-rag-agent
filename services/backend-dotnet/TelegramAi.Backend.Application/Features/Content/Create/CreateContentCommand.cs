@@ -1,6 +1,6 @@
 using TelegramAi.Backend.Domain.Content;
 
-namespace TelegramAi.Backend.Application.Features.Content.Commands;
+namespace TelegramAi.Backend.Application.Features.Content.Create;
 
 public sealed record CreateContentCommand(
     string Text,

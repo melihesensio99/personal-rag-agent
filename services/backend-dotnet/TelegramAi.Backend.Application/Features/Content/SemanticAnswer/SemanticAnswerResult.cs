@@ -1,4 +1,4 @@
-namespace TelegramAi.Backend.Application.Features.Content.Queries;
+namespace TelegramAi.Backend.Application.Features.Content.SemanticAnswer;
 
 public sealed record SemanticAnswerResult(
     string Query,

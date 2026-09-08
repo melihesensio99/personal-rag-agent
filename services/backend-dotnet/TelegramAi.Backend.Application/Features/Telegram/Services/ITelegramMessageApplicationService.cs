@@ -1,5 +1,4 @@
-using TelegramAi.Backend.Application.Features.Telegram.Commands;
-using TelegramAi.Backend.Application.Features.Telegram.Results;
+using TelegramAi.Backend.Application.Features.Telegram.Process;
 
 namespace TelegramAi.Backend.Application.Features.Telegram.Services;
 

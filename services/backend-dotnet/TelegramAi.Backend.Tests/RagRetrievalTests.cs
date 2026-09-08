@@ -9,7 +9,7 @@ using TelegramAi.Backend.Api.Contracts.Intents;
 using TelegramAi.Backend.Api.Contracts.Reranking;
 using TelegramAi.Backend.Api.Contracts.Summaries;
 using TelegramAi.Backend.Application.Shared.Abstractions;
-using TelegramAi.Backend.Application.Features.Content.Queries;
+
 using TelegramAi.Backend.Application.Features.Content.Services;
 using TelegramAi.Backend.Domain.Content;
 using TelegramAi.Backend.Infrastructure.AiService;
@@ -88,7 +88,19 @@ public sealed class RagRetrievalTests
             repository,
             NullLogger<ContentApplicationService>.Instance,
             Options.Create(new AnswerRetrievalOptions { MinimumRerankScore = 0.5001 }),
-            new TelegramAi.Backend.Application.Features.Content.Handlers.ListContentsHandler(repository));
+            new ContentCreationWorkflow(
+                aiClient,
+                repository,
+                NullLogger<ContentCreationWorkflow>.Instance),
+            new RerankingService(
+                aiClient,
+                Options.Create(new AnswerRetrievalOptions { MinimumRerankScore = 0.5001 })),
+            new SemanticSearchService(aiClient, repository),
+            new SemanticAnswerService(
+                aiClient,
+                new SemanticSearchService(aiClient, repository),
+                new RerankingService(aiClient, Options.Create(new AnswerRetrievalOptions { MinimumRerankScore = 0.5001 })),
+                Options.Create(new AnswerRetrievalOptions { MinimumRerankScore = 0.5001 })));
     }
 
     private static SemanticSearchChunkResult Result(string title, string text, double distance)

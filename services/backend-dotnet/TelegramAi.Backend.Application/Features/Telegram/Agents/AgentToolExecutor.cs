@@ -1,15 +1,16 @@
-using TelegramAi.Backend.Application.Features.Content.Queries;
+
 using TelegramAi.Backend.Application.Features.Content.Services;
-using TelegramAi.Backend.Application.Features.Telegram.Commands;
+using TelegramAi.Backend.Application.Features.Telegram.Process;
 using TelegramAi.Backend.Application.Features.Telegram.Formatting;
 using TelegramAi.Backend.Application.Features.Telegram.Services;
+using MediatR;
 using TelegramAi.Backend.Domain.Content;
 
 namespace TelegramAi.Backend.Application.Features.Telegram.Agents;
 
 public sealed class AgentToolExecutor(
     IContentApplicationService contentApplicationService,
-    ITelegramMessageApplicationService telegramMessageApplicationService,
+    ISender sender,
     ITelegramContentSearchResponseFormatter searchFormatter,
     ITelegramSemanticAnswerResponseFormatter answerFormatter,
     ITelegramMessageResponseFormatter messageFormatter) : IAgentToolExecutor
@@ -59,7 +60,7 @@ public sealed class AgentToolExecutor(
         var contentToSave = ContainsUrl(fallbackText)
             ? fallbackText.Trim()
             : string.IsNullOrWhiteSpace(decision.Content) ? fallbackText : decision.Content.Trim();
-        var result = await telegramMessageApplicationService.ProcessAsync(new ProcessTelegramMessageCommand(chatId, contentToSave, senderDisplayName), cancellationToken);
+        var result = await sender.Send(new ProcessTelegramMessageRequest(new ProcessTelegramMessageCommand(chatId, contentToSave, senderDisplayName)), cancellationToken);
         return [messageFormatter.Format(result)];
     }
 

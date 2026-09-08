@@ -1,9 +1,11 @@
 using Microsoft.Extensions.DependencyInjection;
+using MediatR;
+using TelegramAi.Backend.Application.Shared.Common.Behaviors;
 using TelegramAi.Backend.Application.Features.Content.Services;
+using TelegramAi.Backend.Application.Features.Content.SemanticSearch;
 using TelegramAi.Backend.Application.Features.Telegram.Formatting;
 using TelegramAi.Backend.Application.Features.Telegram.Agents;
 using TelegramAi.Backend.Application.Features.Telegram.Services;
-using TelegramAi.Backend.Application.Features.Content.Handlers;
 
 namespace TelegramAi.Backend.Application;
 
@@ -11,12 +13,14 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
+        services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(DependencyInjection).Assembly));
+        services.AddScoped<IContentCreationWorkflow, ContentCreationWorkflow>();
+        services.AddScoped<IRerankingService, RerankingService>();
+        services.AddScoped<ISemanticSearchService, SemanticSearchService>();
+        services.AddScoped<ISemanticAnswerService, SemanticAnswerService>();
+        services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+        services.AddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
         services.AddScoped<IContentApplicationService, ContentApplicationService>();
-        services.AddScoped<IListContentsHandler, ListContentsHandler>();
-        services.AddScoped<ICreateContentHandler, CreateContentHandler>();
-        services.AddScoped<IGetContentHandler, GetContentHandler>();
-        services.AddScoped<IGetContentChunksHandler, GetContentChunksHandler>();
-        services.AddScoped<IListContentHandler, ListContentHandler>();
         services.AddScoped<ITelegramMessageApplicationService, TelegramMessageApplicationService>();
         services.AddScoped<IAgentOrchestrator, AgentOrchestrator>();
         services.AddScoped<IAgentToolExecutor, AgentToolExecutor>();
