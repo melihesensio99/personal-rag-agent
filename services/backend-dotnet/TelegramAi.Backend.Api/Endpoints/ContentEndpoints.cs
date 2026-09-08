@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using TelegramAi.Backend.Api.Contracts.Common;
 using TelegramAi.Backend.Application.Features.Content.Queries;
 using TelegramAi.Backend.Api.Validation;
+using TelegramAi.Backend.Application.Features.Content.Handlers;
 
 namespace TelegramAi.Backend.Api;
 
@@ -26,7 +27,7 @@ public static class ContentEndpoints
 
     private static async Task<IResult> ListContentsAsync(
         [AsParameters] ListContentsRequest request,
-        IContentApplicationService contentApplicationService,
+        IListContentHandler handler,
         CancellationToken cancellationToken)
     {
         ContentSourceType? sourceType = null;
@@ -39,7 +40,7 @@ public static class ContentEndpoints
         if (request.FromUtc.HasValue && request.ToUtc.HasValue && request.FromUtc >= request.ToUtc)
             return Results.BadRequest(new { error = "fromUtc must be earlier than toUtc." });
 
-        var result = await contentApplicationService.ListAsync(new ListContentsQuery(
+        var result = await handler.HandleAsync(new ListContentsQuery(
             request.Search, sourceType, request.FromUtc, request.ToUtc, request.Page, request.PageSize), cancellationToken);
         return Results.Ok(new PagedResponse<ContentResponse>(
             result.Items.Select(ContentResponseMapper.Map).ToList(), result.Page, result.PageSize,
@@ -48,7 +49,7 @@ public static class ContentEndpoints
 
     private static async Task<IResult> CreateContentAsync(
         CreateContentRequest request,
-        IContentApplicationService contentApplicationService,
+        ICreateContentHandler handler,
         CancellationToken cancellationToken)
     {
         ContentSourceType? sourceType = null;
@@ -66,7 +67,7 @@ public static class ContentEndpoints
             sourceType = parsedSourceType;
         }
 
-        var contentItem = await contentApplicationService.CreateAsync(
+        var contentItem = await handler.HandleAsync(
             new CreateContentCommand(
                 Text: request.Text,
                 SourceType: sourceType),
@@ -77,10 +78,10 @@ public static class ContentEndpoints
 
     private static async Task<IResult> GetContentByIdAsync(
         Guid id,
-        IContentApplicationService contentApplicationService,
+        IGetContentHandler handler,
         CancellationToken cancellationToken)
     {
-        var contentItem = await contentApplicationService.GetByIdAsync(id, cancellationToken);
+        var contentItem = await handler.HandleAsync(id, cancellationToken);
 
         return contentItem is null
             ? Results.NotFound()
@@ -89,10 +90,10 @@ public static class ContentEndpoints
 
     private static async Task<IResult> GetContentChunksByIdAsync(
         Guid id,
-        IContentApplicationService contentApplicationService,
+        IGetContentChunksHandler handler,
         CancellationToken cancellationToken)
     {
-        var chunks = await contentApplicationService.GetChunksByContentIdAsync(id, cancellationToken);
+        var chunks = await handler.HandleAsync(id, cancellationToken);
 
         return Results.Ok(chunks.Select(chunk => new ContentChunkResponse(
             Id: chunk.Id,

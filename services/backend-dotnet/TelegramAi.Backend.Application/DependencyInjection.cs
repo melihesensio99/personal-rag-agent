@@ -13,6 +13,10 @@ public static class DependencyInjection
     {
         services.AddScoped<IContentApplicationService, ContentApplicationService>();
         services.AddScoped<IListContentsHandler, ListContentsHandler>();
+        services.AddScoped<ICreateContentHandler, CreateContentHandler>();
+        services.AddScoped<IGetContentHandler, GetContentHandler>();
+        services.AddScoped<IGetContentChunksHandler, GetContentChunksHandler>();
+        services.AddScoped<IListContentHandler, ListContentHandler>();
         services.AddScoped<ITelegramMessageApplicationService, TelegramMessageApplicationService>();
         services.AddScoped<IAgentOrchestrator, AgentOrchestrator>();
         services.AddScoped<IAgentToolExecutor, AgentToolExecutor>();
