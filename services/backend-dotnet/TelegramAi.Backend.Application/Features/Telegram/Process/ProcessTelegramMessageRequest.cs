@@ -1,6 +1,7 @@
 using MediatR;
 using TelegramAi.Backend.Application.Features.Content.Create;
 using TelegramAi.Backend.Domain.Content;
+using TelegramAi.Backend.Application.Shared.Common.Text;
 
 namespace TelegramAi.Backend.Application.Features.Telegram.Process;
 
@@ -14,7 +15,7 @@ public sealed class ProcessTelegramMessageRequestHandler(IContentCreationWorkflo
         ProcessTelegramMessageRequest request,
         CancellationToken cancellationToken)
     {
-        ContentSourceType? sourceType = ContainsUrl(request.Command.Text) ? null : ContentSourceType.Telegram;
+        ContentSourceType? sourceType = UrlDetector.ContainsUrl(request.Command.Text) ? null : ContentSourceType.Telegram;
         var content = await workflow.ExecuteAsync(new CreateContentCommand(request.Command.Text, sourceType), cancellationToken);
         return new ProcessTelegramMessageResult(
             request.Command.ChatId,
@@ -23,7 +24,4 @@ public sealed class ProcessTelegramMessageRequestHandler(IContentCreationWorkflo
             content);
     }
 
-    private static bool ContainsUrl(string text) =>
-        text.Contains("http://", StringComparison.OrdinalIgnoreCase) ||
-        text.Contains("https://", StringComparison.OrdinalIgnoreCase);
 }

@@ -1,6 +1,7 @@
 using TelegramAi.Backend.Application.Contracts.Extractions;
 
 using TelegramAi.Backend.Domain.Content;
+using TelegramAi.Backend.Application.Shared.Common.Text;
 
 namespace TelegramAi.Backend.Application.Features.Content.Policies;
 
@@ -28,8 +29,7 @@ internal static class ContentInputPolicy
 
     public static string? TryExtractUrl(string text)
     {
-        var firstToken = text.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault();
-        return Uri.TryCreate(firstToken, UriKind.Absolute, out var uri) ? uri.ToString() : null;
+        return UrlDetector.TryExtract(text);
     }
 
     private static bool IsCompleted(CreateExtractionResult? extraction) => extraction is not null && extraction.ExtractionStatus.Equals("completed", StringComparison.OrdinalIgnoreCase);

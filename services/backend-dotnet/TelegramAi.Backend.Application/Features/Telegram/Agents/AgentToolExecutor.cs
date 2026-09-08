@@ -1,6 +1,7 @@
 
 using TelegramAi.Backend.Application.Features.Content.SemanticAnswer;
 using TelegramAi.Backend.Application.Shared.Abstractions;
+using TelegramAi.Backend.Application.Shared.Common.Text;
 using TelegramAi.Backend.Application.Features.Telegram.Process;
 using TelegramAi.Backend.Application.Features.Telegram.Formatting;
 using MediatR;
@@ -56,17 +57,11 @@ public sealed class AgentToolExecutor(
     {
         // For URL messages, always preserve the original URL. The intent model may
         // return a preview/summary in `content`, which would prevent extraction.
-        var contentToSave = ContainsUrl(fallbackText)
+        var contentToSave = UrlDetector.ContainsUrl(fallbackText)
             ? fallbackText.Trim()
             : string.IsNullOrWhiteSpace(decision.Content) ? fallbackText : decision.Content.Trim();
         var result = await sender.Send(new ProcessTelegramMessageRequest(new ProcessTelegramMessageCommand(chatId, contentToSave, senderDisplayName)), cancellationToken);
         return [messageFormatter.Format(result)];
-    }
-
-    private static bool ContainsUrl(string text)
-    {
-        return text.Contains("http://", StringComparison.OrdinalIgnoreCase) ||
-               text.Contains("https://", StringComparison.OrdinalIgnoreCase);
     }
 
     private static DateTimeOffset? ParseDate(string? value)

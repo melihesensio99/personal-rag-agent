@@ -3,7 +3,7 @@ using TelegramAi.Backend.Infrastructure.AiService;
 using TelegramAi.Backend.Application.Contracts.Summaries;
 using TelegramAi.Backend.Application.Shared.Abstractions;
 using MediatR;
-using CreateSummaryMediatorRequest = TelegramAi.Backend.Application.Features.Content.Summary.CreateSummaryRequest;
+using CreateSummaryMediatorRequest = TelegramAi.Backend.Application.Features.Content.Summary.CreateSummaryCommand;
 using CreateSummaryApiRequest = TelegramAi.Backend.Api.Contracts.Summaries.CreateSummaryRequest;
 using TelegramAi.Backend.Api.Validation;
 
