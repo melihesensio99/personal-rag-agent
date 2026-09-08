@@ -1,13 +1,10 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using TelegramAi.Backend.Api.Contracts.Answers;
-using TelegramAi.Backend.Api.Contracts.Chunks;
-using TelegramAi.Backend.Api.Contracts.Embeddings;
-using TelegramAi.Backend.Api.Contracts.Extractions;
 using TelegramAi.Backend.Api.Contracts.Health;
-using TelegramAi.Backend.Api.Contracts.Intents;
-using TelegramAi.Backend.Api.Contracts.Reranking;
 using TelegramAi.Backend.Api.Contracts.Summaries;
+using TelegramAi.Backend.Application.Contracts.Embeddings;
+using TelegramAi.Backend.Application.Contracts.Reranking;
 using TelegramAi.Backend.Application.Shared.Abstractions;
 
 using TelegramAi.Backend.Domain.Content;
@@ -24,7 +21,7 @@ public sealed class RagRetrievalTests
         var coffee = Result("Kahvenin kalbe etkileri", "Kahve kan basıncı ve kalp sağlığını etkileyebilir.", 0.20);
         var muscle = Result("Maksimum kas artışı", "Direnç egzersizi hipertrofiyi destekler.", 0.21);
         var repository = new StubContentRepository([coffee, muscle]);
-        var aiClient = new StubAiServiceClient([new RerankScore(0, 0.82), new RerankScore(1, 0.50)]);
+        var aiClient = new StubAiServiceClient([new RerankScoreResult(0, 0.82), new RerankScoreResult(1, 0.50)]);
         var service = CreateService(aiClient, repository);
 
         var result = await service.AnswerAsync("Kahve kalbe zararlı mı?", 8, null, CancellationToken.None);
@@ -43,7 +40,7 @@ public sealed class RagRetrievalTests
         var repository = new StubContentRepository([
             Result("Alakasız içerik", "Kas geliştirme teknikleri.", 0.20)
         ]);
-        var aiClient = new StubAiServiceClient([new RerankScore(0, 0.50)]);
+        var aiClient = new StubAiServiceClient([new RerankScoreResult(0, 0.50)]);
         var service = CreateService(aiClient, repository);
 
         var result = await service.AnswerAsync("Kahve kalbe zararlı mı?", 8, null, CancellationToken.None);
@@ -60,8 +57,8 @@ public sealed class RagRetrievalTests
         var coffee = Result("Kahvenin kalbe etkileri", "Kahve kan basıncı ve kalp sağlığını etkileyebilir.", 0.20);
         var muscle = Result("Maksimum kas artışı", "Direnç egzersizi hipertrofiyi destekler.", 0.21);
         var aiClient = new StubAiServiceClient([
-            new RerankScore(0, 0.82),
-            new RerankScore(1, 0.50)]);
+            new RerankScoreResult(0, 0.82),
+            new RerankScoreResult(1, 0.50)]);
         var service = CreateService(aiClient, new StubContentRepository([coffee, muscle]));
 
         var result = await service.AnswerDebugAsync(
@@ -118,19 +115,19 @@ public sealed class RagRetrievalTests
         public Task<TelegramAi.Backend.Application.Shared.Common.Pagination.PagedResult<ContentItem>> ListAsync(ListContentsQuery query, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 
-    private sealed class StubAiServiceClient(IReadOnlyList<RerankScore> rerankScores) : IAiServiceClient
+    private sealed class StubAiServiceClient(IReadOnlyList<RerankScoreResult> rerankScores) : IAiServiceClient
     {
         public TelegramAi.Backend.Application.Contracts.Answers.CreateAnswerInput? LastAnswerRequest { get; private set; }
 
-        public Task<CreateEmbeddingsResponse> CreateEmbeddingsAsync(
-            CreateEmbeddingsRequest request,
+        public Task<CreateEmbeddingsResult> CreateEmbeddingsAsync(
+            CreateEmbeddingsInput request,
             CancellationToken cancellationToken)
         {
-            return Task.FromResult(new CreateEmbeddingsResponse(
+            return Task.FromResult(new CreateEmbeddingsResult(
                 request.ContentId,
                 "test-embedding",
                 2,
-                [new TextEmbeddingResponse(0, [0.1f, 0.2f])]));
+                [new TextEmbeddingResult(0, [0.1f, 0.2f])]));
         }
 
         public Task<TelegramAi.Backend.Application.Contracts.Reranking.RerankResult> RerankAsync(TelegramAi.Backend.Application.Contracts.Reranking.RerankInput request, CancellationToken cancellationToken)
@@ -153,7 +150,6 @@ public sealed class RagRetrievalTests
 
         public Task<TelegramAi.Backend.Application.Contracts.Health.AiServiceHealthResult> GetHealthAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<TelegramAi.Backend.Application.Contracts.Chunks.CreateChunksResult> CreateChunksAsync(TelegramAi.Backend.Application.Contracts.Chunks.CreateChunksInput request, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<TelegramAi.Backend.Application.Contracts.Embeddings.CreateEmbeddingsResult> CreateEmbeddingsAsync(TelegramAi.Backend.Application.Contracts.Embeddings.CreateEmbeddingsInput request, CancellationToken cancellationToken) => Task.FromResult(new TelegramAi.Backend.Application.Contracts.Embeddings.CreateEmbeddingsResult(request.ContentId, "test-embedding", 2, [new TelegramAi.Backend.Application.Contracts.Embeddings.TextEmbeddingResult(0, [0.1f, 0.2f])]));
         public Task<TelegramAi.Backend.Application.Contracts.Extractions.CreateExtractionResult> CreateExtractionAsync(TelegramAi.Backend.Application.Contracts.Extractions.CreateExtractionInput request, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<TelegramAi.Backend.Application.Contracts.Intents.ClassifyIntentResult> ClassifyIntentAsync(TelegramAi.Backend.Application.Contracts.Intents.ClassifyIntentInput request, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<TelegramAi.Backend.Application.Contracts.Summaries.CreateSummaryResult> CreateSummaryAsync(TelegramAi.Backend.Application.Contracts.Summaries.CreateSummaryInput request, CancellationToken cancellationToken) => throw new NotSupportedException();

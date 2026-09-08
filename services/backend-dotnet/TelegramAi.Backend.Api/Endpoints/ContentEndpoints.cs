@@ -10,7 +10,6 @@ using TelegramAi.Backend.Application.Features.Content.Create;
 using TelegramAi.Backend.Application.Features.Content.Get;
 using TelegramAi.Backend.Application.Features.Content.GetChunks;
 using TelegramAi.Backend.Application.Features.Content.List;
-using CreateContentApiRequest = TelegramAi.Backend.Api.Contracts.Content.CreateContentRequest;
 using MediatR;
 
 namespace TelegramAi.Backend.Api;
@@ -19,12 +18,14 @@ public static class ContentEndpoints
 {
     public static IEndpointRouteBuilder MapContentEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapPost("/api/v1/contents", CreateContentAsync)
-            .AddEndpointFilter<FluentValidationEndpointFilter<CreateContentApiRequest>>();
-        endpoints.MapGet("/api/v1/contents", ListContentsAsync)
+        var group = endpoints.MapGroup("/api/v1/contents");
+
+        group.MapPost("", CreateContentAsync)
+            .AddEndpointFilter<FluentValidationEndpointFilter<CreateContentRequest>>();
+        group.MapGet("", ListContentsAsync)
             .AddEndpointFilter<FluentValidationEndpointFilter<ListContentsRequest>>();
-        endpoints.MapGet("/api/v1/contents/{id:guid}", GetContentByIdAsync);
-        endpoints.MapGet("/api/v1/contents/{id:guid}/chunks", GetContentChunksByIdAsync);
+        group.MapGet("/{id:guid}", GetContentByIdAsync);
+        group.MapGet("/{id:guid}/chunks", GetContentChunksByIdAsync);
 
         return endpoints;
     }
@@ -40,15 +41,15 @@ public static class ContentEndpoints
             ContentSourceTypeParser.TryParse(request.SourceType, out sourceType);
         }
 
-        var result = await sender.Send(new ListContentQuery(new ListContentsQuery(
-            request.Search, sourceType, request.FromUtc, request.ToUtc, request.Page, request.PageSize)), cancellationToken);
+        var result = await sender.Send(new ListContentsQuery(
+            request.Search, sourceType, request.FromUtc, request.ToUtc, request.Page, request.PageSize), cancellationToken);
         return Results.Ok(new PagedResponse<ContentResponse>(
             result.Items.Select(ContentResponseMapper.Map).ToList(), result.Page, result.PageSize,
             result.TotalCount, result.TotalPages, result.HasPreviousPage, result.HasNextPage));
     }
 
     private static async Task<IResult> CreateContentAsync(
-        CreateContentApiRequest request,
+        CreateContentRequest request,
         ISender sender,
         CancellationToken cancellationToken)
     {
@@ -59,10 +60,9 @@ public static class ContentEndpoints
             ContentSourceTypeParser.TryParse(request.SourceType, out sourceType);
         }
 
-        var contentItem = await sender.Send(new CreateContentCommandRequest(
-            new CreateContentCommand(
-                Text: request.Text,
-                SourceType: sourceType)), cancellationToken);
+        var contentItem = await sender.Send(new CreateContentCommand(
+            Text: request.Text,
+            SourceType: sourceType), cancellationToken);
 
         return Results.Created($"/api/v1/contents/{contentItem.Id}", ContentResponseMapper.Map(contentItem));
     }

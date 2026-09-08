@@ -1,3 +1,4 @@
+using MediatR;
 using TelegramAi.Backend.Domain.Content;
 
 namespace TelegramAi.Backend.Application.Features.Content.Discovery;
@@ -9,4 +10,4 @@ public sealed record FindContentsQuery(
     DateTimeOffset? FromUtc,
     DateTimeOffset? ToUtc,
     string? SemanticQuery = null,
-    int MaxResults = 5);
+    int MaxResults = 5) : IRequest<IReadOnlyList<ContentItem>>;

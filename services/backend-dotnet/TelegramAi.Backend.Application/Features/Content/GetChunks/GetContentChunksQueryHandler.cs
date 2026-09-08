@@ -4,13 +4,8 @@ using TelegramAi.Backend.Domain.Content;
 
 namespace TelegramAi.Backend.Application.Features.Content.GetChunks;
 
-public sealed record GetContentChunksQuery(Guid Id) : IRequest<IReadOnlyList<ContentChunk>>;
-
 public sealed class GetContentChunksQueryHandler(IContentRepository repository)
     : IRequestHandler<GetContentChunksQuery, IReadOnlyList<ContentChunk>>
 {
-    public Task<IReadOnlyList<ContentChunk>> Handle(
-        GetContentChunksQuery request,
-        CancellationToken cancellationToken) =>
-        repository.GetChunksByContentIdAsync(request.Id, cancellationToken);
+    public Task<IReadOnlyList<ContentChunk>> Handle(GetContentChunksQuery request, CancellationToken cancellationToken) => repository.GetChunksByContentIdAsync(request.Id, cancellationToken);
 }

@@ -78,54 +78,38 @@ public sealed class EfCoreContentRepository(ApplicationDbContext dbContext) : IC
     {
         var embedding = new Vector(query.Embedding.ToArray());
 
-        var dbQuery = dbContext.ContentChunks
-            .AsNoTracking()
-            .Where(chunk => chunk.Embedding != null);
+        var dbQuery =
+            from chunk in dbContext.ContentChunks.AsNoTracking()
+            join content in dbContext.Contents.AsNoTracking()
+                on chunk.ContentItemId equals content.Id
+            where chunk.Embedding != null
+            select new
+            {
+                Chunk = chunk,
+                Content = content,
+                Distance = chunk.Embedding!.CosineDistance(embedding)
+            };
 
         if (query.ContentId.HasValue)
         {
             var contentId = query.ContentId.Value;
-            dbQuery = dbQuery.Where(chunk => chunk.ContentItemId == contentId);
+            dbQuery = dbQuery.Where(result => result.Chunk.ContentItemId == contentId);
         }
 
-        var topChunks = await dbQuery
-            .Select(chunk => new
-            {
-                Chunk = chunk,
-                Distance = chunk.Embedding!.CosineDistance(embedding),
-            })
+        return await dbQuery
+            .Select(result => new SemanticSearchChunkResult(
+                result.Content.Id,
+                result.Chunk.Id,
+                result.Content.Summary.Title,
+                result.Content.RawText,
+                result.Content.SourceType,
+                result.Content.ContentKind,
+                result.Chunk.Index,
+                result.Chunk.Text,
+                result.Distance,
+                result.Content.CreatedAtUtc))
             .OrderBy(result => result.Distance)
             .Take(query.MaxResults)
             .ToListAsync(cancellationToken);
-
-        var contentIds = topChunks
-            .Select(result => result.Chunk.ContentItemId)
-            .Distinct()
-            .ToList();
-
-        var contentsById = await dbContext.Contents
-            .AsNoTracking()
-            .Where(content => contentIds.Contains(content.Id))
-            .ToDictionaryAsync(content => content.Id, cancellationToken);
-
-        return topChunks
-            .Where(result => contentsById.ContainsKey(result.Chunk.ContentItemId))
-            .Select(result =>
-            {
-                var content = contentsById[result.Chunk.ContentItemId];
-
-                return new SemanticSearchChunkResult(
-                    content.Id,
-                    result.Chunk.Id,
-                    content.Summary.Title,
-                    content.RawText,
-                    content.SourceType,
-                    content.ContentKind,
-                    result.Chunk.Index,
-                    result.Chunk.Text,
-                    result.Distance,
-                    content.CreatedAtUtc);
-            })
-            .ToList();
     }
 }

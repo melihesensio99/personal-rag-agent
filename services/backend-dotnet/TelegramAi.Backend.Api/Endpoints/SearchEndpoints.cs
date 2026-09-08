@@ -1,5 +1,7 @@
 using TelegramAi.Backend.Api.Contracts.Answers;
 using TelegramAi.Backend.Api.Contracts.Search;
+using TelegramAi.Backend.Application.Features.Content.SemanticAnswer;
+using TelegramAi.Backend.Application.Features.Content.SemanticSearch;
 using MediatR;
 using TelegramAi.Backend.Api.Validation;
 
@@ -24,7 +26,7 @@ public static class SearchEndpoints
     {
         var query = request.Query.Trim();
         var maxResults = Math.Clamp(request.MaxResults, 1, 20);
-        var results = await sender.Send(new TelegramAi.Backend.Application.Features.Content.SemanticSearch.SemanticSearchQuery(
+        var results = await sender.Send(new SemanticSearchQuery(
             query,
             maxResults,
             request.ContentId), cancellationToken);
@@ -52,7 +54,7 @@ public static class SearchEndpoints
     {
         var query = request.Query.Trim();
         var maxResults = Math.Clamp(request.MaxResults, 1, 20);
-        var result = await sender.Send(new TelegramAi.Backend.Application.Features.Content.SemanticSearch.SemanticSearchDebugQuery(
+        var result = await sender.Send(new SemanticSearchDebugQuery(
             query,
             maxResults,
             request.ContentId), cancellationToken);
@@ -73,7 +75,7 @@ public static class SearchEndpoints
     {
         var query = request.Query.Trim();
         var maxResults = Math.Clamp(request.MaxResults, 1, 20);
-        var result = await sender.Send(new TelegramAi.Backend.Application.Features.Content.SemanticAnswer.SemanticAnswerQuery(
+        var result = await sender.Send(new SemanticAnswerQuery(
             query,
             maxResults,
             request.ContentId), cancellationToken);
@@ -93,7 +95,7 @@ public static class SearchEndpoints
     {
         var query = request.Query.Trim();
         var maxResults = Math.Clamp(request.MaxResults, 1, 20);
-        var result = await sender.Send(new TelegramAi.Backend.Application.Features.Content.SemanticAnswer.SemanticAnswerDebugQuery(
+        var result = await sender.Send(new SemanticAnswerDebugQuery(
             query,
             maxResults,
             request.ContentId), cancellationToken);
@@ -140,7 +142,7 @@ public static class SearchEndpoints
     }
 
     private static SemanticSearchResultResponse ToSemanticSearchResultResponse(
-        Application.Features.Content.SemanticSearch.SemanticSearchChunkResult result)
+        SemanticSearchChunkResult result)
     {
         return new SemanticSearchResultResponse(
             ContentId: result.ContentId,

@@ -31,7 +31,7 @@ public sealed class AgentToolExecutor(
             Enum.TryParse<ContentKind>(decision.ContentKind, true, out var kind) ? kind : null,
             Enum.TryParse<ContentSourceType>(decision.SourceType, true, out var source) ? source : null,
             ParseDate(decision.DateFrom), ParseDate(decision.DateTo), decision.SemanticQuery);
-        var contents = await sender.Send(new FindContentsRequest(query), cancellationToken);
+        var contents = await sender.Send(query, cancellationToken);
         return responseFormatter.FormatSearch(query, contents);
     }
 
@@ -51,7 +51,7 @@ public sealed class AgentToolExecutor(
         var contentToSave = UrlDetector.ContainsUrl(fallbackText)
             ? fallbackText.Trim()
             : string.IsNullOrWhiteSpace(decision.Content) ? fallbackText : decision.Content.Trim();
-        var result = await sender.Send(new ProcessTelegramMessageRequest(new ProcessTelegramMessageCommand(chatId, contentToSave, senderDisplayName)), cancellationToken);
+        var result = await sender.Send(new ProcessTelegramMessageCommand(chatId, contentToSave, senderDisplayName), cancellationToken);
         return [responseFormatter.Format(result)];
     }
 

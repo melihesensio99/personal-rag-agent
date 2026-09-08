@@ -1,3 +1,5 @@
+using MediatR;
+using TelegramAi.Backend.Application.Shared.Common.Pagination;
 using TelegramAi.Backend.Domain.Content;
 
 namespace TelegramAi.Backend.Application.Features.Content.List;
@@ -8,4 +10,4 @@ public sealed record ListContentsQuery(
     DateTimeOffset? FromUtc,
     DateTimeOffset? ToUtc,
     int Page,
-    int PageSize);
+    int PageSize) : IRequest<PagedResult<ContentItem>>;
