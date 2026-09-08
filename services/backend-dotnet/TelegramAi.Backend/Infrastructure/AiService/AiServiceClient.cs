@@ -6,25 +6,35 @@ using TelegramAi.Backend.Api.Contracts.Health;
 using TelegramAi.Backend.Api.Contracts.Extractions;
 using TelegramAi.Backend.Api.Contracts.Intents;
 using TelegramAi.Backend.Api.Contracts.Summaries;
+using TelegramAi.Backend.Application.Contracts.Summaries;
+using TelegramAi.Backend.Application.Contracts.Extractions;
+using TelegramAi.Backend.Application.Contracts.Chunks;
+using TelegramAi.Backend.Application.Contracts.Embeddings;
+using TelegramAi.Backend.Application.Contracts.Reranking;
+using TelegramAi.Backend.Application.Contracts.Answers;
+using TelegramAi.Backend.Application.Contracts.Health;
+using TelegramAi.Backend.Application.Contracts.Intents;
 using TelegramAi.Backend.Api.Contracts.Reranking;
 using TelegramAi.Backend.Infrastructure.AiService.Contracts;
+using TelegramAi.Backend.Application.Abstractions;
 
 namespace TelegramAi.Backend.Infrastructure.AiService;
 
 public sealed class AiServiceClient(HttpClient httpClient) : IAiServiceClient
 {
-    public async Task<AiServiceHealthResponse> GetHealthAsync(CancellationToken cancellationToken)
+    public async Task<AiServiceHealthResult> GetHealthAsync(CancellationToken cancellationToken)
     {
         var health = await httpClient.GetFromJsonAsync<AiServiceHealthResponse>(
             "/health",
             cancellationToken);
 
-        return health ?? throw new InvalidOperationException(
-            "AI service returned an empty health response.");
+        return health is null
+            ? throw new InvalidOperationException("AI service returned an empty health response.")
+            : new AiServiceHealthResult(health.Service, health.Status, health.Version);
     }
 
-    public async Task<CreateChunksResponse> CreateChunksAsync(
-        CreateChunksRequest request,
+    public async Task<CreateChunksResult> CreateChunksAsync(
+        CreateChunksInput request,
         CancellationToken cancellationToken)
     {
         var aiRequest = new AiServiceCreateChunksRequest(
@@ -47,13 +57,13 @@ public sealed class AiServiceClient(HttpClient httpClient) : IAiServiceClient
             throw new InvalidOperationException("AI service returned an empty chunk response.");
         }
 
-        return new CreateChunksResponse(
+        return new CreateChunksResult(
             ContentId: chunks.ContentId,
             ChunkSize: chunks.ChunkSize,
             Overlap: chunks.Overlap,
             TotalChunks: chunks.TotalChunks,
             Chunks: chunks.Chunks
-                .Select(chunk => new TextChunkResponse(
+                .Select(chunk => new TextChunkResult(
                     Index: chunk.Index,
                     Text: chunk.Text,
                     CharStart: chunk.CharStart,
@@ -61,8 +71,8 @@ public sealed class AiServiceClient(HttpClient httpClient) : IAiServiceClient
                 .ToList());
     }
 
-    public async Task<CreateExtractionResponse> CreateExtractionAsync(
-        CreateExtractionRequest request,
+    public async Task<CreateExtractionResult> CreateExtractionAsync(
+        CreateExtractionInput request,
         CancellationToken cancellationToken)
     {
         var aiRequest = new AiServiceCreateExtractionRequest(
@@ -86,7 +96,7 @@ public sealed class AiServiceClient(HttpClient httpClient) : IAiServiceClient
                 "AI service returned an empty extraction response.");
         }
 
-        return new CreateExtractionResponse(
+        return new CreateExtractionResult(
             ContentId: extraction.ContentId,
             SourceType: extraction.SourceType,
             DetectedContentKind: extraction.DetectedContentKind,
@@ -94,15 +104,15 @@ public sealed class AiServiceClient(HttpClient httpClient) : IAiServiceClient
             Title: extraction.Title,
             ExtractedText: extraction.ExtractedText,
             OriginalUrl: extraction.OriginalUrl,
-            Metadata: new ExtractionMetadataResponse(
+            Metadata: new ExtractionMetadataResult(
                 Domain: extraction.Metadata.Domain,
                 ContentType: extraction.Metadata.ContentType,
                 FinalUrl: extraction.Metadata.FinalUrl,
                 Extra: extraction.Metadata.Extra));
     }
 
-    public async Task<CreateEmbeddingsResponse> CreateEmbeddingsAsync(
-        CreateEmbeddingsRequest request,
+    public async Task<CreateEmbeddingsResult> CreateEmbeddingsAsync(
+        CreateEmbeddingsInput request,
         CancellationToken cancellationToken)
     {
         var aiRequest = new AiServiceCreateEmbeddingsRequest(
@@ -123,19 +133,19 @@ public sealed class AiServiceClient(HttpClient httpClient) : IAiServiceClient
             throw new InvalidOperationException("AI service returned an empty embedding response.");
         }
 
-        return new CreateEmbeddingsResponse(
+        return new CreateEmbeddingsResult(
             ContentId: embeddings.ContentId,
             Model: embeddings.Model,
             Dimension: embeddings.Dimension,
             Embeddings: embeddings.Embeddings
-                .Select(embedding => new TextEmbeddingResponse(
+                .Select(embedding => new TextEmbeddingResult(
                     Index: embedding.Index,
                     Embedding: embedding.Embedding))
                 .ToList());
     }
 
-    public async Task<RerankResponse> RerankAsync(
-        RerankRequest request,
+    public async Task<RerankResult> RerankAsync(
+        RerankInput request,
         CancellationToken cancellationToken)
     {
         var aiRequest = new AiServiceRerankRequest(
@@ -147,13 +157,13 @@ public sealed class AiServiceClient(HttpClient httpClient) : IAiServiceClient
         var response = await httpResponse.Content.ReadFromJsonAsync<AiServiceRerankResponse>(cancellationToken)
             ?? throw new InvalidOperationException("AI service returned an empty rerank response.");
 
-        return new RerankResponse(
+        return new RerankResult(
             response.Model,
-            response.Scores.Select(score => new RerankScore(score.Index, score.Score)).ToList());
+            response.Scores.Select(score => new RerankScoreResult(score.Index, score.Score)).ToList());
     }
 
-    public async Task<CreateAnswerResponse> CreateAnswerAsync(
-        CreateAnswerRequest request,
+    public async Task<CreateAnswerResult> CreateAnswerAsync(
+        CreateAnswerInput request,
         CancellationToken cancellationToken)
     {
         var aiRequest = new AiServiceCreateAnswerRequest(
@@ -188,7 +198,7 @@ public sealed class AiServiceClient(HttpClient httpClient) : IAiServiceClient
             throw new InvalidOperationException("AI service returned an empty answer response.");
         }
 
-        return new CreateAnswerResponse(
+        return new CreateAnswerResult(
             ContentId: answer.ContentId,
             Answer: answer.Answer,
             UsedChunkIndexes: answer.UsedChunkIndexes,
@@ -196,8 +206,8 @@ public sealed class AiServiceClient(HttpClient httpClient) : IAiServiceClient
             Provider: answer.Provider);
     }
 
-    public async Task<ClassifyIntentResponse> ClassifyIntentAsync(
-        ClassifyIntentRequest request,
+    public async Task<ClassifyIntentResult> ClassifyIntentAsync(
+        ClassifyIntentInput request,
         CancellationToken cancellationToken)
     {
         var aiRequest = new AiServiceClassifyIntentRequest(
@@ -218,7 +228,7 @@ public sealed class AiServiceClient(HttpClient httpClient) : IAiServiceClient
             throw new InvalidOperationException("AI service returned an empty intent response.");
         }
 
-        return new ClassifyIntentResponse(
+        return new ClassifyIntentResult(
             Action: intent.Action,
             Intent: intent.Intent,
             Query: intent.Query,
@@ -234,8 +244,8 @@ public sealed class AiServiceClient(HttpClient httpClient) : IAiServiceClient
             ClarificationMessage: intent.ClarificationMessage);
     }
 
-    public async Task<CreateSummaryResponse> CreateSummaryAsync(
-        CreateSummaryRequest request,
+    public async Task<CreateSummaryResult> CreateSummaryAsync(
+        CreateSummaryInput request,
         CancellationToken cancellationToken)
     {
         var aiRequest = new AiServiceCreateSummaryRequest(
@@ -257,7 +267,7 @@ public sealed class AiServiceClient(HttpClient httpClient) : IAiServiceClient
                 "AI service returned an empty summary response.");
         }
 
-        return new CreateSummaryResponse(
+        return new CreateSummaryResult(
             ContentId: summary.ContentId,
             Title: summary.Title,
             ShortSummary: summary.ShortSummary,

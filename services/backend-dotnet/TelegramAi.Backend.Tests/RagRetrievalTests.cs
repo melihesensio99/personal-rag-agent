@@ -32,7 +32,7 @@ public sealed class RagRetrievalTests
 
         Assert.Single(result.Sources);
         Assert.Equal(coffee.ChunkId, result.Sources[0].ChunkId);
-        var answerRequest = Assert.IsType<CreateAnswerRequest>(aiClient.LastAnswerRequest);
+        var answerRequest = Assert.IsType<TelegramAi.Backend.Application.Contracts.Answers.CreateAnswerInput>(aiClient.LastAnswerRequest);
         var answerChunk = Assert.Single(answerRequest.Chunks);
         Assert.Equal("Kahvenin kalbe etkileri", answerChunk.ContentTitle);
         Assert.DoesNotContain(answerRequest.Chunks, chunk => chunk.ContentTitle == "Maksimum kas artışı");
@@ -87,7 +87,8 @@ public sealed class RagRetrievalTests
             aiClient,
             repository,
             NullLogger<ContentApplicationService>.Instance,
-            Options.Create(new AnswerRetrievalOptions { MinimumRerankScore = 0.5001 }));
+            Options.Create(new AnswerRetrievalOptions { MinimumRerankScore = 0.5001 }),
+            new TelegramAi.Backend.Application.Content.Handlers.ListContentsHandler(repository));
     }
 
     private static SemanticSearchChunkResult Result(string title, string text, double distance)
@@ -116,11 +117,12 @@ public sealed class RagRetrievalTests
         public Task<ContentItem?> GetByIdAsync(Guid id, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyList<ContentChunk>> GetChunksByContentIdAsync(Guid contentId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyList<ContentItem>> SearchAsync(SearchContentsQuery query, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<TelegramAi.Backend.Application.Common.Pagination.PagedResult<ContentItem>> ListAsync(ListContentsQuery query, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 
     private sealed class StubAiServiceClient(IReadOnlyList<RerankScore> rerankScores) : IAiServiceClient
     {
-        public CreateAnswerRequest? LastAnswerRequest { get; private set; }
+        public TelegramAi.Backend.Application.Contracts.Answers.CreateAnswerInput? LastAnswerRequest { get; private set; }
 
         public Task<CreateEmbeddingsResponse> CreateEmbeddingsAsync(
             CreateEmbeddingsRequest request,
@@ -133,17 +135,17 @@ public sealed class RagRetrievalTests
                 [new TextEmbeddingResponse(0, [0.1f, 0.2f])]));
         }
 
-        public Task<RerankResponse> RerankAsync(RerankRequest request, CancellationToken cancellationToken)
+        public Task<TelegramAi.Backend.Application.Contracts.Reranking.RerankResult> RerankAsync(TelegramAi.Backend.Application.Contracts.Reranking.RerankInput request, CancellationToken cancellationToken)
         {
-            return Task.FromResult(new RerankResponse("test-reranker", rerankScores));
+            return Task.FromResult(new TelegramAi.Backend.Application.Contracts.Reranking.RerankResult("test-reranker", rerankScores.Select(score => new TelegramAi.Backend.Application.Contracts.Reranking.RerankScoreResult(score.Index, score.Score)).ToList()));
         }
 
-        public Task<CreateAnswerResponse> CreateAnswerAsync(
-            CreateAnswerRequest request,
+        public Task<TelegramAi.Backend.Application.Contracts.Answers.CreateAnswerResult> CreateAnswerAsync(
+            TelegramAi.Backend.Application.Contracts.Answers.CreateAnswerInput request,
             CancellationToken cancellationToken)
         {
             LastAnswerRequest = request;
-            return Task.FromResult(new CreateAnswerResponse(
+            return Task.FromResult(new TelegramAi.Backend.Application.Contracts.Answers.CreateAnswerResult(
                 request.ContentId,
                 "Kayıtlı kahve kaynağına dayalı cevap.",
                 [0],
@@ -151,10 +153,11 @@ public sealed class RagRetrievalTests
                 "test"));
         }
 
-        public Task<AiServiceHealthResponse> GetHealthAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<CreateChunksResponse> CreateChunksAsync(CreateChunksRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<CreateExtractionResponse> CreateExtractionAsync(CreateExtractionRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<ClassifyIntentResponse> ClassifyIntentAsync(ClassifyIntentRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<CreateSummaryResponse> CreateSummaryAsync(CreateSummaryRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<TelegramAi.Backend.Application.Contracts.Health.AiServiceHealthResult> GetHealthAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<TelegramAi.Backend.Application.Contracts.Chunks.CreateChunksResult> CreateChunksAsync(TelegramAi.Backend.Application.Contracts.Chunks.CreateChunksInput request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<TelegramAi.Backend.Application.Contracts.Embeddings.CreateEmbeddingsResult> CreateEmbeddingsAsync(TelegramAi.Backend.Application.Contracts.Embeddings.CreateEmbeddingsInput request, CancellationToken cancellationToken) => Task.FromResult(new TelegramAi.Backend.Application.Contracts.Embeddings.CreateEmbeddingsResult(request.ContentId, "test-embedding", 2, [new TelegramAi.Backend.Application.Contracts.Embeddings.TextEmbeddingResult(0, [0.1f, 0.2f])]));
+        public Task<TelegramAi.Backend.Application.Contracts.Extractions.CreateExtractionResult> CreateExtractionAsync(TelegramAi.Backend.Application.Contracts.Extractions.CreateExtractionInput request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<TelegramAi.Backend.Application.Contracts.Intents.ClassifyIntentResult> ClassifyIntentAsync(TelegramAi.Backend.Application.Contracts.Intents.ClassifyIntentInput request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<TelegramAi.Backend.Application.Contracts.Summaries.CreateSummaryResult> CreateSummaryAsync(TelegramAi.Backend.Application.Contracts.Summaries.CreateSummaryInput request, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 }

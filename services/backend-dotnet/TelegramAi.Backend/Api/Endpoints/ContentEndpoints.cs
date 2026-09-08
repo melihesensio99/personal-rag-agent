@@ -3,6 +3,10 @@ using TelegramAi.Backend.Api.Mappers;
 using TelegramAi.Backend.Application.Content.Commands;
 using TelegramAi.Backend.Application.Content.Services;
 using TelegramAi.Backend.Domain.Content;
+using Microsoft.AspNetCore.Mvc;
+using TelegramAi.Backend.Api.Contracts.Common;
+using TelegramAi.Backend.Application.Content.Queries;
+using TelegramAi.Backend.Api.Validation;
 
 namespace TelegramAi.Backend.Api;
 
@@ -11,10 +15,33 @@ public static class ContentEndpoints
     public static IEndpointRouteBuilder MapContentEndpoints(this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapPost("/api/v1/contents", CreateContentAsync);
+        endpoints.MapGet("/api/v1/contents", ListContentsAsync);
         endpoints.MapGet("/api/v1/contents/{id:guid}", GetContentByIdAsync);
         endpoints.MapGet("/api/v1/contents/{id:guid}/chunks", GetContentChunksByIdAsync);
 
         return endpoints;
+    }
+
+    private static async Task<IResult> ListContentsAsync(
+        [AsParameters] ListContentsRequest request,
+        IContentApplicationService contentApplicationService,
+        CancellationToken cancellationToken)
+    {
+        ContentSourceType? sourceType = null;
+        if (!string.IsNullOrWhiteSpace(request.SourceType))
+        {
+            if (!ContentSourceTypeParser.TryParse(request.SourceType, out var parsedSourceType))
+                return Results.BadRequest(new { error = "Invalid sourceType." });
+            sourceType = parsedSourceType;
+        }
+        if (request.FromUtc.HasValue && request.ToUtc.HasValue && request.FromUtc >= request.ToUtc)
+            return Results.BadRequest(new { error = "fromUtc must be earlier than toUtc." });
+
+        var result = await contentApplicationService.ListAsync(new ListContentsQuery(
+            request.Search, sourceType, request.FromUtc, request.ToUtc, request.Page, request.PageSize), cancellationToken);
+        return Results.Ok(new PagedResponse<ContentResponse>(
+            result.Items.Select(ContentResponseMapper.Map).ToList(), result.Page, result.PageSize,
+            result.TotalCount, result.TotalPages, result.HasPreviousPage, result.HasNextPage));
     }
 
     private static async Task<IResult> CreateContentAsync(
@@ -26,7 +53,7 @@ public static class ContentEndpoints
 
         if (!string.IsNullOrWhiteSpace(request.SourceType))
         {
-            if (!Enum.TryParse<ContentSourceType>(request.SourceType, ignoreCase: true, out var parsedSourceType))
+            if (!ContentSourceTypeParser.TryParse(request.SourceType, out var parsedSourceType))
             {
                 return Results.BadRequest(new
                 {

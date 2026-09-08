@@ -1,4 +1,3 @@
-using TelegramAi.Backend.Api.Contracts.Intents;
 
 namespace TelegramAi.Backend.Application.Telegram.Agents;
 

@@ -1,5 +1,6 @@
 using TelegramAi.Backend.Api.Contracts.Health;
 using TelegramAi.Backend.Infrastructure.AiService;
+using TelegramAi.Backend.Application.Abstractions;
 
 namespace TelegramAi.Backend.Api;
 
@@ -27,7 +28,7 @@ public static class HealthEndpoints
         var response = new BackendSystemHealthResponse(
             Service: "backend-dotnet",
             Status: "healthy",
-            Dependencies: new BackendDependencyHealthResponse(aiHealth));
+            Dependencies: new BackendDependencyHealthResponse(new AiServiceHealthResponse(aiHealth.Service, aiHealth.Status, aiHealth.Version)));
 
         return Results.Ok(response);
     }

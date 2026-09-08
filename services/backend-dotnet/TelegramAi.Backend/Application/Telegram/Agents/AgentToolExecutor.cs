@@ -1,4 +1,3 @@
-using TelegramAi.Backend.Api.Contracts.Intents;
 using TelegramAi.Backend.Application.Content.Queries;
 using TelegramAi.Backend.Application.Content.Services;
 using TelegramAi.Backend.Application.Telegram.Commands;
@@ -33,7 +32,7 @@ public sealed class AgentToolExecutor(
         };
     }
 
-    private async Task<IReadOnlyList<string>> ExecuteSearchSavedContentAsync(ClassifyIntentResponse decision, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<string>> ExecuteSearchSavedContentAsync(IntentDecision decision, CancellationToken cancellationToken)
     {
         var query = new SearchContentsQuery(
             decision.Keywords.Where(x => !string.IsNullOrWhiteSpace(x) && !InstructionWords.Contains(x.Trim())).Distinct(StringComparer.OrdinalIgnoreCase).Take(8).ToArray(),
@@ -44,7 +43,7 @@ public sealed class AgentToolExecutor(
         return searchFormatter.FormatMessages(query, contents);
     }
 
-    private async Task<IReadOnlyList<string>> ExecuteAnswerUsingSavedContentAsync(ClassifyIntentResponse decision, string fallbackText, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<string>> ExecuteAnswerUsingSavedContentAsync(IntentDecision decision, string fallbackText, CancellationToken cancellationToken)
     {
         var question = string.IsNullOrWhiteSpace(decision.Query) ? fallbackText : decision.Query.Trim();
         var result = await contentApplicationService.SemanticAnswerAsync(question, 8, null, cancellationToken, decision.SemanticQuery);
@@ -53,7 +52,7 @@ public sealed class AgentToolExecutor(
         return messages;
     }
 
-    private async Task<IReadOnlyList<string>> ExecuteSaveIncomingContentAsync(long chatId, string fallbackText, string? senderDisplayName, ClassifyIntentResponse decision, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<string>> ExecuteSaveIncomingContentAsync(long chatId, string fallbackText, string? senderDisplayName, IntentDecision decision, CancellationToken cancellationToken)
     {
         // For URL messages, always preserve the original URL. The intent model may
         // return a preview/summary in `content`, which would prevent extraction.

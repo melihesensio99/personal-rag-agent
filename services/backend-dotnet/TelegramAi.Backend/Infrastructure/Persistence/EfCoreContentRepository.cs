@@ -1,4 +1,5 @@
 using TelegramAi.Backend.Application.Content.Queries;
+using TelegramAi.Backend.Application.Common.Pagination;
 using Microsoft.EntityFrameworkCore;
 using Pgvector;
 using Pgvector.EntityFrameworkCore;
@@ -52,39 +53,23 @@ public sealed class EfCoreContentRepository(ApplicationDbContext dbContext) : IC
             .AsNoTracking()
             .AsQueryable();
 
-        if (query.ContentKind.HasValue)
-        {
-            dbQuery = dbQuery.Where(content => content.ContentKind == query.ContentKind.Value);
-        }
-
-        if (query.SourceType.HasValue)
-        {
-            dbQuery = dbQuery.Where(content => content.SourceType == query.SourceType.Value);
-        }
-
-        if (query.FromUtc.HasValue)
-        {
-            dbQuery = dbQuery.Where(content => content.CreatedAtUtc >= query.FromUtc.Value);
-        }
-
-        if (query.ToUtc.HasValue)
-        {
-            dbQuery = dbQuery.Where(content => content.CreatedAtUtc < query.ToUtc.Value);
-        }
-
-        foreach (var keyword in query.Keywords)
-        {
-            var currentKeyword = keyword;
-            dbQuery = dbQuery.Where(content =>
-                EF.Functions.ILike(content.RawText, $"%{currentKeyword}%") ||
-                EF.Functions.ILike(content.Summary.Title, $"%{currentKeyword}%") ||
-                EF.Functions.ILike(content.Summary.ShortSummary, $"%{currentKeyword}%"));
-        }
+        dbQuery = dbQuery.ApplyFilters(query);
 
         return await dbQuery
             .OrderByDescending(content => content.CreatedAtUtc)
             .Take(query.MaxResults)
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<PagedResult<ContentItem>> ListAsync(ListContentsQuery query, CancellationToken cancellationToken)
+    {
+        var dbQuery = dbContext.Contents.AsNoTracking().AsQueryable();
+        dbQuery = dbQuery.ApplyFilters(query);
+
+        var totalCount = await dbQuery.CountAsync(cancellationToken);
+        var items = await dbQuery.OrderByDescending(content => content.CreatedAtUtc)
+            .Skip((query.Page - 1) * query.PageSize).Take(query.PageSize).ToListAsync(cancellationToken);
+        return new PagedResult<ContentItem>(items, query.Page, query.PageSize, totalCount);
     }
 
     public async Task<IReadOnlyList<SemanticSearchChunkResult>> SemanticSearchChunksAsync(

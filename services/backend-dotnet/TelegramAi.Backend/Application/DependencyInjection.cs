@@ -2,6 +2,7 @@ using TelegramAi.Backend.Application.Content.Services;
 using TelegramAi.Backend.Application.Telegram.Formatting;
 using TelegramAi.Backend.Application.Telegram.Agents;
 using TelegramAi.Backend.Application.Telegram.Services;
+using TelegramAi.Backend.Application.Content.Handlers;
 
 namespace TelegramAi.Backend.Application;
 
@@ -10,6 +11,7 @@ public static class DependencyInjection
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
         services.AddScoped<IContentApplicationService, ContentApplicationService>();
+        services.AddScoped<IListContentsHandler, ListContentsHandler>();
         services.AddScoped<ITelegramMessageApplicationService, TelegramMessageApplicationService>();
         services.AddScoped<IAgentOrchestrator, AgentOrchestrator>();
         services.AddScoped<IAgentToolExecutor, AgentToolExecutor>();

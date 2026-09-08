@@ -1,4 +1,4 @@
-using TelegramAi.Backend.Api.Contracts.Answers;
+using TelegramAi.Backend.Application.Contracts.Answers;
 
 namespace TelegramAi.Backend.Application.Content.Queries;
 
@@ -10,7 +10,7 @@ public sealed record SemanticAnswerDebugResult(
     string AnswerProvider,
     string Answer,
     IReadOnlyList<int> UsedChunkIndexes,
-    IReadOnlyList<CreateAnswerChunkRequest> ContextChunksSentToLlm,
+    IReadOnlyList<AnswerChunkInput> ContextChunksSentToLlm,
     IReadOnlyList<SemanticSearchChunkResult> Sources,
     double MinimumRerankScore,
     IReadOnlyList<RagRerankCandidateDiagnostic> RerankCandidates,

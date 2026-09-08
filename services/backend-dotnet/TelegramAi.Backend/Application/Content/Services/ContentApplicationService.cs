@@ -1,17 +1,20 @@
-using TelegramAi.Backend.Api.Contracts.Extractions;
-using TelegramAi.Backend.Api.Contracts.Chunks;
-using TelegramAi.Backend.Api.Contracts.Answers;
-using TelegramAi.Backend.Api.Contracts.Embeddings;
-using TelegramAi.Backend.Api.Contracts.Summaries;
 using TelegramAi.Backend.Application.Abstractions;
 using TelegramAi.Backend.Application.Content.Commands;
 using TelegramAi.Backend.Application.Content.Exceptions;
 using TelegramAi.Backend.Application.Content.Queries;
 using TelegramAi.Backend.Domain.Content;
 using TelegramAi.Backend.Infrastructure.AiService;
-using TelegramAi.Backend.Api.Contracts.Reranking;
 using Microsoft.Extensions.Options;
 using System.Diagnostics;
+using TelegramAi.Backend.Application.Common.Pagination;
+using TelegramAi.Backend.Application.Content.Handlers;
+using TelegramAi.Backend.Application.Content.Policies;
+using TelegramAi.Backend.Application.Contracts.Summaries;
+using TelegramAi.Backend.Application.Contracts.Extractions;
+using TelegramAi.Backend.Application.Contracts.Chunks;
+using TelegramAi.Backend.Application.Contracts.Embeddings;
+using TelegramAi.Backend.Application.Contracts.Answers;
+using TelegramAi.Backend.Application.Contracts.Reranking;
 
 namespace TelegramAi.Backend.Application.Content.Services;
 
@@ -19,7 +22,8 @@ public sealed class ContentApplicationService(
     IAiServiceClient aiServiceClient,
     IContentRepository contentRepository,
     ILogger<ContentApplicationService> logger,
-    IOptions<AnswerRetrievalOptions> retrievalOptions) : IContentApplicationService
+    IOptions<AnswerRetrievalOptions> retrievalOptions,
+    IListContentsHandler listContentsHandler) : IContentApplicationService
 {
     private const int SemanticCandidateLimit = 20;
     private const int MaxChunksPerContent = 3;
@@ -34,13 +38,13 @@ public sealed class ContentApplicationService(
         var extraction = await TryExtractAsync(contentId, command, cancellationToken);
         EnsureExtractionIsSaveable(extraction);
 
-        var summaryInputText = ResolveSummaryInputText(command, extraction);
-        var chunkInputText = ResolveChunkInputText(command, extraction, summaryInputText);
-        var contentKind = ResolveContentKind(command, extraction);
-        var sourceType = ResolveSourceType(command, extraction);
+        var summaryInputText = ContentInputPolicy.ResolveSummaryInputText(command, extraction);
+        var chunkInputText = ContentInputPolicy.ResolveChunkInputText(command, extraction, summaryInputText);
+        var contentKind = ContentInputPolicy.ResolveContentKind(command, extraction);
+        var sourceType = ContentInputPolicy.ResolveSourceType(command, extraction);
 
         var summary = await aiServiceClient.CreateSummaryAsync(
-            new CreateSummaryRequest(
+            new CreateSummaryInput(
                 ContentId: contentId.ToString("N"),
                 Text: summaryInputText),
             cancellationToken);
@@ -81,6 +85,11 @@ public sealed class ContentApplicationService(
         CancellationToken cancellationToken)
     {
         return contentRepository.SearchAsync(query, cancellationToken);
+    }
+
+    public Task<PagedResult<ContentItem>> ListAsync(ListContentsQuery query, CancellationToken cancellationToken)
+    {
+        return listContentsHandler.HandleAsync(query, cancellationToken);
     }
 
     public async Task<IReadOnlyList<SemanticSearchChunkResult>> SemanticSearchChunksAsync(
@@ -168,7 +177,7 @@ public sealed class ContentApplicationService(
 
         stageTimer.Restart();
         var answer = await aiServiceClient.CreateAnswerAsync(
-            new CreateAnswerRequest(
+            new CreateAnswerInput(
                 ContentId: "semantic-answer-query",
                 Question: query,
                 Chunks: BuildAnswerChunks(sources)),
@@ -242,7 +251,7 @@ public sealed class ContentApplicationService(
 
         stageTimer.Restart();
         var answer = await aiServiceClient.CreateAnswerAsync(
-            new CreateAnswerRequest(
+            new CreateAnswerInput(
                 ContentId: "semantic-answer-query",
                 Question: query,
                 Chunks: contextChunks),
@@ -269,12 +278,12 @@ public sealed class ContentApplicationService(
                 totalTimer.ElapsedMilliseconds));
     }
 
-    private async Task<(CreateEmbeddingsResponse Response, IReadOnlyList<float> QueryEmbedding)> CreateQueryEmbeddingAsync(
+    private async Task<(CreateEmbeddingsResult Response, IReadOnlyList<float> QueryEmbedding)> CreateQueryEmbeddingAsync(
         string query,
         CancellationToken cancellationToken)
     {
         var embeddings = await aiServiceClient.CreateEmbeddingsAsync(
-            new CreateEmbeddingsRequest(
+            new CreateEmbeddingsInput(
                 ContentId: "semantic-search-query",
                 Texts: [query]),
             cancellationToken);
@@ -285,10 +294,10 @@ public sealed class ContentApplicationService(
         return (embeddings, queryEmbedding);
     }
 
-    private static IReadOnlyList<CreateAnswerChunkRequest> BuildAnswerChunks(
+    private static IReadOnlyList<AnswerChunkInput> BuildAnswerChunks(
         IReadOnlyList<SemanticSearchChunkResult> sources)
     {
-        return sources.Select((source, index) => new CreateAnswerChunkRequest(
+        return sources.Select((source, index) => new AnswerChunkInput(
             Index: index,
             ContentId: source.ContentId.ToString("N"),
             ChunkId: source.ChunkId.ToString("N"),
@@ -314,9 +323,9 @@ public sealed class ContentApplicationService(
         }
 
         var rerankResponse = await aiServiceClient.RerankAsync(
-            new RerankRequest(
+            new RerankInput(
                 query,
-                candidates.Select((candidate, index) => new RerankDocument(index, candidate.ChunkText)).ToList()),
+                candidates.Select((candidate, index) => new RerankDocumentInput(index, candidate.ChunkText)).ToList()),
             cancellationToken);
 
         var scoresByIndex = rerankResponse.Scores.ToDictionary(score => score.Index, score => score.Score);
@@ -440,12 +449,12 @@ public sealed class ContentApplicationService(
         double RerankScore,
         bool HasRerankScore);
 
-    private async Task<CreateExtractionResponse?> TryExtractAsync(
+    private async Task<CreateExtractionResult?> TryExtractAsync(
         Guid contentId,
         CreateContentCommand command,
         CancellationToken cancellationToken)
     {
-        var url = TryExtractUrl(command.Text);
+        var url = ContentInputPolicy.TryExtractUrl(command.Text);
 
         if (url is null || command.SourceType is ContentSourceType.Telegram or ContentSourceType.Manual)
         {
@@ -455,7 +464,7 @@ public sealed class ContentApplicationService(
         try
         {
             return await aiServiceClient.CreateExtractionAsync(
-                new CreateExtractionRequest(
+                new CreateExtractionInput(
                     ContentId: contentId.ToString("N"),
                     SourceType: command.SourceType?.ToString().ToLowerInvariant(),
                     Url: url,
@@ -485,7 +494,7 @@ public sealed class ContentApplicationService(
         try
         {
             var chunks = await aiServiceClient.CreateChunksAsync(
-                new CreateChunksRequest(
+                new CreateChunksInput(
                     ContentId: contentId.ToString("N"),
                     Text: text),
                 cancellationToken);
@@ -524,13 +533,13 @@ public sealed class ContentApplicationService(
 
     private async Task<IReadOnlyDictionary<int, IReadOnlyList<float>>> TryCreateEmbeddingsByChunkIndexAsync(
         Guid contentId,
-        IReadOnlyList<TextChunkResponse> chunks,
+        IReadOnlyList<TextChunkResult> chunks,
         CancellationToken cancellationToken)
     {
         try
         {
             var embeddings = await aiServiceClient.CreateEmbeddingsAsync(
-                new CreateEmbeddingsRequest(
+                new CreateEmbeddingsInput(
                     ContentId: contentId.ToString("N"),
                     Texts: chunks.Select(chunk => chunk.Text).ToList()),
                 cancellationToken);
@@ -554,7 +563,7 @@ public sealed class ContentApplicationService(
         }
     }
 
-    private static void EnsureExtractionIsSaveable(CreateExtractionResponse? extraction)
+    private static void EnsureExtractionIsSaveable(CreateExtractionResult? extraction)
     {
         if (extraction is null ||
             !extraction.ExtractionStatus.Equals("unsupported", StringComparison.OrdinalIgnoreCase))
@@ -572,103 +581,8 @@ public sealed class ContentApplicationService(
             "Bu Google arama sonucu linki. Bunu kaydetmeyelim; arama sonucunda açtığın gerçek makale, video veya PDF linkini gönder.");
     }
 
-    private static string ResolveSummaryInputText(
-        CreateContentCommand command,
-        CreateExtractionResponse? extraction)
-    {
-        if (!string.IsNullOrWhiteSpace(command.SummaryInputText))
-        {
-            return command.SummaryInputText.Trim();
-        }
-
-        if (extraction is not null &&
-            extraction.ExtractionStatus.Equals("completed", StringComparison.OrdinalIgnoreCase) &&
-            !string.IsNullOrWhiteSpace(extraction.ExtractedText))
-        {
-            return BuildSummaryInputText(extraction);
-        }
-
-        return command.Text.Trim();
-    }
-
-    private static string ResolveChunkInputText(
-        CreateContentCommand command,
-        CreateExtractionResponse? extraction,
-        string summaryInputText)
-    {
-        if (extraction is not null &&
-            extraction.ExtractionStatus.Equals("completed", StringComparison.OrdinalIgnoreCase) &&
-            !string.IsNullOrWhiteSpace(extraction.ExtractedText))
-        {
-            return extraction.ExtractedText.Trim();
-        }
-
-        if (!string.IsNullOrWhiteSpace(command.SummaryInputText))
-        {
-            return command.SummaryInputText.Trim();
-        }
-
-        return summaryInputText.Trim();
-    }
-
-    private static string BuildSummaryInputText(CreateExtractionResponse extraction)
-    {
-        var parts = new List<string>();
-
-        if (!string.IsNullOrWhiteSpace(extraction.Title))
-        {
-            parts.Add($"Title: {extraction.Title.Trim()}");
-        }
-
-        if (!string.IsNullOrWhiteSpace(extraction.OriginalUrl))
-        {
-            parts.Add($"Original URL: {extraction.OriginalUrl.Trim()}");
-        }
-
-        parts.Add(extraction.ExtractedText.Trim());
-
-        return string.Join(Environment.NewLine, parts);
-    }
-
-    private static ContentKind ResolveContentKind(
-        CreateContentCommand command,
-        CreateExtractionResponse? extraction)
-    {
-        if (extraction is not null)
-        {
-            return ContentKindMapper.FromDetectedContentKind(
-                extraction.DetectedContentKind,
-                command.SourceType ?? ContentSourceType.Telegram);
-        }
-
-        return ContentKindMapper.FromSourceType(command.SourceType ?? ContentSourceType.Telegram);
-    }
-
-    private static ContentSourceType ResolveSourceType(
-        CreateContentCommand command,
-        CreateExtractionResponse? extraction)
-    {
-        if (extraction is not null &&
-            Enum.TryParse<ContentSourceType>(extraction.SourceType, ignoreCase: true, out var extractedSourceType))
-        {
-            return extractedSourceType;
-        }
-
-        return command.SourceType ?? ContentSourceType.Telegram;
-    }
-
-    private static string? TryExtractUrl(string text)
-    {
-        var firstToken = text.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .FirstOrDefault();
-
-        return Uri.TryCreate(firstToken, UriKind.Absolute, out var uri)
-            ? uri.ToString()
-            : null;
-    }
-
     private static bool TryReadExtraValue(
-        CreateExtractionResponse extraction,
+        CreateExtractionResult extraction,
         string key,
         out string value)
     {

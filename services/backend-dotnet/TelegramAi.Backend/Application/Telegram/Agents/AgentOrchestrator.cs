@@ -1,11 +1,9 @@
-using TelegramAi.Backend.Api.Contracts.Intents;
 using TelegramAi.Backend.Application.Telegram.Exceptions;
-using TelegramAi.Backend.Infrastructure.AiService;
 
 namespace TelegramAi.Backend.Application.Telegram.Agents;
 
 public sealed class AgentOrchestrator(
-    IAiServiceClient aiServiceClient,
+    IIntentClassifier intentClassifier,
     IAgentToolExecutor toolExecutor) : IAgentOrchestrator
 {
     public async Task<IReadOnlyList<string>> ExecuteAsync(
@@ -19,13 +17,11 @@ public sealed class AgentOrchestrator(
         return await toolExecutor.ExecuteAsync(plan, chatId, text, senderDisplayName, cancellationToken);
     }
 
-    private async Task<ClassifyIntentResponse> ExecuteIntentClassificationAsync(string text, CancellationToken cancellationToken)
+    private async Task<IntentDecision> ExecuteIntentClassificationAsync(string text, CancellationToken cancellationToken)
     {
         try
         {
-            return await aiServiceClient.ClassifyIntentAsync(
-                new ClassifyIntentRequest(text, DateTimeOffset.UtcNow.ToString("yyyy-MM-dd")),
-                cancellationToken);
+            return await intentClassifier.ClassifyAsync(text, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -37,7 +33,7 @@ public sealed class AgentOrchestrator(
         }
     }
 
-    private static AgentPlan BuildAgentPlan(string text, ClassifyIntentResponse decision)
+    private static AgentPlan BuildAgentPlan(string text, IntentDecision decision)
     {
         var tool = decision.Action.ToLowerInvariant() switch
         {

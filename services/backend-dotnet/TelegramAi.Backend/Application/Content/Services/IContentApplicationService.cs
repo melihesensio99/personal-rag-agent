@@ -1,6 +1,7 @@
 using TelegramAi.Backend.Application.Content.Commands;
 using TelegramAi.Backend.Application.Content.Queries;
 using TelegramAi.Backend.Domain.Content;
+using TelegramAi.Backend.Application.Common.Pagination;
 
 namespace TelegramAi.Backend.Application.Content.Services;
 
@@ -10,6 +11,7 @@ public interface IContentApplicationService
     Task<ContentItem?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
     Task<IReadOnlyList<ContentChunk>> GetChunksByContentIdAsync(Guid contentId, CancellationToken cancellationToken);
     Task<IReadOnlyList<ContentItem>> SearchAsync(SearchContentsQuery query, CancellationToken cancellationToken);
+    Task<PagedResult<ContentItem>> ListAsync(ListContentsQuery query, CancellationToken cancellationToken);
     Task<IReadOnlyList<SemanticSearchChunkResult>> SemanticSearchChunksAsync(
         string query,
         int maxResults,

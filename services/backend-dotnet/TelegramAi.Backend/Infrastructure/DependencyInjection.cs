@@ -5,6 +5,7 @@ using TelegramAi.Backend.Infrastructure.Persistence;
 using TelegramAi.Backend.Infrastructure.Telegram;
 using TelegramAi.Backend.Infrastructure.Telegram.TelegramApi;
 using TelegramAi.Backend.Application.Content.Services;
+using TelegramAi.Backend.Application.Telegram.Agents;
 using Microsoft.EntityFrameworkCore;
 using Pgvector.EntityFrameworkCore;
 
@@ -27,6 +28,7 @@ public static class DependencyInjection
         });
 
         services.AddScoped<IContentRepository, EfCoreContentRepository>();
+        services.AddScoped<IIntentClassifier, AiIntentClassifier>();
         services.AddHostedService<DatabaseMigrationHostedService>();
         services.AddHostedService<TelegramBotStartupDiagnosticsHostedService>();
         services.AddHostedService<TelegramPollingHostedService>();

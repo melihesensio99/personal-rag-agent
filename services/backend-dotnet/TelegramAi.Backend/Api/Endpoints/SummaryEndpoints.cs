@@ -1,5 +1,7 @@
 using TelegramAi.Backend.Api.Contracts.Summaries;
 using TelegramAi.Backend.Infrastructure.AiService;
+using TelegramAi.Backend.Application.Contracts.Summaries;
+using TelegramAi.Backend.Application.Abstractions;
 
 namespace TelegramAi.Backend.Api;
 
@@ -17,7 +19,7 @@ public static class SummaryEndpoints
         IAiServiceClient aiServiceClient,
         CancellationToken cancellationToken)
     {
-        var response = await aiServiceClient.CreateSummaryAsync(request, cancellationToken);
-        return Results.Ok(response);
+        var response = await aiServiceClient.CreateSummaryAsync(new CreateSummaryInput(request.ContentId, request.Text), cancellationToken);
+        return Results.Ok(new CreateSummaryResponse(response.ContentId, response.Title, response.ShortSummary, response.KeyPoints, response.Tags, response.Language, response.Provider));
     }
 }

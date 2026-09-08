@@ -4,6 +4,10 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddApi(this IServiceCollection services)
     {
+        services.AddCors(options => options.AddPolicy("Frontend", policy => policy
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .WithOrigins("http://localhost:5173", "http://127.0.0.1:5173")));
         return services;
     }
 
