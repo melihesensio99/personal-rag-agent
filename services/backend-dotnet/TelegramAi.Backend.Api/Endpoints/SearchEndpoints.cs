@@ -1,13 +1,6 @@
 using TelegramAi.Backend.Api.Contracts.Answers;
 using TelegramAi.Backend.Api.Contracts.Search;
-using TelegramAi.Backend.Application.Features.Content.Services;
 using MediatR;
-using SemanticSearchMediatorRequest = TelegramAi.Backend.Application.Features.Content.SemanticSearch.SemanticSearchRequest;
-using SemanticSearchDebugMediatorRequest = TelegramAi.Backend.Application.Features.Content.SemanticSearch.SemanticSearchDebugRequest;
-using SemanticAnswerMediatorRequest = TelegramAi.Backend.Application.Features.Content.SemanticAnswer.SemanticAnswerRequest;
-using SemanticAnswerDebugMediatorRequest = TelegramAi.Backend.Application.Features.Content.SemanticAnswer.SemanticAnswerDebugRequest;
-using SemanticSearchApiRequest = TelegramAi.Backend.Api.Contracts.Search.SemanticSearchRequest;
-using SemanticAnswerApiRequest = TelegramAi.Backend.Api.Contracts.Answers.SemanticAnswerRequest;
 using TelegramAi.Backend.Api.Validation;
 
 namespace TelegramAi.Backend.Api;
@@ -16,22 +9,22 @@ public static class SearchEndpoints
 {
     public static IEndpointRouteBuilder MapSearchEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapPost("/api/v1/search/semantic", SemanticSearchAsync).AddEndpointFilter<FluentValidationEndpointFilter<SemanticSearchApiRequest>>();
-        endpoints.MapPost("/api/v1/search/answer", SemanticAnswerAsync).AddEndpointFilter<FluentValidationEndpointFilter<SemanticAnswerApiRequest>>();
-        endpoints.MapPost("/api/v1/search/semantic/debug", SemanticSearchDebugAsync).AddEndpointFilter<FluentValidationEndpointFilter<SemanticSearchApiRequest>>();
-        endpoints.MapPost("/api/v1/search/answer/debug", SemanticAnswerDebugAsync).AddEndpointFilter<FluentValidationEndpointFilter<SemanticAnswerApiRequest>>();
+        endpoints.MapPost("/api/v1/search/semantic", SemanticSearchAsync).AddEndpointFilter<FluentValidationEndpointFilter<SemanticSearchRequest>>();
+        endpoints.MapPost("/api/v1/search/answer", SemanticAnswerAsync).AddEndpointFilter<FluentValidationEndpointFilter<SemanticAnswerRequest>>();
+        endpoints.MapPost("/api/v1/search/semantic/debug", SemanticSearchDebugAsync).AddEndpointFilter<FluentValidationEndpointFilter<SemanticSearchRequest>>();
+        endpoints.MapPost("/api/v1/search/answer/debug", SemanticAnswerDebugAsync).AddEndpointFilter<FluentValidationEndpointFilter<SemanticAnswerRequest>>();
 
         return endpoints;
     }
 
     private static async Task<IResult> SemanticSearchAsync(
-        SemanticSearchApiRequest request,
+        SemanticSearchRequest request,
         ISender sender,
         CancellationToken cancellationToken)
     {
         var query = request.Query.Trim();
         var maxResults = Math.Clamp(request.MaxResults, 1, 20);
-        var results = await sender.Send(new SemanticSearchMediatorRequest(
+        var results = await sender.Send(new TelegramAi.Backend.Application.Features.Content.SemanticSearch.SemanticSearchQuery(
             query,
             maxResults,
             request.ContentId), cancellationToken);
@@ -53,13 +46,13 @@ public static class SearchEndpoints
     }
 
     private static async Task<IResult> SemanticSearchDebugAsync(
-        SemanticSearchApiRequest request,
+        SemanticSearchRequest request,
         ISender sender,
         CancellationToken cancellationToken)
     {
         var query = request.Query.Trim();
         var maxResults = Math.Clamp(request.MaxResults, 1, 20);
-        var result = await sender.Send(new SemanticSearchDebugMediatorRequest(
+        var result = await sender.Send(new TelegramAi.Backend.Application.Features.Content.SemanticSearch.SemanticSearchDebugQuery(
             query,
             maxResults,
             request.ContentId), cancellationToken);
@@ -74,13 +67,13 @@ public static class SearchEndpoints
     }
 
     private static async Task<IResult> SemanticAnswerAsync(
-        SemanticAnswerApiRequest request,
+        SemanticAnswerRequest request,
         ISender sender,
         CancellationToken cancellationToken)
     {
         var query = request.Query.Trim();
         var maxResults = Math.Clamp(request.MaxResults, 1, 20);
-        var result = await sender.Send(new SemanticAnswerMediatorRequest(
+        var result = await sender.Send(new TelegramAi.Backend.Application.Features.Content.SemanticAnswer.SemanticAnswerQuery(
             query,
             maxResults,
             request.ContentId), cancellationToken);
@@ -94,13 +87,13 @@ public static class SearchEndpoints
     }
 
     private static async Task<IResult> SemanticAnswerDebugAsync(
-        SemanticAnswerApiRequest request,
+        SemanticAnswerRequest request,
         ISender sender,
         CancellationToken cancellationToken)
     {
         var query = request.Query.Trim();
         var maxResults = Math.Clamp(request.MaxResults, 1, 20);
-        var result = await sender.Send(new SemanticAnswerDebugMediatorRequest(
+        var result = await sender.Send(new TelegramAi.Backend.Application.Features.Content.SemanticAnswer.SemanticAnswerDebugQuery(
             query,
             maxResults,
             request.ContentId), cancellationToken);

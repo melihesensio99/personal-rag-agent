@@ -1,15 +1,14 @@
 
-using TelegramAi.Backend.Application.Features.Content.Services;
+using TelegramAi.Backend.Application.Features.Content.SemanticAnswer;
+using TelegramAi.Backend.Application.Shared.Abstractions;
 using TelegramAi.Backend.Application.Features.Telegram.Process;
 using TelegramAi.Backend.Application.Features.Telegram.Formatting;
-using TelegramAi.Backend.Application.Features.Telegram.Services;
 using MediatR;
 using TelegramAi.Backend.Domain.Content;
 
 namespace TelegramAi.Backend.Application.Features.Telegram.Agents;
 
 public sealed class AgentToolExecutor(
-    IContentApplicationService contentApplicationService,
     ISender sender,
     ITelegramContentSearchResponseFormatter searchFormatter,
     ITelegramSemanticAnswerResponseFormatter answerFormatter,
@@ -40,14 +39,14 @@ public sealed class AgentToolExecutor(
             Enum.TryParse<ContentKind>(decision.ContentKind, true, out var kind) ? kind : null,
             Enum.TryParse<ContentSourceType>(decision.SourceType, true, out var source) ? source : null,
             ParseDate(decision.DateFrom), ParseDate(decision.DateTo), decision.SemanticQuery);
-        var contents = await contentApplicationService.SearchAsync(query, cancellationToken);
+        var contents = await sender.Send(new SearchContentsRequest(query), cancellationToken);
         return searchFormatter.FormatMessages(query, contents);
     }
 
     private async Task<IReadOnlyList<string>> ExecuteAnswerUsingSavedContentAsync(IntentDecision decision, string fallbackText, CancellationToken cancellationToken)
     {
         var question = string.IsNullOrWhiteSpace(decision.Query) ? fallbackText : decision.Query.Trim();
-        var result = await contentApplicationService.SemanticAnswerAsync(question, 8, null, cancellationToken, decision.SemanticQuery);
+        var result = await sender.Send(new SemanticAnswerQuery(question, 8, null), cancellationToken);
         var messages = new List<string> { answerFormatter.Format(result) };
         messages.AddRange(answerFormatter.FormatSourceMessages(result));
         return messages;

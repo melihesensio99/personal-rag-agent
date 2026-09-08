@@ -1,11 +1,9 @@
 using Microsoft.Extensions.DependencyInjection;
 using MediatR;
 using TelegramAi.Backend.Application.Shared.Common.Behaviors;
-using TelegramAi.Backend.Application.Features.Content.Services;
 using TelegramAi.Backend.Application.Features.Content.SemanticSearch;
 using TelegramAi.Backend.Application.Features.Telegram.Formatting;
 using TelegramAi.Backend.Application.Features.Telegram.Agents;
-using TelegramAi.Backend.Application.Features.Telegram.Services;
 
 namespace TelegramAi.Backend.Application;
 
@@ -20,8 +18,6 @@ public static class DependencyInjection
         services.AddScoped<ISemanticAnswerService, SemanticAnswerService>();
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
-        services.AddScoped<IContentApplicationService, ContentApplicationService>();
-        services.AddScoped<ITelegramMessageApplicationService, TelegramMessageApplicationService>();
         services.AddScoped<IAgentOrchestrator, AgentOrchestrator>();
         services.AddScoped<IAgentToolExecutor, AgentToolExecutor>();
         services.AddSingleton<ITelegramMessageResponseFormatter, TelegramMessageResponseFormatter>();

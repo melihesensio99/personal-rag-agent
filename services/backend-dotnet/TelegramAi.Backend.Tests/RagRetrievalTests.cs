@@ -10,7 +10,6 @@ using TelegramAi.Backend.Api.Contracts.Reranking;
 using TelegramAi.Backend.Api.Contracts.Summaries;
 using TelegramAi.Backend.Application.Shared.Abstractions;
 
-using TelegramAi.Backend.Application.Features.Content.Services;
 using TelegramAi.Backend.Domain.Content;
 using TelegramAi.Backend.Infrastructure.AiService;
 using Xunit;
@@ -28,7 +27,7 @@ public sealed class RagRetrievalTests
         var aiClient = new StubAiServiceClient([new RerankScore(0, 0.82), new RerankScore(1, 0.50)]);
         var service = CreateService(aiClient, repository);
 
-        var result = await service.SemanticAnswerAsync("Kahve kalbe zararlı mı?", 8, null, CancellationToken.None);
+        var result = await service.AnswerAsync("Kahve kalbe zararlı mı?", 8, null, CancellationToken.None);
 
         Assert.Single(result.Sources);
         Assert.Equal(coffee.ChunkId, result.Sources[0].ChunkId);
@@ -47,7 +46,7 @@ public sealed class RagRetrievalTests
         var aiClient = new StubAiServiceClient([new RerankScore(0, 0.50)]);
         var service = CreateService(aiClient, repository);
 
-        var result = await service.SemanticAnswerAsync("Kahve kalbe zararlı mı?", 8, null, CancellationToken.None);
+        var result = await service.AnswerAsync("Kahve kalbe zararlı mı?", 8, null, CancellationToken.None);
 
         Assert.Empty(result.Sources);
         Assert.Null(aiClient.LastAnswerRequest);
@@ -65,7 +64,7 @@ public sealed class RagRetrievalTests
             new RerankScore(1, 0.50)]);
         var service = CreateService(aiClient, new StubContentRepository([coffee, muscle]));
 
-        var result = await service.SemanticAnswerDebugAsync(
+        var result = await service.AnswerDebugAsync(
             "Kahve kalbe zararlı mı?",
             8,
             null,
@@ -79,28 +78,15 @@ public sealed class RagRetrievalTests
         Assert.Single(result.ContextChunksSentToLlm);
     }
 
-    private static ContentApplicationService CreateService(
+    private static SemanticAnswerService CreateService(
         IAiServiceClient aiClient,
         IContentRepository repository)
     {
-        return new ContentApplicationService(
-            aiClient,
-            repository,
-            NullLogger<ContentApplicationService>.Instance,
-            Options.Create(new AnswerRetrievalOptions { MinimumRerankScore = 0.5001 }),
-            new ContentCreationWorkflow(
-                aiClient,
-                repository,
-                NullLogger<ContentCreationWorkflow>.Instance),
-            new RerankingService(
-                aiClient,
-                Options.Create(new AnswerRetrievalOptions { MinimumRerankScore = 0.5001 })),
-            new SemanticSearchService(aiClient, repository),
-            new SemanticAnswerService(
+        return new SemanticAnswerService(
                 aiClient,
                 new SemanticSearchService(aiClient, repository),
                 new RerankingService(aiClient, Options.Create(new AnswerRetrievalOptions { MinimumRerankScore = 0.5001 })),
-                Options.Create(new AnswerRetrievalOptions { MinimumRerankScore = 0.5001 })));
+                Options.Create(new AnswerRetrievalOptions { MinimumRerankScore = 0.5001 }));
     }
 
     private static SemanticSearchChunkResult Result(string title, string text, double distance)

@@ -1,7 +1,6 @@
 using TelegramAi.Backend.Api.Contracts.Content;
 using TelegramAi.Backend.Api.Mappers;
 
-using TelegramAi.Backend.Application.Features.Content.Services;
 using TelegramAi.Backend.Domain.Content;
 using Microsoft.AspNetCore.Mvc;
 using TelegramAi.Backend.Api.Contracts.Common;

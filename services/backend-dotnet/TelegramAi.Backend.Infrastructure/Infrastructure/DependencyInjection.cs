@@ -4,7 +4,6 @@ using TelegramAi.Backend.Infrastructure.AiService;
 using TelegramAi.Backend.Infrastructure.Persistence;
 using TelegramAi.Backend.Infrastructure.Telegram;
 using TelegramAi.Backend.Infrastructure.Telegram.TelegramApi;
-using TelegramAi.Backend.Application.Features.Content.Services;
 using TelegramAi.Backend.Application.Features.Telegram.Agents;
 using Microsoft.EntityFrameworkCore;
 using Pgvector.EntityFrameworkCore;
