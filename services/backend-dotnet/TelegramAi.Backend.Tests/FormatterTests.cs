@@ -10,10 +10,10 @@ public sealed class FormatterTests
     [Fact]
     public void SearchFormatter_ReturnsNotFoundMessageForEmptyResults()
     {
-        var formatter = new TelegramContentSearchResponseFormatter();
+        var formatter = new TelegramResponseFormatter();
         var query = new FindContentsQuery([], null, null, null, null);
 
-        var messages = formatter.FormatMessages(query, []);
+        var messages = formatter.FormatSearch(query, []);
 
         Assert.Single(messages);
         Assert.Equal("🔍 Aramana uygun bir kayıt bulamadım.", messages[0]);
@@ -22,7 +22,7 @@ public sealed class FormatterTests
     [Fact]
     public void SearchFormatter_KeepsUrlPreviewAndAddsKeywordFilter()
     {
-        var formatter = new TelegramContentSearchResponseFormatter();
+        var formatter = new TelegramResponseFormatter();
         var query = new FindContentsQuery(["rag"], ContentKind.Video, null, null, null);
         var content = ContentItem.Create(
             Guid.NewGuid(),
@@ -31,7 +31,7 @@ public sealed class FormatterTests
             "https://youtube.com/watch?v=abc",
             ContentSummary.Create(" Video ", " Kısa özet ", [], [], "tr", "test"));
 
-        var messages = formatter.FormatMessages(query, [content]);
+        var messages = formatter.FormatSearch(query, [content]);
         var message = messages[1];
 
         Assert.Equal(2, messages.Count);
@@ -43,7 +43,7 @@ public sealed class FormatterTests
     [Fact]
     public void AnswerFormatter_CleansMarkdownAndGroupsChunksBySource()
     {
-        var formatter = new TelegramSemanticAnswerResponseFormatter();
+        var formatter = new TelegramResponseFormatter();
         var firstContentId = Guid.NewGuid();
         var secondContentId = Guid.NewGuid();
         var result = new SemanticAnswerResult(
@@ -57,8 +57,8 @@ public sealed class FormatterTests
                 Result(secondContentId, "Video", "not-a-url", 1)
             ]);
 
-        var answer = formatter.Format(result);
-        var sources = formatter.FormatSourceMessages(result);
+        var answer = formatter.FormatAnswer(result);
+        var sources = formatter.FormatAnswerSources(result);
 
         Assert.DoesNotContain("**", answer);
         Assert.Contains("Kalp", answer);

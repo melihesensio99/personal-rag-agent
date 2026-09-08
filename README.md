@@ -4,7 +4,7 @@ A learning-oriented product that combines a .NET application backend with a Pyth
 
 ## Services
 
-- `services/backend-dotnet/TelegramAi.Backend`: product API and orchestration
+- `services/backend-dotnet/TelegramAi.Backend.Api`: product API and orchestration
 - `services/ai-service-python`: AI and RAG capabilities
 - `compose.yaml`: local PostgreSQL + backend + AI service runtime
 
@@ -26,7 +26,7 @@ take longer, but subsequent requests reuse the model already held in memory.
 Run the .NET backend in another terminal:
 
 ```powershell
-dotnet run --project services/backend-dotnet/TelegramAi.Backend
+dotnet run --project services/backend-dotnet/TelegramAi.Backend.Api
 ```
 
 Check the integrated health endpoint at `http://localhost:5000/api/v1/system/health` using the URL printed by `dotnet run`.
@@ -37,7 +37,7 @@ For PostgreSQL-backed persistence, start the database first:
 docker compose up postgres -d
 ```
 
-The backend uses the local connection string in [appsettings.json](/C:/Users/melih/Documents/ChatGPT/telegramBot/services/backend-dotnet/TelegramAi.Backend/appsettings.json). Entity Framework Core migrations are applied automatically on startup.
+The backend uses the local connection string in [appsettings.json](/C:/Users/melih/Documents/ChatGPT/telegramBot/services/backend-dotnet/TelegramAi.Backend.Api/appsettings.json). Entity Framework Core migrations are applied automatically on startup.
 
 For real Telegram testing, configure the bot token as a local .NET user secret instead of writing it into the repository.
 

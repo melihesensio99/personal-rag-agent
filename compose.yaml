@@ -2,7 +2,7 @@ services:
   backend:
     build:
       context: .
-      dockerfile: services/backend-dotnet/TelegramAi.Backend/Dockerfile
+      dockerfile: services/backend-dotnet/TelegramAi.Backend.Api/Dockerfile
     environment:
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__ApplicationDb: Host=postgres;Port=5432;Database=personal_rag_agent;Username=postgres;Password=postgres

@@ -20,9 +20,6 @@ public static class DependencyInjection
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(LoggingBehavior<,>));
         services.AddScoped<IAgentOrchestrator, AgentOrchestrator>();
         services.AddScoped<IAgentToolExecutor, AgentToolExecutor>();
-        services.AddSingleton<ITelegramMessageResponseFormatter, TelegramMessageResponseFormatter>();
-        services.AddSingleton<ITelegramContentSearchResponseFormatter, TelegramContentSearchResponseFormatter>();
-        services.AddSingleton<ITelegramSemanticAnswerResponseFormatter, TelegramSemanticAnswerResponseFormatter>();
         services.AddSingleton<ITelegramResponseFormatter, TelegramResponseFormatter>();
 
         return services;
