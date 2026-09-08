@@ -1,4 +1,4 @@
-using TelegramAi.Backend.Application.Common.Pagination;
+using TelegramAi.Backend.Application.Shared.Common.Pagination;
 using Xunit;
 
 namespace TelegramAi.Backend.Tests;

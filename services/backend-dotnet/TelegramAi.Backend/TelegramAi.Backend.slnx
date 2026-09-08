@@ -1,4 +1,7 @@
 <Solution>
-  <Project Path="TelegramAi.Backend.csproj" />
+  <Project Path="..\TelegramAi.Backend.Api\TelegramAi.Backend.Api.csproj" />
+  <Project Path="..\TelegramAi.Backend.Domain\TelegramAi.Backend.Domain.csproj" />
+  <Project Path="..\TelegramAi.Backend.Application\TelegramAi.Backend.Application.csproj" />
+  <Project Path="..\TelegramAi.Backend.Infrastructure\TelegramAi.Backend.Infrastructure.csproj" />
   <Project Path="..\TelegramAi.Backend.Tests\TelegramAi.Backend.Tests.csproj" />
 </Solution>

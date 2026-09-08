@@ -8,9 +8,9 @@ using TelegramAi.Backend.Api.Contracts.Health;
 using TelegramAi.Backend.Api.Contracts.Intents;
 using TelegramAi.Backend.Api.Contracts.Reranking;
 using TelegramAi.Backend.Api.Contracts.Summaries;
-using TelegramAi.Backend.Application.Abstractions;
-using TelegramAi.Backend.Application.Content.Queries;
-using TelegramAi.Backend.Application.Content.Services;
+using TelegramAi.Backend.Application.Shared.Abstractions;
+using TelegramAi.Backend.Application.Features.Content.Queries;
+using TelegramAi.Backend.Application.Features.Content.Services;
 using TelegramAi.Backend.Domain.Content;
 using TelegramAi.Backend.Infrastructure.AiService;
 using Xunit;
@@ -88,7 +88,7 @@ public sealed class RagRetrievalTests
             repository,
             NullLogger<ContentApplicationService>.Instance,
             Options.Create(new AnswerRetrievalOptions { MinimumRerankScore = 0.5001 }),
-            new TelegramAi.Backend.Application.Content.Handlers.ListContentsHandler(repository));
+            new TelegramAi.Backend.Application.Features.Content.Handlers.ListContentsHandler(repository));
     }
 
     private static SemanticSearchChunkResult Result(string title, string text, double distance)
@@ -117,7 +117,7 @@ public sealed class RagRetrievalTests
         public Task<ContentItem?> GetByIdAsync(Guid id, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyList<ContentChunk>> GetChunksByContentIdAsync(Guid contentId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyList<ContentItem>> SearchAsync(SearchContentsQuery query, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<TelegramAi.Backend.Application.Common.Pagination.PagedResult<ContentItem>> ListAsync(ListContentsQuery query, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<TelegramAi.Backend.Application.Shared.Common.Pagination.PagedResult<ContentItem>> ListAsync(ListContentsQuery query, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 
     private sealed class StubAiServiceClient(IReadOnlyList<RerankScore> rerankScores) : IAiServiceClient
