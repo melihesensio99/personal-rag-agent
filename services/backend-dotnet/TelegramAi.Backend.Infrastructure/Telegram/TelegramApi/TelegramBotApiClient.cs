@@ -62,7 +62,7 @@ public sealed class TelegramBotApiClient(
         string text,
         CancellationToken cancellationToken)
     {
-        var payload = new TelegramSendMessageRequest(chatId, text);
+        var payload = new TelegramSendMessageRequest(chatId, text, "HTML");
 
         using var response = await httpClient.PostAsJsonAsync(
             $"{_botApiBaseUrl}sendMessage",
@@ -97,4 +97,5 @@ public sealed record TelegramUser(
 
 public sealed record TelegramSendMessageRequest(
     [property: JsonPropertyName("chat_id")] long ChatId,
-    [property: JsonPropertyName("text")] string Text);
+    [property: JsonPropertyName("text")] string Text,
+    [property: JsonPropertyName("parse_mode")] string? ParseMode = null);

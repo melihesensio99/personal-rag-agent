@@ -37,6 +37,12 @@ public sealed class ContentItemConfiguration : IEntityTypeConfiguration<ContentI
         builder.Property(content => content.CreatedAtUtc)
             .IsRequired();
 
+        builder.Property(content => content.OriginalUrl)
+            .HasMaxLength(2048);
+
+        builder.Property(content => content.ImageUrl)
+            .HasMaxLength(2048);
+
         builder.OwnsOne(content => content.Summary, summary =>
         {
             summary.Property(value => value.Title)

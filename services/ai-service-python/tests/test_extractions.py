@@ -15,7 +15,7 @@ def test_create_article_extraction_returns_cleaned_text(monkeypatch) -> None:
         return {
             "html": """
                 <html>
-                    <head><title>RAG Guide</title></head>
+                    <head><title>RAG Guide</title><meta property="og:image" content="/images/rag-cover.jpg"></head>
                     <body>
                         <article>
                             <h1>RAG Guide</h1>
@@ -49,6 +49,7 @@ def test_create_article_extraction_returns_cleaned_text(monkeypatch) -> None:
     assert body["title"] == "RAG Guide"
     assert "Retrieval augmented generation combines search and generation." in body["extracted_text"]
     assert body["metadata"]["domain"] == "example.com"
+    assert body["metadata"]["extra"]["image_url"] == "https://example.com/images/rag-cover.jpg"
 
 
 def test_create_article_extraction_prefers_trafilatura_when_available(monkeypatch) -> None:
@@ -127,7 +128,8 @@ def test_create_pmc_extraction_uses_full_text_xml(monkeypatch) -> None:
         "_fetch_xml",
         lambda self, pmc_id: """<article><front><article-meta><article-title>PMC Study</article-title></article-meta></front>
             <abstract><p>Abstract about low carbohydrate diets and diabetes outcomes.</p></abstract>
-            <body><sec><title>Results</title><p>This is the full text body with enough detail to be indexed and searched reliably.</p></sec></body>
+            <body><sec><title>Results</title><p>This is the full text body with enough detail to be indexed and searched reliably.</p>
+            <fig><graphic xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="study-figure.jpg" /></fig></sec></body>
         </article>""",
     )
 
@@ -146,6 +148,7 @@ def test_create_pmc_extraction_uses_full_text_xml(monkeypatch) -> None:
     assert body["title"] == "PMC Study"
     assert "low carbohydrate diets" in body["extracted_text"]
     assert body["metadata"]["extra"]["pmc_id"] == "PMC6566854"
+    assert body["metadata"]["extra"]["image_url"].endswith("/bin/study-figure.jpg")
 
 
 def test_create_pubmed_extraction_uses_ncbi_xml(monkeypatch) -> None:

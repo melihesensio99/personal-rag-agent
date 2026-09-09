@@ -35,9 +35,9 @@ public sealed class FormatterTests
         var message = messages[1];
 
         Assert.Equal(2, messages.Count);
-        Assert.Contains("📌 Video", message);
+        Assert.Contains("📌 <b>Video</b>", message);
         Assert.Contains("https://youtube.com/watch?v=abc", message);
-        Assert.Contains("🏷️ Filtre: rag", message);
+        Assert.Contains("🏷️ <b>Filtre:</b> rag", message);
     }
 
     [Fact]
@@ -64,8 +64,8 @@ public sealed class FormatterTests
         Assert.Contains("Kalp", answer);
         Assert.Contains("kaynak (https://example.com)", answer);
         Assert.Equal(2, sources.Count);
-        Assert.Contains("🧩 Kullanılan chunklar: 0, 2", sources[0]);
-        Assert.Contains("https://example.com/coffee", sources[0]);
+        Assert.Contains("🧩 <b>Kullanılan chunklar:</b> 0, 2", sources[0]);
+        Assert.Contains("<a href=\"https://example.com/coffee\">Kaynağı aç</a>", sources[0]);
         Assert.DoesNotContain("not-a-url", sources[1]);
     }
 

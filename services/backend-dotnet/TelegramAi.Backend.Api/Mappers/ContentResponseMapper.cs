@@ -12,6 +12,8 @@ public static class ContentResponseMapper
             SourceType: contentItem.SourceType.ToString(),
             RawText: contentItem.RawText,
             CreatedAtUtc: contentItem.CreatedAtUtc,
+            OriginalUrl: contentItem.OriginalUrl,
+            ImageUrl: contentItem.ImageUrl,
             Summary: new ContentSummaryResponse(
                 Title: contentItem.Summary.Title,
                 ShortSummary: contentItem.Summary.ShortSummary,

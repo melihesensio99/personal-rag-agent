@@ -10,7 +10,9 @@ public static class DependencyInjection
         services.AddCors(options => options.AddPolicy("Frontend", policy => policy
             .AllowAnyHeader()
             .AllowAnyMethod()
-            .WithOrigins("http://localhost:5173", "http://127.0.0.1:5173")));
+            .WithOrigins(
+                "http://localhost:3000", "http://127.0.0.1:3000",
+                "http://localhost:5173", "http://127.0.0.1:5173")));
         return services;
     }
 

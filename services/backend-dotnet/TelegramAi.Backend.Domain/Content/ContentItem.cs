@@ -15,7 +15,9 @@ public sealed class ContentItem
         ContentKind contentKind,
         string rawText,
         ContentSummary summary,
-        DateTimeOffset createdAtUtc)
+        DateTimeOffset createdAtUtc,
+        string? originalUrl,
+        string? imageUrl)
     {
         Id = id;
         SourceType = sourceType;
@@ -23,6 +25,8 @@ public sealed class ContentItem
         RawText = rawText;
         Summary = summary;
         CreatedAtUtc = createdAtUtc;
+        OriginalUrl = originalUrl;
+        ImageUrl = imageUrl;
     }
 
     public Guid Id { get; private set; }
@@ -31,13 +35,17 @@ public sealed class ContentItem
     public string RawText { get; private set; }
     public ContentSummary Summary { get; private set; }
     public DateTimeOffset CreatedAtUtc { get; private set; }
+    public string? OriginalUrl { get; private set; }
+    public string? ImageUrl { get; private set; }
 
     public static ContentItem Create(
         Guid id,
         ContentSourceType sourceType,
         ContentKind contentKind,
         string rawText,
-        ContentSummary summary)
+        ContentSummary summary,
+        string? originalUrl = null,
+        string? imageUrl = null)
     {
         return new ContentItem(
             id,
@@ -45,6 +53,8 @@ public sealed class ContentItem
             contentKind,
             rawText.Trim(),
             summary,
-            DateTimeOffset.UtcNow);
+            DateTimeOffset.UtcNow,
+            string.IsNullOrWhiteSpace(originalUrl) ? null : originalUrl.Trim(),
+            string.IsNullOrWhiteSpace(imageUrl) ? null : imageUrl.Trim());
     }
 }

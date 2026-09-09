@@ -5,7 +5,7 @@ from html import unescape
 from importlib import import_module
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urljoin, urlparse
 from urllib.request import Request, urlopen
 
 from app.contracts.extractions import (
@@ -55,6 +55,7 @@ class ArticleExtractor:
         try:
             fetched = self._fetch_html(url)
             title = self._extract_title(fetched["html"])
+            image_url = self._extract_image_url(fetched["html"], fetched["final_url"] or url)
             extracted_text = self._extract_text(fetched["html"])
             detected_content_kind = self._detect_content_kind(
                 url=url,
@@ -77,6 +78,7 @@ class ArticleExtractor:
                     final_url=fetched["final_url"],
                     extra={
                         "article_parser": self._resolve_parser_name(),
+                        "image_url": image_url,
                     },
                 ),
             )
@@ -152,6 +154,21 @@ class ArticleExtractor:
             raise ValueError("article_text_empty")
 
         return normalized[: self.TEXT_LIMIT]
+
+    def _extract_image_url(self, html: str, base_url: str) -> str | None:
+        patterns = (
+            r'<meta[^>]+(?:property|name)=["\']og:image["\'][^>]+content=["\']([^"\']+)',
+            r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+(?:property|name)=["\']og:image["\']',
+            r'<meta[^>]+(?:property|name)=["\']twitter:image(?::src)?["\'][^>]+content=["\']([^"\']+)',
+            r'<article[^>]*>.*?<img[^>]+src=["\']([^"\']+)',
+        )
+        for pattern in patterns:
+            match = re.search(pattern, html, flags=re.IGNORECASE | re.DOTALL)
+            if match:
+                candidate = unescape(match.group(1)).strip()
+                if candidate and not candidate.startswith("data:"):
+                    return urljoin(base_url, candidate)
+        return None
 
     def _extract_with_trafilatura(self, html: str) -> str | None:
         trafilatura_module = self._load_trafilatura()

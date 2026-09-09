@@ -1,11 +1,14 @@
-export type ContentSource = "youtube" | "article";
+export type ContentSource = 'youtube' | 'web';
 
 export interface Content {
   id: string;
-  title: string;
   source: ContentSource;
-  url?: string;
+  rawText: string;
+  originalUrl?: string;
+  imageUrl?: string;
+  title: string;
   summary: string;
   keyPoints: string[];
+  tags: string[];
   createdAt: Date;
 }

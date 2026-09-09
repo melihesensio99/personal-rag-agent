@@ -25,7 +25,9 @@ public sealed class ContentCreationWorkflow(
         var chunkText = ContentInputPolicy.ResolveChunkInputText(command, extraction, summaryText);
         var summary = await aiServiceClient.CreateSummaryAsync(new CreateSummaryInput(contentId.ToString("N"), summaryText), cancellationToken);
         var item = ContentItem.Create(contentId, ContentInputPolicy.ResolveSourceType(command, extraction), ContentInputPolicy.ResolveContentKind(command, extraction), command.Text,
-            ContentSummary.Create(summary.Title, summary.ShortSummary, summary.KeyPoints, summary.Tags, summary.Language, summary.Provider));
+            ContentSummary.Create(summary.Title, summary.ShortSummary, summary.KeyPoints, summary.Tags, summary.Language, summary.Provider),
+            extraction?.OriginalUrl,
+            ResolveImageUrl(extraction));
         await repository.AddAsync(item, cancellationToken);
         await TryCreateChunksAsync(item.Id, chunkText, cancellationToken);
         return item;
@@ -64,5 +66,16 @@ public sealed class ContentCreationWorkflow(
         if (extraction is null || !extraction.ExtractionStatus.Equals("unsupported", StringComparison.OrdinalIgnoreCase)) return;
         if (extraction.Metadata.Extra.TryGetValue("reason", out var value) && string.Equals(value?.ToString(), "search_result_page", StringComparison.OrdinalIgnoreCase))
             throw new UnsupportedContentInputException("Bu Google arama sonucu linki. Gerçek içerik linkini gönder.");
+    }
+
+    private static string? ResolveImageUrl(CreateExtractionResult? extraction)
+    {
+        if (extraction is null) return null;
+        foreach (var key in new[] { "thumbnail_url", "image_url" })
+        {
+            if (extraction.Metadata.Extra.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value?.ToString()))
+                return value.ToString();
+        }
+        return null;
     }
 }

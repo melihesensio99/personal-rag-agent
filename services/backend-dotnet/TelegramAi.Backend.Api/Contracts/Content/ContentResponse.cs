@@ -5,4 +5,6 @@ public sealed record ContentResponse(
     string SourceType,
     string RawText,
     DateTimeOffset CreatedAtUtc,
+    string? OriginalUrl,
+    string? ImageUrl,
     ContentSummaryResponse Summary);

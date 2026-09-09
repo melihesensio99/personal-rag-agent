@@ -1,0 +1,6 @@
+{
+  "name": "Hafıza - Araştırma & Analiz Masası",
+  "description": "Gelişmiş video, makale ve akademik kaynak anlamsal analiz ve araştırma sentezi platformu.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
