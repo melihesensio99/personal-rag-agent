@@ -29,7 +29,7 @@ SUMMARY_SCHEMA: dict[str, object] = {
     "properties": {
         "title": {"type": "string"},
         "short_summary": {"type": "string"},
-        "key_points": {"type": "array", "items": {"type": "string"}},
+        "key_points": {"type": "array", "minItems": 3, "maxItems": 6, "items": {"type": "string"}},
         "tags": {"type": "array", "items": {"type": "string"}},
         "language": {"type": "string", "enum": ["tr"]},
     },

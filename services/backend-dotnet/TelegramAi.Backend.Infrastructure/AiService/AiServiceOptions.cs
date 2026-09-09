@@ -9,8 +9,8 @@ public sealed class AiServiceOptions
     [Required, Url]
     public required Uri BaseUrl { get; init; }
 
-    [Range(1, 120)]
-    public int TimeoutSeconds { get; init; } = 5;
+    [Range(1, 180)]
+    public int TimeoutSeconds { get; init; } = 120;
 
     public TimeSpan Timeout => TimeSpan.FromSeconds(TimeoutSeconds);
 }

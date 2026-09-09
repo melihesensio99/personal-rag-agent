@@ -60,7 +60,7 @@ class GeminiSummaryProvider(SummaryProvider):
                                 "Return only a JSON object with these exact fields: "
                                 "title, short_summary, key_points, tags, language. "
                                 "key_points and tags must be arrays of strings. "
-                                "language must be tr.\n\n"
+                                "language must be tr. Proofread every Turkish field before returning; use correct technical spellings such as 'kafein', never phonetic typos such as 'kafetin'.\n\n"
                                 f"Content:\n{prepared_text}"
                             )
                         }
@@ -69,6 +69,7 @@ class GeminiSummaryProvider(SummaryProvider):
             ],
             "generationConfig": {
                 "temperature": 0.2,
+                "maxOutputTokens": 5000,
                 "responseMimeType": "application/json",
             },
         }

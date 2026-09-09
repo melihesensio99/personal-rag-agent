@@ -42,8 +42,11 @@ class MistralSummaryProvider(SummaryProvider):
             return SummaryResponse(
                 content_id=request.content_id,
                 title=self._read_text(parsed, "title"),
-                short_summary=self._read_text(parsed, "short_summary"),
-                key_points=self._read_text_list(parsed, "key_points"),
+                short_summary=self._finish_at_sentence(self._read_text(parsed, "short_summary")),
+                key_points=[
+                    self._finish_at_sentence(point)
+                    for point in self._read_text_list(parsed, "key_points", minimum=3, maximum=6)
+                ],
                 tags=self._read_text_list(parsed, "tags"),
                 language=self._read_text(parsed, "language"),
                 provider="mistral",
@@ -68,6 +71,7 @@ class MistralSummaryProvider(SummaryProvider):
             "title, short_summary, key_points, tags, language. "
             "key_points and tags must be arrays of strings. "
             "language must be tr."
+            " Before returning, proofread every Turkish field for spelling, accents and punctuation; use correct technical terms such as 'kafein', never phonetic typos such as 'kafetin'."
         )
 
         if repair_hint is not None:
@@ -90,6 +94,7 @@ class MistralSummaryProvider(SummaryProvider):
                 {"role": "user", "content": user_content},
             ],
             "temperature": 0.2,
+            "max_tokens": 7000,
             "response_format": response_format("summary_response", SUMMARY_SCHEMA),
         }
 
@@ -198,16 +203,25 @@ class MistralSummaryProvider(SummaryProvider):
         return value.strip()
 
     @staticmethod
-    def _read_text_list(parsed: dict[str, object], key: str) -> list[str]:
+    def _read_text_list(parsed: dict[str, object], key: str, minimum: int = 1, maximum: int | None = None) -> list[str]:
         value = parsed.get(key)
         if not isinstance(value, list):
             raise ValueError(f"Mistral summary JSON output is missing '{key}'.")
 
         items = [item.strip() for item in value if isinstance(item, str) and item.strip()]
-        if not items:
-            raise ValueError(f"Mistral summary JSON output has an empty '{key}'.")
+        if len(items) < minimum:
+            raise ValueError(f"Mistral summary JSON output must contain at least {minimum} '{key}'.")
 
-        return items
+        return items[:maximum] if maximum is not None else items
+
+    @staticmethod
+    def _finish_at_sentence(value: str) -> str:
+        """Never expose a provider response that ends halfway through a sentence."""
+        value = value.strip()
+        last_stop = max(value.rfind("."), value.rfind("!"), value.rfind("?"))
+        if last_stop >= 0 and last_stop >= len(value) // 2:
+            return value[:last_stop + 1].strip()
+        return value
 
     @staticmethod
     def _build_repair_hint(error: Exception) -> str:
@@ -215,5 +229,5 @@ class MistralSummaryProvider(SummaryProvider):
             "The previous summary JSON did not match the required schema. "
             f"Error: {error}. "
             "Use non-empty strings for title, short_summary and language; "
-            "use non-empty string arrays for key_points and tags; language must be 'tr'."
+            "use 3-6 distinct non-empty strings for key_points and a non-empty string array for tags; language must be 'tr'."
         )

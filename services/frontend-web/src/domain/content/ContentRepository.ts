@@ -6,4 +6,5 @@ export interface ContentRepository {
   getById(id: string): Promise<Content>;
   getChunks(id: string): Promise<ContentChunk[]>;
   createFromUrl(url: string, source: ContentSource): Promise<Content>;
+  delete(id: string): Promise<void>;
 }

@@ -7,7 +7,7 @@ services:
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__ApplicationDb: Host=postgres;Port=5432;Database=personal_rag_agent;Username=postgres;Password=postgres
       AiService__BaseUrl: http://ai-service:8000
-      AiService__TimeoutSeconds: 60
+      AiService__TimeoutSeconds: 120
     ports:
       - "8080:8080"
     depends_on:

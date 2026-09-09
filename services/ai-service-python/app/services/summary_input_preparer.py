@@ -3,8 +3,8 @@ import re
 
 class SummaryInputPreparer:
     # Character budget, not a tokenizer-specific token limit. Includes scope markers.
-    # About 10k tokens for typical Latin/Turkish prose. Full cleaned articles
-    # below this size are sent intact; longer articles are section-compressed.
+    # Keep the full article budget available to the model. The backend and
+    # provider timeouts are configured to allow this larger request to finish.
     MAX_MODEL_INPUT_CHARS = 40_000
     IMPORTANT = re.compile(
         r"abstract|summary|methods?|materials|results?|findings?|discussion|conclusions?|"
@@ -13,10 +13,14 @@ class SummaryInputPreparer:
     HEADINGS = re.compile(
         r"^(?:abstract|summary|introduction|background|materials(?: and methods)?|"
         r"methods?|results?(?: and discussion)?|findings?|discussion|conclusions?|"
-        r"limitations?|references|bibliography|acknowledg(?:e)?ments|"
+        r"limitations?|references?(?: and cited literature)?|literature cited|works cited|bibliography|acknowledg(?:e)?ments|"
         r"özet|giriş|yöntem(?:ler)?|bulgular|sonuç(?:lar)?|tartışma|sınırlılıklar|kaynakça)$", re.I
     )
-    NOISE = re.compile(r"^(?:references|bibliography|acknowledg(?:e)?ments|kaynakça|teşekkür)$", re.I)
+    NOISE = re.compile(
+        r"^(?:references?(?: and cited literature)?|literature cited|works cited|bibliography|"
+        r"acknowledg(?:e)?ments|kaynakça|teşekkür)$",
+        re.I,
+    )
 
     @classmethod
     def prepare(cls, text: str, *, max_chars: int | None = None) -> str:

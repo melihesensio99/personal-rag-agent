@@ -16,14 +16,14 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     gemini_model: str = "gemini-3.6-flash"
     gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
-    gemini_timeout_seconds: int = 30
+    gemini_timeout_seconds: int = 90
     mistral_api_key: str = ""
     mistral_base_url: str = "https://api.mistral.ai/v1"
     mistral_intent_model: str = "ministral-3b-2512"
     mistral_summary_model: str = "ministral-8b-2512"
     mistral_answer_model: str = "ministral-8b-2512"
     mistral_embedding_model: str = "mistral-embed-2312"
-    mistral_timeout_seconds: int = 20
+    mistral_timeout_seconds: int = 90
     mistral_response_format: str = "json_schema"
 
     model_config = SettingsConfigDict(

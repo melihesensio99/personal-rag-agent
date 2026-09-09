@@ -23,7 +23,7 @@ def test_long_article_keeps_evidence_and_omits_reference_section():
         '# References', 'UNWANTED CITATION ' * 2000,
     ])
     result = SummaryInputPreparer.prepare(text)
-    assert len(result) <= 40000
+    assert len(result) <= SummaryInputPreparer.MAX_MODEL_INPUT_CHARS
     for heading in ('Methods', 'Results', 'Limitations'):
         assert f'## {heading}' in result
     assert '120 participants' in result
@@ -42,6 +42,14 @@ def test_cleanup_resumes_at_next_section():
     result = SummaryInputPreparer.prepare('# References\nUnwanted citation\n# Results\nImportant finding.')
     assert 'Unwanted' not in result
     assert 'Important finding.' in result
+
+
+def test_removes_reference_heading_variants():
+    result = SummaryInputPreparer.prepare(
+        '# Methods\nStudy design.\n# References and cited literature\nUnwanted citation.'
+    )
+    assert 'Study design.' in result
+    assert 'Unwanted citation' not in result
 
 
 def test_unstructured_fallback_is_bounded_and_covers_document():

@@ -10,6 +10,7 @@ using TelegramAi.Backend.Application.Features.Content.Create;
 using TelegramAi.Backend.Application.Features.Content.Get;
 using TelegramAi.Backend.Application.Features.Content.GetChunks;
 using TelegramAi.Backend.Application.Features.Content.List;
+using TelegramAi.Backend.Application.Shared.Abstractions;
 using MediatR;
 
 namespace TelegramAi.Backend.Api;
@@ -26,6 +27,7 @@ public static class ContentEndpoints
             .AddEndpointFilter<FluentValidationEndpointFilter<ListContentsRequest>>();
         group.MapGet("/{id:guid}", GetContentByIdAsync);
         group.MapGet("/{id:guid}/chunks", GetContentChunksByIdAsync);
+        group.MapDelete("/{id:guid}", DeleteContentAsync);
 
         return endpoints;
     }
@@ -77,6 +79,16 @@ public static class ContentEndpoints
         return contentItem is null
             ? Results.NotFound()
             : Results.Ok(ContentResponseMapper.Map(contentItem));
+    }
+
+    private static async Task<IResult> DeleteContentAsync(
+        Guid id,
+        IContentRepository repository,
+        CancellationToken cancellationToken)
+    {
+        return await repository.DeleteAsync(id, cancellationToken)
+            ? Results.NoContent()
+            : Results.NotFound();
     }
 
     private static async Task<IResult> GetContentChunksByIdAsync(

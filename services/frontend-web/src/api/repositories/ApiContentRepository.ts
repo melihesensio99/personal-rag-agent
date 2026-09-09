@@ -43,4 +43,8 @@ export class ApiContentRepository implements ContentRepository {
     const response = await this.httpClient.post<CreateContentRequest, ContentResponse>('/api/v1/contents', request);
     return mapContentResponse(response);
   }
+
+  public delete(id: string): Promise<void> {
+    return this.httpClient.delete(`/api/v1/contents/${id}`);
+  }
 }

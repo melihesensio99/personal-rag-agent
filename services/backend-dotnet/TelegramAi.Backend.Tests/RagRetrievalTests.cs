@@ -109,6 +109,7 @@ public sealed class RagRetrievalTests
 
         public Task AddAsync(ContentItem contentItem, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task AddChunksAsync(IReadOnlyList<ContentChunk> chunks, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<ContentItem?> GetByIdAsync(Guid id, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyList<ContentChunk>> GetChunksByContentIdAsync(Guid contentId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyList<ContentItem>> SearchAsync(FindContentsQuery query, CancellationToken cancellationToken) => throw new NotSupportedException();

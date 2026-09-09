@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell, CheckCircle2, Clock, X, Sparkles, ShieldCheck } from 'lucide-react';
+import { Bell, X } from 'lucide-react';
 
 interface NotificationsModalProps {
   isOpen: boolean;
@@ -8,30 +8,6 @@ interface NotificationsModalProps {
 
 export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
-
-  const notifications = [
-    {
-      id: 'n-1',
-      title: 'Andrej Karpathy LLM 101 İndekslendi',
-      detail: '48 anlamsal chunk ve 4 temel hipotez vektör hafızasına başarıyla kaydedildi.',
-      time: '12 dk önce',
-      type: 'success',
-    },
-    {
-      id: 'n-2',
-      title: 'Hafıza İndeksi Senkronizasyonu Tamamlandı',
-      detail: 'Toplam 198 chunk ve 14 teorik referans bağlantılandırıldı.',
-      time: '1 saat önce',
-      type: 'sync',
-    },
-    {
-      id: 'n-3',
-      title: 'Güvenilirlik Doğrulama Raporu',
-      detail: 'Halüsinasyon filtresi %98.4 doğrulukla teyit edildi.',
-      time: '3 saat önce',
-      type: 'verify',
-    },
-  ];
 
   return (
     <div
@@ -58,27 +34,13 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({ isOpen, 
         </div>
 
         <div className="p-3 flex flex-col gap-2.5 max-h-96 overflow-y-auto">
-          {notifications.map((n) => (
-            <div
-              key={n.id}
-              className="bg-[#1f1f23] p-3 rounded-xl border border-[#292a2d] flex flex-col gap-1 hover:border-[#ffb77d]/30 transition-colors"
-            >
-              <div className="flex items-center justify-between">
-                <span className="font-sans text-xs font-bold text-[#e3e2e6]">{n.title}</span>
-                <span className="font-mono text-[9px] text-[#a38c7c]">{n.time}</span>
-              </div>
-              <p className="font-sans text-xs text-[#dbc2b0]/70 leading-normal">{n.detail}</p>
-            </div>
-          ))}
+          <div className="bg-[#1f1f23] p-4 rounded-xl border border-[#292a2d] text-center">
+            <p className="font-sans text-xs text-[#dbc2b0]/70 leading-normal">Henüz bildirim yok.</p>
+          </div>
         </div>
 
         <div className="p-3 border-t border-[#292a2d] bg-[#0d0e11] text-center">
-          <button
-            onClick={onClose}
-            className="font-sans text-xs text-[#ffb77d] hover:underline cursor-pointer"
-          >
-            Tümünü Okundu Olarak İşaretle
-          </button>
+          <span className="font-sans text-xs text-[#a38c7c]">Gerçek bildirimler burada görünecek.</span>
         </div>
       </div>
     </div>

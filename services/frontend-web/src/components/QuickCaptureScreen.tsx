@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { SourceItem, NavigationTab, QAPair } from '../types';
 import { FALLBACK_SOURCE_IMAGE, useFallbackSourceImage } from '../shared/sourceImage';
+import { askSemanticQuestion } from '../app/dependencies';
 
 interface QuickCaptureScreenProps {
   currentSource?: SourceItem;
@@ -75,7 +76,7 @@ export const QuickCaptureScreen: React.FC<QuickCaptureScreenProps> = ({
     }
   };
 
-  const handleAskQuestion = (e: React.FormEvent) => {
+  const handleAskQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!questionInput.trim() || isAsking) return;
 
@@ -83,42 +84,34 @@ export const QuickCaptureScreen: React.FC<QuickCaptureScreenProps> = ({
     setQuestionInput('');
     setIsAsking(true);
 
-    // Contextual answer synthesis
-    setTimeout(() => {
-      let simulatedAnswer =
-        'İncelenen kaynak metni ve transkript vektörleri tarandı. Karpathy, modelin sonraki token kestiriminde insan tercihlerini ve anlamsal bağlam kısıtlarını dengeli optimize etmesi gerektiğini belirtiyor.';
-      let citation = 'Transkript [04:12 - 07:30]';
-      let timestamp = '04:12';
-
-      if (userQuestion.toLowerCase().includes('matematik') || userQuestion.toLowerCase().includes('token')) {
-        simulatedAnswer =
-          'Ana neden Byte Pair Encoding (BPE) tabanlı tokenizasyondur. Sayılar sabit basamaklar yerine değişken token blokları olarak parçalandığı için, model karakter-seviyesi algoritmik toplamayı içselleştirmekte zorlanır.';
-        citation = 'Transkript [09:30 - 11:15]';
-        timestamp = '09:30';
-      } else if (userQuestion.toLowerCase().includes('işletim') || userQuestion.toLowerCase().includes('os') || userQuestion.toLowerCase().includes('cpu')) {
-        simulatedAnswer =
-          "LLM'ler geleceğin bilişsel işletim sisteminin CPU'sudur. RAM bağlam penceresi (context window), disk sürücüsü ise anlamsal vektör dizinleridir.";
-        citation = 'Transkript [21:10 - 23:45]';
-        timestamp = '21:10';
-      } else if (userQuestion.toLowerCase().includes('hizalama') || userQuestion.toLowerCase().includes('rlhf')) {
-        simulatedAnswer =
-          "RLHF (İnsan Geri Bildirimli Pekiştirmeli Öğrenme), güvenlik bariyerleri kurarken 'hizalama vergisi' doğurur. Model aşırı temkinli davranıp bilmediğini söylemek yerine bazen sessizleşebilir.";
-        citation = 'Transkript [14:45 - 16:20]';
-        timestamp = '14:45';
-      }
-
+    try {
+      const response = await askSemanticQuestion(userQuestion, displayedSource?.id);
+      const firstSource = response.sources[0];
       const newQA: QAPair = {
         id: `qa-${Date.now()}`,
         question: userQuestion,
         timeAgo: 'Şimdi',
-        answer: simulatedAnswer,
-        citation,
-        citationTimestamp: timestamp,
+        answer: response.answer,
+        citation: firstSource
+          ? `${firstSource.contentTitle} — Chunk ${firstSource.chunkIndex + 1}`
+          : 'Kaynak kanıtı bulunamadı',
+        citationTimestamp: firstSource ? `Chunk ${firstSource.chunkIndex + 1}` : '',
       };
 
       setQaThread((prev) => [newQA, ...prev]);
+    } catch (error) {
+      const newQA: QAPair = {
+        id: `qa-${Date.now()}`,
+        question: userQuestion,
+        timeAgo: 'Şimdi',
+        answer: error instanceof Error ? error.message : 'Soru cevaplanamadı. Lütfen tekrar deneyin.',
+        citation: '—',
+        citationTimestamp: '',
+      };
+      setQaThread((prev) => [newQA, ...prev]);
+    } finally {
       setIsAsking(false);
-    }, 700);
+    }
   };
 
   return (
@@ -391,10 +384,21 @@ export const QuickCaptureScreen: React.FC<QuickCaptureScreenProps> = ({
                   3 Bölümlü Özümseme
                 </span>
               </div>
-              <div className="space-y-3.5 text-[#2f3034] font-serif text-[17px] leading-relaxed">
-                {displayedSource.executiveSummary.map((para, index) => (
-                  <p key={index}>{para}</p>
-                ))}
+              <div className="divide-y divide-[#E4DFD7] text-[#2f3034]">
+                {displayedSource.executiveSummary.map((para, index) => {
+                  const separator = para.indexOf(':');
+                  const hasLabel = separator > 0 && separator < 70;
+                  const label = hasLabel ? para.slice(0, separator).trim() : `Özet ${index + 1}`;
+                  const body = hasLabel ? para.slice(separator + 1).trim() : para;
+                  return (
+                    <div key={index} className="grid gap-2 py-4 first:pt-0 last:pb-0 md:grid-cols-[190px_1fr] md:gap-6">
+                      <h3 className="font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#763300] md:pt-1">
+                        {label}
+                      </h3>
+                      <p className="whitespace-pre-line font-serif text-[17px] leading-relaxed">{body}</p>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -481,7 +485,7 @@ export const QuickCaptureScreen: React.FC<QuickCaptureScreenProps> = ({
               İncelenen bu video içeriği vektör uzayına bağlandı. Sorular yalnızca orijinal transkript ve zaman kodları referans alınarak yanıtlanır.
             </p>
 
-            {/* Q&A Demonstration Thread */}
+            {/* Q&A Thread */}
             <div className="flex flex-col gap-3 max-h-[340px] overflow-y-auto pr-1">
               {qaThread.map((item) => (
                 <div

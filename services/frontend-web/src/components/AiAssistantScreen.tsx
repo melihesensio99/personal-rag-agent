@@ -8,6 +8,7 @@ import {
   X,
 } from 'lucide-react';
 import { SourceItem, NavigationTab } from '../types';
+import { askSemanticQuestion } from '../app/dependencies';
 
 interface AiAssistantScreenProps {
   sources: SourceItem[];
@@ -46,46 +47,9 @@ export const AiAssistantScreen: React.FC<AiAssistantScreenProps> = ({
 
   const focusedSource = sources.find((s) => s.id === focusedSourceId) || null;
 
-  const initialMessages: Message[] = [
-    {
-      id: 'm-1',
-      sender: 'user',
-      text: "Karpathy ve LeCun'un dünya modelleri ve autoregressive mimarilere bakışındaki temel fark nedir?",
-      timestamp: '10:42',
-    },
-    {
-      id: 'm-2',
-      sender: 'assistant',
-      text: `Her iki araştırmacı da mevcut Büyük Dil Modellerinin (LLM) sınırları konusunda hemfikir olmakla birlikte, çözüm vizyonlarında temel bir ayrışma yaşamaktadır:
+  const [messages, setMessages] = useState<Message[]>([]);
 
-1. **Andrej Karpathy (Evrimsel/Sistemik Yaklaşım):**
-   - LLM'leri internet bilgisinin kayıplı bir sıkıştırma algoritması ve geleceğin işletim sisteminin CPU'su olarak değerlendirir.
-   - Otoregresif modellerin harici araçlar (tool use), anlamsal bellek (RAG) ve bağlam penceresi genişlemeleriyle hiyerarşik bir problem çözücüye evrileceğini savunur.
-   
-2. **Yann LeCun (Radikal/Paradigma Değişimi):**
-   - Saf otoregresyonun (next-token prediction) üstel hata birikimi sebebiyle AGI'ye ulaşamayacağını iddia eder.
-   - Dil yerine doğrudan soyut latent uzayda tahmin yapan **JEPA (Joint Embedding Predictive Architecture)** modellerini ve fiziksel sağduyuya sahip dünya modellerini zorunlu görür.`,
-      timestamp: '10:43',
-      citations: [
-        {
-          sourceId: 'karpathy-llm-101',
-          sourceTitle: 'Andrej Karpathy — LLM 101',
-          timeOrSection: 'Transkript [21:10]',
-          snippet: "LLM'leri işletim sisteminin CPU'su, RAM'i bağlam penceresi olarak konumlandırma.",
-        },
-        {
-          sourceId: 'lecun-world-models',
-          sourceTitle: 'Yann LeCun — JEPA & Dünya Modelleri',
-          timeOrSection: 'Transkript [06:18 - 18:40]',
-          snippet: 'Otoregresif modellerin üstel hata birikimi ve latent uzayda soyut tahmin gerekliliği.',
-        },
-      ],
-    },
-  ];
-
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
-
-  const handleSend = (textToSend?: string) => {
+  const handleSend = async (textToSend?: string) => {
     const query = textToSend || inputQuery;
     if (!query.trim() || isSynthesizing) return;
 
@@ -100,115 +64,32 @@ export const AiAssistantScreen: React.FC<AiAssistantScreenProps> = ({
     setInputQuery('');
     setIsSynthesizing(true);
 
-    setTimeout(() => {
-      let responseText = '';
-      let citations: Message['citations'] = [];
+    try {
+      const response = await askSemanticQuestion(query, focusedSource?.id);
+      const citations: Message['citations'] = response.sources.map((source) => ({
+        sourceId: source.contentId,
+        sourceTitle: source.contentTitle,
+        timeOrSection: `Chunk ${source.chunkIndex + 1}`,
+        snippet: source.chunkText.length > 140 ? `${source.chunkText.slice(0, 140)}...` : source.chunkText,
+      }));
 
-      if (focusedSource) {
-        // Targeted response for the focused source
-        const highlights = focusedSource.transcriptHighlights || [];
-        const primaryHighlight = highlights[0] || {
-          timestamp: '04:12',
-          speaker: focusedSource.author.name,
-          text: focusedSource.executiveSummary[0],
-        };
-
-        if (query.toLowerCase().includes('özet') || query.toLowerCase().includes('ne anlatıyor') || query.toLowerCase().includes('konu')) {
-          responseText = `"${focusedSource.title}" başlıklı kaynakta ${focusedSource.author.name}, şu temel tezleri öne sürmektedir:\n\n` +
-            focusedSource.executiveSummary.map((item, idx) => `${idx + 1}. ${item}`).join('\n\n');
-          
-          citations = [
-            {
-              sourceId: focusedSource.id,
-              sourceTitle: `${focusedSource.author.name} — ${focusedSource.title}`,
-              timeOrSection: `Giriş & Transkript [${primaryHighlight.timestamp}]`,
-              snippet: primaryHighlight.text.slice(0, 95) + '...',
-            },
-          ];
-        } else if (query.toLowerCase().includes('bulgu') || query.toLowerCase().includes('sonuç') || query.toLowerCase().includes('veri')) {
-          responseText = `${focusedSource.author.name} tarafından sunulan temel analitik bulgular ve güvenilirlik değerleri:\n\n` +
-            focusedSource.findings.map((f) => `• **${f.title} (%${f.confidence} Güven Skoru):** ${f.detail}`).join('\n\n');
-          
-          citations = [
-            {
-              sourceId: focusedSource.id,
-              sourceTitle: `${focusedSource.author.name} — ${focusedSource.title}`,
-              timeOrSection: `Bulgu Dökümü [${highlights[1]?.timestamp || '12:30'}]`,
-              snippet: focusedSource.findings[0]?.detail.slice(0, 95) + '...',
-            },
-          ];
-        } else {
-          responseText = `"${focusedSource.title}" kaynağı çerçevesinde yapılan incelemede, "${query}" sorusu ${focusedSource.author.name}'in argümanlarıyla ele alındı:\n\n` +
-            `• **Yazarın Doğrudan İfadesi:** "${primaryHighlight.text}"\n\n` +
-            `• **Analitik Bağlam:** ${focusedSource.executiveSummary[0]}\n\n` +
-            `• **Temel Çıkarım:** ${focusedSource.executiveSummary[1] || focusedSource.findings[0]?.detail || 'Kaynak analizinde olgusal tutarlılık doğrulanmıştır.'}`;
-
-          citations = [
-            {
-              sourceId: focusedSource.id,
-              sourceTitle: `${focusedSource.author.name} — ${focusedSource.title}`,
-              timeOrSection: `Transkript [${primaryHighlight.timestamp}]`,
-              snippet: primaryHighlight.text.slice(0, 95) + '...',
-            },
-          ];
-          if (highlights[1]) {
-            citations.push({
-              sourceId: focusedSource.id,
-              sourceTitle: `${focusedSource.author.name} — ${focusedSource.title}`,
-              timeOrSection: `Transkript [${highlights[1].timestamp}]`,
-              snippet: highlights[1].text.slice(0, 95) + '...',
-            });
-          }
-        }
-      } else {
-        // Cross-source synthesis across all sources
-        if (query.toLowerCase().includes('rlhf') || query.toLowerCase().includes('hizalama')) {
-          responseText = `Reinforcement Learning from Human Feedback (RLHF) modelleri toplumsal normlara ve kullanıcı taleplerine uyumlu kılarken iki kritik sonuca yol açar:
-1. **Güvenlik & Toksisite Azalması:** Zararlı içerik üretimini ve rastgele sapmaları engeller.
-2. **Hizalama Vergisi (Alignment Tax):** Modelin keşifsel merakını (entropy) daraltır. Karpathy'nin belirttiği üzere, model bazen bildiği bir konuda bile hata yapma korkusuyla aşırı temkinli sessizliğe veya kaçamak yanıtlara yönelebilir.`;
-          citations = [
-            {
-              sourceId: 'karpathy-llm-101',
-              sourceTitle: 'Andrej Karpathy — LLM 101',
-              timeOrSection: 'Transkript [14:45]',
-              snippet: 'Hizalama vergisi ve aşırı reddetme (over-refusal) dinamikleri.',
-            },
-          ];
-        } else if (query.toLowerCase().includes('token') || query.toLowerCase().includes('bpe') || query.toLowerCase().includes('sayı')) {
-          responseText = `Byte Pair Encoding (BPE), metinleri en sık geçen harf çiftlerine göre tokenize eder. Örneğin "127" tek bir token olabilirken "349" iki parçaya bölünebilir ("34", "9").
-Model toplama yaparken basamak değerlerini doğrudan görmek yerine bu rastgele bölünmüş sembolleri tahmin etmeye çalıştığı için standart okul aritmetiğinde bile tutarsızlık sergiler.`;
-          citations = [
-            {
-              sourceId: 'karpathy-llm-101',
-              sourceTitle: 'Andrej Karpathy — LLM 101',
-              timeOrSection: 'Transkript [09:30]',
-              snippet: 'Tokenizasyon sapmaları ve aritmetik tökezlemeler.',
-            },
-          ];
-        } else {
-          responseText = `Yapılan anlamsal vektör taramasında (${sources.length} aktif kaynak üzerinden), sorgulanan konunun temel mimari ve teorik çıkarımları doğrulanmıştır. Çoklu kaynak çapraz analizi modelin olgusal tutarlılığını %98.4 güven seviyesinde desteklemektedir.`;
-          citations = [
-            {
-              sourceId: 'karpathy-llm-101',
-              sourceTitle: sources[0].title,
-              timeOrSection: 'Transkript [04:12]',
-              snippet: 'Kayıplı sıkıştırma ve temel dünya modeli inşası.',
-            },
-          ];
-        }
-      }
-
-      const assistantMsg: Message = {
+      setMessages((prev) => [...prev, {
         id: `a-${Date.now()}`,
         sender: 'assistant',
-        text: responseText,
+        text: response.answer,
         timestamp: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
         citations,
-      };
-
-      setMessages((prev) => [...prev, assistantMsg]);
+      }]);
+    } catch (error) {
+      setMessages((prev) => [...prev, {
+        id: `a-${Date.now()}`,
+        sender: 'assistant',
+        text: error instanceof Error ? error.message : 'Soru cevaplanamadı. Lütfen tekrar deneyin.',
+        timestamp: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
+      }]);
+    } finally {
       setIsSynthesizing(false);
-    }, 850);
+    }
   };
 
   const handleCopy = (id: string, text: string) => {
@@ -259,18 +140,27 @@ Model toplama yaparken basamak değerlerini doğrudan görmek yerine bu rastgele
           id="focused-source-card-banner"
           className="bg-[#1b1b1f] border border-[#ffb77d]/35 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-md"
         >
-          <div className="flex items-center gap-3.5 min-w-0">
-            <img
-              src={focusedSource.author.avatarUrl}
-              alt={focusedSource.author.name}
-              className="w-10 h-10 rounded-full object-cover shrink-0 ring-2 ring-[#ffb77d]/40"
-            />
+          <div className="flex items-center gap-3.5 min-w-0 flex-1">
+            {focusedSource.author.avatarUrl ? (
+              <img
+                src={focusedSource.author.avatarUrl}
+                alt={focusedSource.author.name}
+                className="w-10 h-10 rounded-full object-cover shrink-0 ring-2 ring-[#ffb77d]/40"
+              />
+            ) : (
+              <div
+                className="w-10 h-10 rounded-full shrink-0 ring-2 ring-[#ffb77d]/40 bg-[#ffb77d]/15 border border-[#ffb77d]/40 flex items-center justify-center text-[#ffb77d]"
+                aria-label={`${focusedSource.author.name} avatarı`}
+              >
+                <Brain className="w-5 h-5" />
+              </div>
+            )}
             <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-sans text-sm font-bold text-[#e3e2e6] truncate">
+                <span className="font-sans text-sm font-bold text-[#e3e2e6] min-w-0 truncate">
                   {focusedSource.title}
                 </span>
-                <span className="font-mono text-[10px] bg-[#ffb77d]/15 text-[#ffb77d] px-2 py-0.5 rounded border border-[#ffb77d]/30 shrink-0">
+                <span className="font-mono text-[10px] bg-[#ffb77d]/15 text-[#ffb77d] px-2 py-0.5 rounded border border-[#ffb77d]/30 max-w-full truncate">
                   {focusedSource.category}
                 </span>
               </div>

@@ -11,6 +11,8 @@ import {
   Layers,
   Sparkles,
   ExternalLink,
+  BrainCircuit,
+  Trash2,
 } from 'lucide-react';
 import { SourceItem, NavigationTab } from '../types';
 import { FALLBACK_SOURCE_IMAGE, useFallbackSourceImage } from '../shared/sourceImage';
@@ -19,12 +21,14 @@ interface SourcesScreenProps {
   sources: SourceItem[];
   onSelectSource: (sourceId: string) => void;
   onNavigate: (tab: NavigationTab, targetSourceId?: string) => void;
+  onDeleteSource: (sourceId: string) => Promise<void>;
 }
 
 export const SourcesScreen: React.FC<SourcesScreenProps> = ({
   sources,
   onSelectSource,
   onNavigate,
+  onDeleteSource,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<'all' | 'web' | 'youtube'>('all');
@@ -151,11 +155,9 @@ export const SourcesScreen: React.FC<SourcesScreenProps> = ({
 
                 {/* Author row */}
                 <div className="flex items-center gap-2.5 pt-2 border-t border-[#292a2d]">
-                  <img
-                    src={source.author.avatarUrl}
-                    alt={source.author.name}
-                    className="w-7 h-7 rounded-full object-cover ring-1 ring-[#ffb77d]/30"
-                  />
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#ffb77d]/35 bg-[#ffb77d]/10 text-[#ffb77d]" title="Hafıza">
+                    <BrainCircuit className="h-4 w-4" />
+                  </div>
                   <div className="flex flex-col min-w-0">
                     <span className="font-sans text-xs font-semibold text-[#e3e2e6] truncate">
                       {source.author.name}
@@ -178,6 +180,22 @@ export const SourcesScreen: React.FC<SourcesScreenProps> = ({
                 className="px-3.5 py-1.5 bg-[#1f1f23] hover:bg-[#292a2d] text-[#e3e2e6] hover:text-[#ffb77d] rounded-lg font-sans text-xs font-medium transition-colors cursor-pointer border border-[#292a2d]"
               >
                 Kaynağı İncele
+              </button>
+
+              <button
+                onClick={async () => {
+                  if (!window.confirm(`“${source.title}” kaynağı kalıcı olarak silinsin mi?`)) return;
+                  try {
+                    await onDeleteSource(source.id);
+                  } catch (error) {
+                    window.alert(error instanceof Error ? error.message : 'Kaynak silinemedi.');
+                  }
+                }}
+                title="Kaynağı sil"
+                aria-label={`${source.title} kaynağını sil`}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-red-500/25 text-red-300/75 transition-colors hover:border-red-400/60 hover:bg-red-500/10 hover:text-red-200"
+              >
+                <Trash2 className="h-4 w-4" />
               </button>
 
               <button

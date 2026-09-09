@@ -38,4 +38,14 @@ public sealed class DomainTests
         Assert.Equal("video linki", item.RawText);
         Assert.True(item.CreatedAtUtc <= DateTimeOffset.UtcNow);
     }
+
+    [Fact]
+    public void ContentSummary_PreservesLongFindingText()
+    {
+        var finding = "Başlık: " + new string('a', 700);
+
+        var summary = ContentSummary.Create("Başlık", "Özet", [finding], [], "tr", "provider");
+
+        Assert.Equal(finding, summary.KeyPoints[0]);
+    }
 }

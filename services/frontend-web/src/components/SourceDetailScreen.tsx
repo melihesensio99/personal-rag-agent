@@ -206,9 +206,9 @@ export const SourceDetailScreen: React.FC<SourceDetailScreenProps> = ({
             </div>
 
             {/* High Impact Highlight Box */}
-            <div className="rounded-xl border border-[#2d2e33] bg-[#101114]/80 p-3 md:p-4">
+            <div className="border-y border-[#2d2e33] bg-[#101114]/55 px-3 py-1 md:px-6">
               {source.executiveSummary.length > 0 ? (
-                <ul className="grid gap-3 text-base leading-7 text-[#e3d7cd] md:grid-cols-2">
+                <ul className="divide-y divide-[#2d2e33] text-base leading-7 text-[#e3d7cd]">
                   {source.executiveSummary.map((point, index) => (
                     <li key={index}><OverviewPoint text={point} index={index} /></li>
                   ))}
@@ -236,9 +236,9 @@ export const SourceDetailScreen: React.FC<SourceDetailScreenProps> = ({
           <section className="flex flex-col gap-5">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between gap-4">
                   <h2 className="font-serif text-2xl font-bold text-[#f3f2f6]">Ayrıntılı bulgular</h2>
-                  <span aria-live="polite" className="rounded-full bg-[#ffb77d]/15 border border-[#ffb77d]/30 px-2.5 py-0.5 font-mono text-xs font-bold text-[#ffb77d]">
+                  <span aria-live="polite" className="shrink-0 rounded-full bg-[#ffb77d]/15 border border-[#ffb77d]/30 px-2.5 py-0.5 font-mono text-xs font-bold text-[#ffb77d]">
                     {filteredFindings.length} Çıkarım
                   </span>
                 </div>
@@ -260,24 +260,25 @@ export const SourceDetailScreen: React.FC<SourceDetailScreenProps> = ({
             </div>
 
             {filteredFindings.length > 0 ? (
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <div className="divide-y divide-[#2d2e33] border-y border-[#2d2e33]">
                 {filteredFindings.map((finding, index) => {
 
                   return (
                     <article
                       key={finding.id}
-                      className="group relative flex min-h-[260px] flex-col justify-between overflow-hidden rounded-2xl border border-[#2d2e33] bg-[#16171b] p-5 shadow-lg transition-all duration-300 hover:border-[#ffb77d]/40 hover:bg-[#1a1b20]"
+                      className="group relative flex flex-col justify-between overflow-hidden bg-[#16171b]/35 py-7 pl-16 pr-2 transition-all duration-300 hover:bg-[#1d1e23] md:pl-24 md:pr-5"
                     >
+                      <span aria-hidden="true" className="absolute left-2 top-6 font-serif text-5xl font-bold leading-none text-[#ffb77d]/20 transition-colors group-hover:text-[#ffb77d]/50 md:left-5 md:text-6xl">
+                        {String(index + 1).padStart(2, '0')}
+                      </span>
                       {/* Top Meta Bar */}
                       <div>
-                        <div className="flex items-center justify-between border-b border-[#25262a] pb-3">
+                        <div className="flex items-center justify-between pb-2">
                           <div className="flex items-center gap-2 font-mono text-[11px]">
-                            <span className="font-bold text-[#ffb77d]">{finding.phase || `${String(index + 1).padStart(2, '0')} / BULGU`}</span>
-                            <span className="text-[#3b3d45]">|</span>
                             <span className="text-[#a38c7c]">{finding.confidence || 'Sentezlenmiş'}</span>
                           </div>
 
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1 opacity-70 transition-opacity group-hover:opacity-100">
                             <button
                               onClick={() => handleCopyText(finding.id, [finding.title, finding.description].filter(Boolean).join(': '))}
                               title="Bulguyu Kopyala"
@@ -289,18 +290,18 @@ export const SourceDetailScreen: React.FC<SourceDetailScreenProps> = ({
                         </div>
 
                         {/* Finding Content */}
-                        <div className="mt-3.5">
-                          <h3 className="font-sans text-lg font-bold text-[#f3f2f6] leading-snug group-hover:text-[#ffb77d] transition-colors">
-                            {finding.title}
+                        <div className="mt-2 max-w-4xl">
+                          <h3 className="font-serif text-xl font-bold text-[#f3f2f6] leading-snug group-hover:text-[#ffb77d] transition-colors md:text-2xl">
+                            {finding.title || `Bulgı ${index + 1}`}
                           </h3>
-                          <p className="mt-2 whitespace-pre-line text-base leading-8 text-[#d1c2b5]">
+                          <p className="mt-3 whitespace-pre-line text-[15px] leading-8 text-[#d1c2b5] md:text-base">
                             {finding.description}
                           </p>
                         </div>
                       </div>
 
                       {/* Interactive Bottom Actions */}
-                      <div className="mt-4 border-t border-[#25262a] pt-3">
+                      <div className="mt-5 border-t border-[#25262a] pt-3">
                         <div className="flex items-center justify-between">
                           <button
                             onClick={() => setActiveTab('original')}
@@ -442,11 +443,11 @@ function OverviewPoint({ text, index }: { text: string; index: number }) {
   const label = hasLabel ? text.slice(0, separator).trim() : `Öne çıkan nokta ${index + 1}`;
   const body = hasLabel ? text.slice(separator + 1).trim() : text;
   return (
-    <div className="h-full rounded-xl border border-[#35302b] bg-[#101114] p-5">
-      <p className="mb-2 flex items-center gap-2 text-xs font-semibold text-[#ffb77d]">
-        <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-[#ffb77d]" />{label}
+    <div className="grid gap-2 py-5 md:grid-cols-[220px_1fr] md:gap-8 md:py-6">
+      <p className="flex items-start gap-2 font-mono text-xs font-bold uppercase tracking-[0.16em] text-[#ffb77d] md:pt-1 md:text-sm">
+        <span aria-hidden="true" className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#ffb77d]" />{label}
       </p>
-      <p className="whitespace-pre-line">{body}</p>
+      <p className="max-w-4xl whitespace-pre-line text-[15px] leading-8 text-[#e3d7cd] md:text-base">{body}</p>
     </div>
   );
 }

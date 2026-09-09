@@ -5,7 +5,9 @@ public sealed class ContentSummary
     private const int MaxTitleLength = 200;
     private const int MaxLanguageLength = 10;
     private const int MaxProviderLength = 50;
-    private const int MaxKeyPointLength = 500;
+    // Findings are multi-sentence evidence summaries; do not cut them in the
+    // middle of a sentence when persisting the AI response.
+    private const int MaxKeyPointLength = 1200;
     private const int MaxTagLength = 80;
     private const int MaxKeyPointCount = 8;
     private const int MaxTagCount = 10;

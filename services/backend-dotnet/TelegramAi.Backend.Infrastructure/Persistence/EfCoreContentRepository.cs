@@ -27,6 +27,16 @@ public sealed class EfCoreContentRepository(ApplicationDbContext dbContext) : IC
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var content = await dbContext.Contents.SingleOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (content is null) return false;
+
+        dbContext.Contents.Remove(content);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     public Task<ContentItem?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
     {
         return dbContext.Contents
@@ -97,6 +107,8 @@ public sealed class EfCoreContentRepository(ApplicationDbContext dbContext) : IC
         }
 
         return await dbQuery
+            .OrderBy(result => result.Distance)
+            .Take(query.MaxResults)
             .Select(result => new SemanticSearchChunkResult(
                 result.Content.Id,
                 result.Chunk.Id,
@@ -108,8 +120,6 @@ public sealed class EfCoreContentRepository(ApplicationDbContext dbContext) : IC
                 result.Chunk.Text,
                 result.Distance,
                 result.Content.CreatedAtUtc))
-            .OrderBy(result => result.Distance)
-            .Take(query.MaxResults)
             .ToListAsync(cancellationToken);
     }
 }

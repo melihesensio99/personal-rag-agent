@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Zap, BookOpen, FileSearch, Brain, X, ArrowRight } from 'lucide-react';
+import { Search, Zap, BookOpen, Brain, X, ArrowRight } from 'lucide-react';
 import { SourceItem, NavigationTab } from '../types';
 
 interface CommandPaletteModalProps {
@@ -50,7 +50,6 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
   }> = [
     { id: 'hizli-yakala', title: 'Hızlı Yakala (Araştırma Masası)', icon: Zap, desc: 'URL analizi ve yönetici sentezi' },
     { id: 'kaynaklarim', title: 'Kaynaklarım Arşivi', icon: BookOpen, desc: 'Tüm indekslenmiş dokümanlar' },
-    { id: 'kaynak-detayi', title: 'Kaynak Detayı', icon: FileSearch, desc: 'Özet, okuma modu ve orijinal kaynak' },
     { id: 'ai-asistan', title: 'AI Asistan (Çapraz Sentez)', icon: Brain, desc: 'Kaynaklar arası soru-cevap' },
   ];
 

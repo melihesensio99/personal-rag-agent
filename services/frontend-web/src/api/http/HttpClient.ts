@@ -1,6 +1,7 @@
 export interface HttpClient {
   get<TResponse>(path: string): Promise<TResponse>;
   post<TRequest, TResponse>(path: string, body: TRequest): Promise<TResponse>;
+  delete(path: string): Promise<void>;
 }
 
 export class FetchHttpClient implements HttpClient {
@@ -35,5 +36,15 @@ export class FetchHttpClient implements HttpClient {
     }
 
     return response.json() as Promise<TResponse>;
+  }
+
+  public async delete(path: string): Promise<void> {
+    let response: Response;
+    try {
+      response = await fetch(`${this.baseUrl}${path}`, { method: 'DELETE' });
+    } catch {
+      throw new Error('Backend servisine ulaşılamadı. Servislerin çalıştığından emin olun.');
+    }
+    if (!response.ok) throw new Error('Kaynak silinemedi. Lütfen tekrar deneyin.');
   }
 }

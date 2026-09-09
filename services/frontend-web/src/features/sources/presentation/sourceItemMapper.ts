@@ -22,7 +22,7 @@ export function mapContentToSourceItem(content: Content, chunks: ContentChunk[] 
     readerBlocks: content.readerBlocks,
     author: { name: 'Hafıza', role: 'Kaynak tabanlı analiz', avatarUrl: '' },
     executiveSummary: splitSummary(content.summary),
-    findings: content.keyPoints.map((point, index) => ({
+    findings: content.keyPoints.slice(0, 6).map((point, index) => ({
       id: `${content.id}-${index}`,
       phase: `${String(index + 1).padStart(2, '0')} / BULGU`,
       timestamp: '[Kaynak]',
@@ -63,6 +63,7 @@ export function mapContentToSourceItem(content: Content, chunks: ContentChunk[] 
 }
 
 function splitFinding(point: string): { title: string; description: string } {
+  point = cleanGeneratedText(point);
   const separator = point.indexOf(':');
   if (separator > 0 && separator <= 100 && point.slice(separator + 1).trim()) {
     return { title: point.slice(0, separator).trim(), description: point.slice(separator + 1).trim() };
@@ -72,9 +73,19 @@ function splitFinding(point: string): { title: string; description: string } {
 }
 
 function splitSummary(summary: string): string[] {
-  const lines = summary.split(/\n+/).map(line => line.replace(/^\s*[-•]\s*/, '').trim()).filter(Boolean);
+  const lines = summary.split(/\n+/).map(line => cleanGeneratedText(line).replace(/^\s*[-•]\s*/, '').trim()).filter(Boolean);
   if (lines.length !== 1) return lines;
   // Make saved paragraph summaries readable too, without regenerating their content.
   const segmenter = new Intl.Segmenter('tr', { granularity: 'sentence' });
   return Array.from(segmenter.segment(lines[0]), part => part.segment.trim()).filter(Boolean);
+}
+
+function cleanGeneratedText(text: string): string {
+  return text
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/^\s*#{1,6}\s+/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }

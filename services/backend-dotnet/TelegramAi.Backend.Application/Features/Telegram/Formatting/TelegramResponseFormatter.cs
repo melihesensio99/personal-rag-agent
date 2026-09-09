@@ -16,14 +16,37 @@ public sealed class TelegramResponseFormatter : ITelegramResponseFormatter
     {
         var b = new StringBuilder("✅ <b>Kaydettim</b>\n\n");
         b.AppendLine($"📎 <b>Tür:</b> {Encode(result.Content.SourceType.ToString())}\n");
-        b.AppendLine("🧠 <b>Başlık</b>"); b.AppendLine(Encode(result.Content.Summary.Title));
-        b.AppendLine("\n📝 <b>Özet</b>"); b.AppendLine(Encode(result.Content.Summary.ShortSummary));
+        b.AppendLine("🧠 <b>ANA BAŞLIK</b>"); b.AppendLine(Encode(CleanGeneratedText(result.Content.Summary.Title)));
+        AppendSummarySections(b, result.Content.Summary.ShortSummary);
         if (result.Content.Summary.KeyPoints.Count > 0)
         {
-            b.AppendLine("\n🔹 <b>Ana noktalar</b>");
-            foreach (var point in result.Content.Summary.KeyPoints) b.AppendLine($"• {Encode(point)}");
+            b.AppendLine("\n🔎 <b>ANA BULGULAR</b>");
+            foreach (var point in result.Content.Summary.KeyPoints.Take(8)) b.AppendLine($"• {Encode(CleanGeneratedText(point))}");
         }
+        if (result.Content.Summary.Tags.Count > 0)
+            b.AppendLine($"\n🏷️ <b>KONULAR:</b> {Encode(string.Join(" • ", result.Content.Summary.Tags.Take(6).Select(CleanGeneratedText)))}");
         return Truncate(b.ToString().Trim());
+    }
+
+    private static void AppendSummarySections(StringBuilder builder, string summary)
+    {
+        var lines = Regex.Split(CleanGeneratedText(summary), @"\r?\n+")
+            .Select(line => Regex.Replace(line.Trim(), @"^[-•]\s*", string.Empty))
+            .Where(line => line.Length > 0)
+            .ToList();
+        if (lines.Count == 0) return;
+
+        builder.AppendLine("\n📋 <b>ANA KONU VE DEĞERLENDİRME</b>");
+        foreach (var line in lines)
+        {
+            var separator = line.IndexOf(':');
+            if (separator > 0 && separator < 70)
+            {
+                builder.AppendLine($"\n<b>{Encode(line[..separator].Trim().ToUpperInvariant())}</b>");
+                builder.AppendLine(Encode(line[(separator + 1)..].Trim()));
+            }
+            else builder.AppendLine(Encode(line));
+        }
     }
 
     public IReadOnlyList<string> FormatSearch(FindContentsQuery query, IReadOnlyList<ContentItem> contents)
@@ -64,5 +87,6 @@ public sealed class TelegramResponseFormatter : ITelegramResponseFormatter
     private static bool IsHttpUrl(string value) => Uri.TryCreate(value, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
     private static string Encode(string value) => WebUtility.HtmlEncode(value);
     private static string CleanAnswer(string answer) { var value = Regex.Replace(answer.Trim(), @"\*\*|__|`", string.Empty); value = Regex.Replace(value, @"(?m)^\s*#{1,6}\s*", string.Empty); return Regex.Replace(value, @"\[([^\]]+)\]\((https?://[^)]+)\)", "$1 ($2)"); }
+    private static string CleanGeneratedText(string value) => Regex.Replace(Regex.Replace(value.Trim(), @"\*\*|__|`", string.Empty), @"(?m)^\s*#{1,6}\s*", string.Empty);
     private static string Truncate(string value) => value.Length <= MaxLength ? value : $"{value[..MaxLength]}\n\n…";
 }

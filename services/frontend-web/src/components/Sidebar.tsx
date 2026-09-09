@@ -2,7 +2,6 @@ import React from 'react';
 import {
   Zap,
   BookOpen,
-  FileSearch,
   Brain,
   Sparkles,
   ChevronLeft,
@@ -33,7 +32,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   }> = [
     { id: 'hizli-yakala', label: 'Hızlı Yakala', icon: Zap },
     { id: 'kaynaklarim', label: 'Kaynaklarım', icon: BookOpen, badge: String(sourcesCount) },
-    { id: 'kaynak-detayi', label: 'Kaynak Detayı', icon: FileSearch },
     { id: 'ai-asistan', label: 'AI Asistan', icon: Brain, badge: 'Canlı' },
   ];
 

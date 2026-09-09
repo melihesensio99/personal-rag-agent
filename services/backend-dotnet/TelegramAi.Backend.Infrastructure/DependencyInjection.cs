@@ -60,7 +60,14 @@ public static class DependencyInjection
             httpClient.BaseAddress = options.BaseUrl;
             httpClient.Timeout = options.Timeout;
         })
-        .AddStandardResilienceHandler();
+        .AddStandardResilienceHandler(resilienceOptions =>
+        {
+            var timeoutSeconds = configuration.GetValue<int?>("AiService:TimeoutSeconds") ?? 60;
+            var timeout = TimeSpan.FromSeconds(timeoutSeconds);
+            resilienceOptions.TotalRequestTimeout.Timeout = timeout;
+            resilienceOptions.AttemptTimeout.Timeout = timeout;
+            resilienceOptions.CircuitBreaker.SamplingDuration = timeout + timeout;
+        });
 
         return services;
     }

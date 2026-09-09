@@ -162,6 +162,8 @@ class PmcArticleExtractor:
 
         for node in root.iter():
             tag = node.tag.rsplit("}", 1)[-1]
+            if tag in {"ref-list", "ref", "ack", "fn-group"}:
+                continue
             if tag == "title":
                 text = " ".join("".join(node.itertext()).split())
                 if text and text.casefold() != title.casefold():

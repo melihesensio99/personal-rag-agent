@@ -9,7 +9,7 @@ import { CommandPaletteModal } from './components/CommandPaletteModal';
 import { NotificationsModal } from './components/NotificationsModal';
 import { NavigationTab, SourceItem } from './types';
 import { CheckCircle2 } from 'lucide-react';
-import { createContentUseCase, getContentDetailUseCase, listContentsUseCase } from './app/dependencies';
+import { contentRepository, createContentUseCase, getContentDetailUseCase, listContentsUseCase } from './app/dependencies';
 import { mapContentToSourceItem } from './features/sources/presentation/sourceItemMapper';
 
 export default function App() {
@@ -71,6 +71,13 @@ export default function App() {
     return newSource;
   };
 
+  const handleDeleteSource = async (sourceId: string) => {
+    await contentRepository.delete(sourceId);
+    setSources((prev) => prev.filter((source) => source.id !== sourceId));
+    if (currentSourceId === sourceId) setCurrentSourceId('');
+    showToast('Kaynak arşivden silindi.');
+  };
+
   useEffect(() => {
     let active = true;
     void listContentsUseCase.execute()
@@ -112,12 +119,21 @@ export default function App() {
     return () => { active = false; };
   }, [activeTab, currentSourceId]);
 
-  const handleSync = () => {
+  const handleSync = async () => {
     setIsSyncing(true);
-    setTimeout(() => {
+    try {
+      const contents = await listContentsUseCase.execute();
+      const loadedSources = contents.map((content) => mapContentToSourceItem(content));
+      setSources(loadedSources);
+      if (currentSourceId && !loadedSources.some((source) => source.id === currentSourceId)) {
+        setCurrentSourceId(loadedSources[0]?.id ?? '');
+      }
+      showToast(`✓ Kaynak listesi güncellendi (${loadedSources.length} kaynak).`);
+    } catch (reason) {
+      showToast(reason instanceof Error ? reason.message : 'Kaynaklar güncellenemedi.');
+    } finally {
       setIsSyncing(false);
-      showToast('✓ Tüm vektör indeksleri ve transkript kanalları senkronize edildi.');
-    }, 1200);
+    }
   };
 
   // Keyboard shortcut for command palette
@@ -185,6 +201,7 @@ export default function App() {
               sources={sources}
               onSelectSource={(id) => setCurrentSourceId(id)}
               onNavigate={handleNavigate}
+              onDeleteSource={handleDeleteSource}
             />
           )}
 
