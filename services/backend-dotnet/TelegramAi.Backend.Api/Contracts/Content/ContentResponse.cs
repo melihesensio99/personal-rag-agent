@@ -10,4 +10,4 @@ public sealed record ContentResponse(
     IReadOnlyList<ReaderBlockResponse> ReaderBlocks,
     ContentSummaryResponse Summary);
 
-public sealed record ReaderBlockResponse(string Type, string? Text, int? Level, string? Url, string? Caption);
+public sealed record ReaderBlockResponse(string Type, string? Text, int? Level, string? Url, string? Caption, IReadOnlyList<string>? Items = null);

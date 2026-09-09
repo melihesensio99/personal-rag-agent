@@ -5,4 +5,5 @@ public sealed record ReaderBlock(
     string? Text = null,
     int? Level = null,
     string? Url = null,
-    string? Caption = null);
+    string? Caption = null,
+    IReadOnlyList<string>? Items = null);

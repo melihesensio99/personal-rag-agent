@@ -1,11 +1,12 @@
 export type ContentSource = 'youtube' | 'web';
 
 export interface ReaderBlock {
-  type: 'heading' | 'paragraph' | 'image';
+  type: 'heading' | 'paragraph' | 'image' | 'list' | 'quote';
   text?: string;
   level?: number;
   url?: string;
   caption?: string;
+  items?: string[];
 }
 
 export interface Content {

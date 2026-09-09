@@ -146,6 +146,26 @@ class PmcArticleExtractor:
                     if consumed > cls.TEXT_LIMIT:
                         break
                     blocks.append(ReaderBlock(type="paragraph", text=text))
+            elif tag == "list":
+                items: list[str] = []
+                for item_node in node:
+                    item_tag = item_node.tag.rsplit("}", 1)[-1]
+                    if item_tag == "list-item":
+                        item_text = " ".join("".join(item_node.itertext()).split())
+                        if item_text:
+                            items.append(item_text)
+                if items:
+                    consumed += sum(len(item) for item in items)
+                    if consumed > cls.TEXT_LIMIT:
+                        break
+                    blocks.append(ReaderBlock(type="list", items=items))
+            elif tag == "disp-quote":
+                text = " ".join("".join(node.itertext()).split())
+                if text:
+                    consumed += len(text)
+                    if consumed > cls.TEXT_LIMIT:
+                        break
+                    blocks.append(ReaderBlock(type="quote", text=text))
             elif tag == "graphic":
                 href = next((value for key, value in node.attrib.items() if key.rsplit("}", 1)[-1] == "href"), None)
                 if href:

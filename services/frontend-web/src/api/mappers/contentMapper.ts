@@ -14,6 +14,7 @@ export function mapContentResponse(response: ContentResponse): Content {
       level: block.level ?? undefined,
       url: block.url ?? undefined,
       caption: block.caption ?? undefined,
+      items: block.items ?? undefined,
     })),
     title: response.summary.title,
     summary: response.summary.shortSummary,

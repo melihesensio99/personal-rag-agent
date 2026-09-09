@@ -53,11 +53,12 @@ export interface SourceItem {
   category: string;
   heroImage: string;
   readerBlocks: Array<{
-    type: 'heading' | 'paragraph' | 'image';
+    type: 'heading' | 'paragraph' | 'image' | 'list' | 'quote';
     text?: string;
     level?: number;
     url?: string;
     caption?: string;
+    items?: string[];
   }>;
   author: Author;
   executiveSummary: string[];

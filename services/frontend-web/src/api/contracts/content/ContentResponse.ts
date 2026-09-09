@@ -6,11 +6,12 @@ export interface ContentResponse {
   originalUrl?: string | null;
   imageUrl?: string | null;
   readerBlocks: Array<{
-    type: 'heading' | 'paragraph' | 'image';
+    type: 'heading' | 'paragraph' | 'image' | 'list' | 'quote';
     text?: string | null;
     level?: number | null;
     url?: string | null;
     caption?: string | null;
+    items?: string[] | null;
   }>;
   summary: {
     title: string;

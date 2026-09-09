@@ -6,7 +6,7 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 from xml.etree import ElementTree
 
-from app.contracts.extractions import ExtractionMetadata, ExtractionRequest, ExtractionResponse
+from app.contracts.extractions import ExtractionMetadata, ExtractionRequest, ExtractionResponse, ReaderBlock
 
 
 class PubMedArticleExtractor:
@@ -32,6 +32,7 @@ class PubMedArticleExtractor:
             if not abstract:
                 return self._failed(request, url, "abstract_unavailable", title=title, pmid=pmid)
 
+            reader_blocks = self._build_reader_blocks(article, title)
             published = self._node_text(article.find(".//PubDate"))
             return ExtractionResponse(
                 content_id=request.content_id,
@@ -41,6 +42,7 @@ class PubMedArticleExtractor:
                 title=title,
                 extracted_text=abstract,
                 original_url=url,
+                reader_blocks=reader_blocks,
                 metadata=ExtractionMetadata(
                     domain="pubmed.ncbi.nlm.nih.gov",
                     content_type="application/xml",
@@ -76,6 +78,19 @@ class PubMedArticleExtractor:
             if text:
                 parts.append(f"{label}: {text}" if label else text)
         return "\n\n".join(parts)
+
+    @classmethod
+    def _build_reader_blocks(cls, article: ElementTree.Element, title: str) -> list[ReaderBlock]:
+        blocks: list[ReaderBlock] = [ReaderBlock(type="heading", text=title, level=1)]
+        for node in article.findall(".//Abstract/AbstractText"):
+            label = node.attrib.get("Label")
+            text = cls._node_text(node)
+            if not text:
+                continue
+            if label:
+                blocks.append(ReaderBlock(type="heading", text=label.title(), level=2))
+            blocks.append(ReaderBlock(type="paragraph", text=text))
+        return blocks
 
     @staticmethod
     def _failed(request: ExtractionRequest, url: str, reason: str, **extra: str) -> ExtractionResponse:

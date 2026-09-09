@@ -183,6 +183,112 @@ class ArticleExtractor:
         image_url: str | None,
         extracted_text: str,
     ) -> list[ReaderBlock]:
+        blocks = self._extract_reader_blocks_from_xml(html, base_url, title, image_url)
+        if blocks is not None:
+            return blocks
+
+        return self._extract_reader_blocks_fallback(html, base_url, title, image_url, extracted_text)
+
+    def _extract_reader_blocks_from_xml(
+        self,
+        html: str,
+        base_url: str,
+        title: str | None,
+        image_url: str | None,
+    ) -> list[ReaderBlock] | None:
+        trafilatura_module = self._load_trafilatura()
+        if trafilatura_module is None:
+            return None
+
+        xml_str = trafilatura_module.extract(
+            html,
+            output_format="xml",
+            include_comments=False,
+            include_links=False,
+            include_images=True,
+            favor_precision=True,
+        )
+        if not isinstance(xml_str, str) or not xml_str.strip():
+            return None
+
+        try:
+            from xml.etree import ElementTree
+            root = ElementTree.fromstring(xml_str)
+        except Exception:
+            return None
+
+        blocks: list[ReaderBlock] = []
+        if title:
+            blocks.append(ReaderBlock(type="heading", text=title, level=1))
+        if image_url:
+            blocks.append(ReaderBlock(type="image", url=image_url, caption=title))
+
+        consumed = 0
+        for node in root.iter():
+            tag = node.tag.rsplit("}", 1)[-1] if "}" in node.tag else node.tag
+
+            if tag == "head":
+                text = self._normalize_text(" ".join(node.itertext()))
+                if not text or (title and text.casefold() == title.casefold()):
+                    continue
+                rend = node.attrib.get("rend", "")
+                level = 2
+                if rend.startswith("h") and rend[1:].isdigit():
+                    level = max(1, min(6, int(rend[1:])))
+                blocks.append(ReaderBlock(type="heading", text=text, level=level))
+
+            elif tag == "p":
+                text = self._normalize_text(" ".join(node.itertext()))
+                if not text or len(text) < 20:
+                    continue
+                consumed += len(text)
+                if consumed > self.TEXT_LIMIT:
+                    break
+                blocks.append(ReaderBlock(type="paragraph", text=text))
+
+            elif tag == "list":
+                items: list[str] = []
+                for item_node in node:
+                    item_tag = item_node.tag.rsplit("}", 1)[-1] if "}" in item_node.tag else item_node.tag
+                    if item_tag == "item":
+                        item_text = self._normalize_text(" ".join(item_node.itertext()))
+                        if item_text:
+                            items.append(item_text)
+                if items:
+                    consumed += sum(len(item) for item in items)
+                    if consumed > self.TEXT_LIMIT:
+                        break
+                    blocks.append(ReaderBlock(type="list", items=items))
+
+            elif tag == "quote":
+                text = self._normalize_text(" ".join(node.itertext()))
+                if text:
+                    consumed += len(text)
+                    if consumed > self.TEXT_LIMIT:
+                        break
+                    blocks.append(ReaderBlock(type="quote", text=text))
+
+            elif tag == "graphic":
+                graphic_url = node.attrib.get("src") or node.attrib.get("url")
+                if graphic_url and not graphic_url.startswith("data:"):
+                    resolved_url = urljoin(base_url, graphic_url)
+                    if not image_url or resolved_url != image_url:
+                        caption = node.attrib.get("title") or node.attrib.get("alt")
+                        blocks.append(ReaderBlock(type="image", url=resolved_url, caption=caption))
+
+        if not any(block.type == "paragraph" for block in blocks):
+            return None
+
+        return blocks[:300]
+
+    def _extract_reader_blocks_fallback(
+        self,
+        html: str,
+        base_url: str,
+        title: str | None,
+        image_url: str | None,
+        extracted_text: str,
+    ) -> list[ReaderBlock]:
         blocks: list[ReaderBlock] = []
         if title:
             blocks.append(ReaderBlock(type="heading", text=title, level=1))
@@ -191,20 +297,50 @@ class ArticleExtractor:
 
         article_match = re.search(r"<(?:article|main)\b[^>]*>(.*?)</(?:article|main)>", html, re.IGNORECASE | re.DOTALL)
         readable_html = article_match.group(1) if article_match else html
-        token_pattern = re.compile(r"<(h[1-6]|p)\b[^>]*>(.*?)</\1>", re.IGNORECASE | re.DOTALL)
+
+        token_pattern = re.compile(r"<(h[1-6]|p|ul|ol|blockquote)\b[^>]*>(.*?)</\1>", re.IGNORECASE | re.DOTALL)
         consumed = 0
         for match in token_pattern.finditer(readable_html):
             tag = match.group(1).lower()
-            text = self._normalize_text(re.sub(r"<[^>]+>", " ", match.group(2)))
-            if not text or (tag.startswith("h") and title and text.casefold() == title.casefold()):
-                continue
-            consumed += len(text)
-            if consumed > self.TEXT_LIMIT:
-                break
+            inner = match.group(2)
+
             if tag.startswith("h"):
+                text = self._normalize_text(re.sub(r"<[^>]+>", " ", inner))
+                if not text or (title and text.casefold() == title.casefold()):
+                    continue
+                consumed += len(text)
+                if consumed > self.TEXT_LIMIT:
+                    break
                 blocks.append(ReaderBlock(type="heading", text=text, level=int(tag[1])))
-            elif len(text) >= 20:
+
+            elif tag == "p":
+                text = self._normalize_text(re.sub(r"<[^>]+>", " ", inner))
+                if not text or len(text) < 20:
+                    continue
+                consumed += len(text)
+                if consumed > self.TEXT_LIMIT:
+                    break
                 blocks.append(ReaderBlock(type="paragraph", text=text))
+
+            elif tag in ("ul", "ol"):
+                items = [
+                    self._normalize_text(re.sub(r"<[^>]+>", " ", li_match.group(1)))
+                    for li_match in re.finditer(r"<li[^>]*>(.*?)</li>", inner, re.IGNORECASE | re.DOTALL)
+                ]
+                items = [item for item in items if item]
+                if items:
+                    consumed += sum(len(item) for item in items)
+                    if consumed > self.TEXT_LIMIT:
+                        break
+                    blocks.append(ReaderBlock(type="list", items=items))
+
+            elif tag == "blockquote":
+                text = self._normalize_text(re.sub(r"<[^>]+>", " ", inner))
+                if text:
+                    consumed += len(text)
+                    if consumed > self.TEXT_LIMIT:
+                        break
+                    blocks.append(ReaderBlock(type="quote", text=text))
 
         if not any(block.type == "paragraph" for block in blocks):
             for paragraph in re.split(r"\n\s*\n", extracted_text):

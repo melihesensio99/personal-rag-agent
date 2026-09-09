@@ -24,11 +24,12 @@ class ExtractionMetadata(BaseModel):
 class ReaderBlock(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    type: Literal["heading", "paragraph", "image"]
+    type: Literal["heading", "paragraph", "image", "list", "quote"]
     text: str | None = None
     level: int | None = Field(default=None, ge=1, le=6)
     url: str | None = None
     caption: str | None = None
+    items: list[str] | None = None
 
 
 class ExtractionResponse(BaseModel):

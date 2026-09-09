@@ -28,7 +28,7 @@ public sealed class ContentCreationWorkflow(
             ContentSummary.Create(summary.Title, summary.ShortSummary, summary.KeyPoints, summary.Tags, summary.Language, summary.Provider),
             extraction?.OriginalUrl,
             ResolveImageUrl(extraction),
-            extraction?.ReaderBlocks.Select(block => new ReaderBlock(block.Type, block.Text, block.Level, block.Url, block.Caption)).ToList());
+            extraction?.ReaderBlocks.Select(block => new ReaderBlock(block.Type, block.Text, block.Level, block.Url, block.Caption, block.Items)).ToList());
         await repository.AddAsync(item, cancellationToken);
         await TryCreateChunksAsync(item.Id, chunkText, cancellationToken);
         return item;
