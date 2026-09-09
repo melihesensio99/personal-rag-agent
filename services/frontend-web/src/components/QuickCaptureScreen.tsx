@@ -15,9 +15,10 @@ import {
   Send,
 } from 'lucide-react';
 import { SourceItem, NavigationTab, QAPair } from '../types';
+import { FALLBACK_SOURCE_IMAGE, useFallbackSourceImage } from '../shared/sourceImage';
 
 interface QuickCaptureScreenProps {
-  currentSource: SourceItem;
+  currentSource?: SourceItem;
   onNavigate: (tab: NavigationTab, targetSourceId?: string, seekSeconds?: number) => void;
   onAddNewSource: (url: string, type: 'youtube' | 'web') => Promise<SourceItem>;
 }
@@ -35,7 +36,9 @@ export const QuickCaptureScreen: React.FC<QuickCaptureScreenProps> = ({
   const [hasResult, setHasResult] = useState(false);
 
   // Live Q&A state for the right sidebar
-  const [qaThread, setQaThread] = useState<QAPair[]>(currentSource.qaPairs);
+  const [qaThread, setQaThread] = useState<QAPair[]>(currentSource?.qaPairs ?? []);
+  const [capturedSource, setCapturedSource] = useState<SourceItem>();
+  const displayedSource = capturedSource ?? currentSource;
   const [questionInput, setQuestionInput] = useState('');
   const [isAsking, setIsAsking] = useState(false);
 
@@ -48,6 +51,7 @@ export const QuickCaptureScreen: React.FC<QuickCaptureScreenProps> = ({
     setAnalysisError(null);
     setAnalysisProgress(0);
     setHasResult(false);
+    setCapturedSource(undefined);
   };
 
   const handleStartAnalysis = async () => {
@@ -57,7 +61,9 @@ export const QuickCaptureScreen: React.FC<QuickCaptureScreenProps> = ({
     setAnalysisProgress(15);
     const progressTimer = window.setInterval(() => setAnalysisProgress((value) => Math.min(value + 8, 88)), 450);
     try {
-      await onAddNewSource(urlInput, activeInputType);
+      const createdSource = await onAddNewSource(urlInput, activeInputType);
+      setCapturedSource(createdSource);
+      setQaThread(createdSource.qaPairs);
       setAnalysisProgress(100);
       setHasResult(true);
     } catch (reason) {
@@ -226,7 +232,7 @@ export const QuickCaptureScreen: React.FC<QuickCaptureScreenProps> = ({
                     02. Transkript Ayrıştırıldı
                   </span>
                   <span className="font-mono text-[10px] text-[#ffb77d] truncate">
-                    Tamamlandı ({currentSource.telemetry.wordsCount} kelime)
+                    Tamamlandı ({displayedSource?.telemetry.wordsCount ?? 0} kelime)
                   </span>
                 </div>
               </div>
@@ -306,7 +312,7 @@ export const QuickCaptureScreen: React.FC<QuickCaptureScreenProps> = ({
       </section>
 
       {/* Main Body: Two-Column Dossier Workspace with Warm Canvas */}
-      {hasResult && <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 xl:gap-8 items-start">
+      {hasResult && displayedSource && <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 xl:gap-8 items-start">
         {/* Left / Center Editorial Dossier (Parchment Paper Canvas) */}
         <article
           id="editorial-dossier-card"
@@ -316,21 +322,21 @@ export const QuickCaptureScreen: React.FC<QuickCaptureScreenProps> = ({
           <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-[#E4DFD7] text-[#554336]">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="bg-[#1f1f23] text-[#FAF7F2] px-2 py-0.5 rounded text-[10px] font-mono font-semibold tracking-wider uppercase">
-                {currentSource.type === 'youtube' ? 'YOUTUBE BRİFİNGİ' : 'DÖKÜMAN BRİFİNGİ'}
+                {displayedSource.type === 'youtube' ? 'YOUTUBE BRİFİNGİ' : 'DÖKÜMAN BRİFİNGİ'}
               </span>
               <span className="text-xs text-[#a38c7c]">•</span>
               <span className="font-mono text-[11px] font-medium text-[#554336]">
-                Süre: {currentSource.duration}
+                Süre: {displayedSource.duration}
               </span>
               <span className="text-xs text-[#a38c7c]">•</span>
               <span className="font-mono text-[11px] font-medium text-[#432100]">
-                Doğrulanmış Güvenilirlik: %{currentSource.reliability}
+                Doğrulanmış Güvenilirlik: %{displayedSource.reliability}
               </span>
             </div>
 
             <div className="flex items-center gap-1.5 font-mono text-[10px] text-[#763300] font-semibold">
               <ShieldCheck className="w-3.5 h-3.5 text-[#d97707]" />
-              <span>Sentez No: {currentSource.synthesisNumber}</span>
+              <span>Sentez No: {displayedSource.synthesisNumber}</span>
             </div>
           </div>
 
@@ -343,9 +349,10 @@ export const QuickCaptureScreen: React.FC<QuickCaptureScreenProps> = ({
               className="relative w-full h-64 md:h-72 rounded-xl overflow-hidden bg-[#1f1f23] cursor-pointer group shadow-md"
             >
               <img
-                alt={currentSource.title}
+                alt={displayedSource.title}
                 className="w-full h-full object-cover opacity-90 transition-transform duration-500 group-hover:scale-105"
-                src={currentSource.heroImage}
+                src={displayedSource.heroImage || FALLBACK_SOURCE_IMAGE}
+                onError={useFallbackSourceImage}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-[#1f1f23] via-[#1f1f23]/40 to-transparent flex items-end p-5">
                 <div className="flex items-center gap-3">
@@ -354,7 +361,7 @@ export const QuickCaptureScreen: React.FC<QuickCaptureScreenProps> = ({
                   </span>
                   <div className="flex flex-col">
                     <span className="font-mono text-[11px] text-[#FAF7F2] tracking-wider uppercase font-semibold">
-                      Orijinal Kaynak: {currentSource.originalUrl.replace('https://', '')}
+                      Orijinal Kaynak: {displayedSource.originalUrl.replace('https://', '')}
                     </span>
                     <span className="font-sans text-[11px] text-[#ffb77d] opacity-90">
                       Önizlemeyi başlatmak için tıklayın
@@ -367,10 +374,10 @@ export const QuickCaptureScreen: React.FC<QuickCaptureScreenProps> = ({
             {/* Titles */}
             <div className="flex flex-col gap-1.5 pt-1">
               <span className="font-mono text-xs uppercase tracking-widest text-[#763300] font-bold">
-                {currentSource.category}
+                {displayedSource.category}
               </span>
               <h1 className="font-serif text-3xl md:text-4xl text-[#18181B] tracking-tight leading-snug font-semibold">
-                {currentSource.title}
+                {displayedSource.title}
               </h1>
             </div>
 
@@ -385,7 +392,7 @@ export const QuickCaptureScreen: React.FC<QuickCaptureScreenProps> = ({
                 </span>
               </div>
               <div className="space-y-3.5 text-[#2f3034] font-serif text-[17px] leading-relaxed">
-                {currentSource.executiveSummary.map((para, index) => (
+                {displayedSource.executiveSummary.map((para, index) => (
                   <p key={index}>{para}</p>
                 ))}
               </div>
@@ -398,12 +405,12 @@ export const QuickCaptureScreen: React.FC<QuickCaptureScreenProps> = ({
                   Kritik Bulgular & Zaman İmleri
                 </h2>
                 <span className="font-mono text-xs text-[#763300] font-medium">
-                  {currentSource.findings.length} Tespit Ayrıştırıldı
+                  {displayedSource.findings.length} Tespit Ayrıştırıldı
                 </span>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {currentSource.findings.map((finding) => (
+                {displayedSource.findings.map((finding) => (
                   <div
                     key={finding.id}
                     className="bg-white p-4 rounded-xl shadow-xs border border-[#E4DFD7] flex flex-col justify-between gap-3 hover:shadow-md hover:border-[#d97707]/50 transition-all"
@@ -415,7 +422,7 @@ export const QuickCaptureScreen: React.FC<QuickCaptureScreenProps> = ({
                         </span>
                         <button
                           onClick={() =>
-                            onNavigate('kaynak-detayi', currentSource.id, finding.timeSeconds)
+                            onNavigate('kaynak-detayi', displayedSource.id, finding.timeSeconds)
                           }
                           title="Bu zaman damgasına git"
                           className="font-mono text-[10px] bg-[#F4EFEB] text-[#432100] px-2 py-0.5 rounded hover:bg-[#d97707] hover:text-white transition-colors cursor-pointer"
@@ -441,7 +448,7 @@ export const QuickCaptureScreen: React.FC<QuickCaptureScreenProps> = ({
             {/* Dossier Action Bar */}
             <div className="flex items-center justify-end pt-6 border-t border-[#E4DFD7] mt-2">
               <a
-                href={currentSource.originalUrl}
+                href={displayedSource.originalUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1.5 text-[#554336] hover:text-[#18181B] font-mono text-xs transition-colors"
@@ -508,7 +515,7 @@ export const QuickCaptureScreen: React.FC<QuickCaptureScreenProps> = ({
                       <div className="flex items-center gap-2 pt-1 border-t border-[#1f1f23]">
                         <span className="font-mono text-[10px] text-[#a38c7c]">Dayanak:</span>
                         <button
-                          onClick={() => onNavigate('kaynak-detayi', currentSource.id)}
+                          onClick={() => onNavigate('kaynak-detayi', displayedSource.id)}
                           className="font-mono text-[10px] bg-[#1f1f23] hover:bg-[#292a2d] text-[#ffb77d] px-2 py-0.5 rounded flex items-center gap-1 transition-colors cursor-pointer border border-[#292a2d]"
                         >
                           <Clock className="w-3 h-3" />
@@ -549,7 +556,7 @@ export const QuickCaptureScreen: React.FC<QuickCaptureScreenProps> = ({
       </div>}
 
       {/* Video preview modal */}
-      {isVideoModalOpen && (
+      {isVideoModalOpen && displayedSource && (
         <div
           className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
           onClick={() => setIsVideoModalOpen(false)}
@@ -562,7 +569,7 @@ export const QuickCaptureScreen: React.FC<QuickCaptureScreenProps> = ({
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-[#d97707]"></span>
                 <span className="font-mono text-xs text-[#e3e2e6] font-semibold truncate">
-                  {currentSource.title}
+                  {displayedSource.title}
                 </span>
               </div>
               <button
@@ -575,7 +582,8 @@ export const QuickCaptureScreen: React.FC<QuickCaptureScreenProps> = ({
 
             <div className="relative aspect-video bg-black flex items-center justify-center">
               <img
-                src={currentSource.heroImage}
+                src={displayedSource.heroImage || FALLBACK_SOURCE_IMAGE}
+                onError={useFallbackSourceImage}
                 alt="Video preview"
                 className="w-full h-full object-cover opacity-80"
               />
@@ -594,7 +602,7 @@ export const QuickCaptureScreen: React.FC<QuickCaptureScreenProps> = ({
                 <button
                   onClick={() => {
                     setIsVideoModalOpen(false);
-                    onNavigate('kaynak-detayi', currentSource.id);
+                    onNavigate('kaynak-detayi', displayedSource.id);
                   }}
                   className="px-4 py-2 bg-[#d97707] text-white rounded-lg font-sans text-xs font-semibold hover:bg-[#b45309] transition-colors"
                 >

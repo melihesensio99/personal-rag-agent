@@ -50,7 +50,7 @@ export const CommandPaletteModal: React.FC<CommandPaletteModalProps> = ({
   }> = [
     { id: 'hizli-yakala', title: 'Hızlı Yakala (Araştırma Masası)', icon: Zap, desc: 'URL analizi ve yönetici sentezi' },
     { id: 'kaynaklarim', title: 'Kaynaklarım Arşivi', icon: BookOpen, desc: 'Tüm indekslenmiş dokümanlar' },
-    { id: 'kaynak-detayi', title: 'Kaynak Detayı & Transkript', icon: FileSearch, desc: 'Zaman damgalı konuşma metni' },
+    { id: 'kaynak-detayi', title: 'Kaynak Detayı', icon: FileSearch, desc: 'Özet, okuma modu ve orijinal kaynak' },
     { id: 'ai-asistan', title: 'AI Asistan (Çapraz Sentez)', icon: Brain, desc: 'Kaynaklar arası soru-cevap' },
   ];
 

@@ -10,4 +10,5 @@ public sealed record AiServiceCreateExtractionResponse(
     [property: JsonPropertyName("title")] string? Title,
     [property: JsonPropertyName("extracted_text")] string ExtractedText,
     [property: JsonPropertyName("original_url")] string? OriginalUrl,
+    [property: JsonPropertyName("reader_blocks")] IReadOnlyList<AiServiceReaderBlockResponse> ReaderBlocks,
     [property: JsonPropertyName("metadata")] AiServiceExtractionMetadataResponse Metadata);

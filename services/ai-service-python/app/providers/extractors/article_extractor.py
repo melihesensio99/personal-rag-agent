@@ -12,6 +12,7 @@ from app.contracts.extractions import (
     ExtractionMetadata,
     ExtractionRequest,
     ExtractionResponse,
+    ReaderBlock,
 )
 
 
@@ -57,6 +58,9 @@ class ArticleExtractor:
             title = self._extract_title(fetched["html"])
             image_url = self._extract_image_url(fetched["html"], fetched["final_url"] or url)
             extracted_text = self._extract_text(fetched["html"])
+            reader_blocks = self._extract_reader_blocks(
+                fetched["html"], fetched["final_url"] or url, title, image_url, extracted_text
+            )
             detected_content_kind = self._detect_content_kind(
                 url=url,
                 final_url=fetched["final_url"] or url,
@@ -72,6 +76,7 @@ class ArticleExtractor:
                 title=title,
                 extracted_text=extracted_text,
                 original_url=url,
+                reader_blocks=reader_blocks,
                 metadata=ExtractionMetadata(
                     domain=urlparse(url).netloc,
                     content_type=fetched["content_type"],
@@ -169,6 +174,45 @@ class ArticleExtractor:
                 if candidate and not candidate.startswith("data:"):
                     return urljoin(base_url, candidate)
         return None
+
+    def _extract_reader_blocks(
+        self,
+        html: str,
+        base_url: str,
+        title: str | None,
+        image_url: str | None,
+        extracted_text: str,
+    ) -> list[ReaderBlock]:
+        blocks: list[ReaderBlock] = []
+        if title:
+            blocks.append(ReaderBlock(type="heading", text=title, level=1))
+        if image_url:
+            blocks.append(ReaderBlock(type="image", url=image_url, caption=title))
+
+        article_match = re.search(r"<(?:article|main)\b[^>]*>(.*?)</(?:article|main)>", html, re.IGNORECASE | re.DOTALL)
+        readable_html = article_match.group(1) if article_match else html
+        token_pattern = re.compile(r"<(h[1-6]|p)\b[^>]*>(.*?)</\1>", re.IGNORECASE | re.DOTALL)
+        consumed = 0
+        for match in token_pattern.finditer(readable_html):
+            tag = match.group(1).lower()
+            text = self._normalize_text(re.sub(r"<[^>]+>", " ", match.group(2)))
+            if not text or (tag.startswith("h") and title and text.casefold() == title.casefold()):
+                continue
+            consumed += len(text)
+            if consumed > self.TEXT_LIMIT:
+                break
+            if tag.startswith("h"):
+                blocks.append(ReaderBlock(type="heading", text=text, level=int(tag[1])))
+            elif len(text) >= 20:
+                blocks.append(ReaderBlock(type="paragraph", text=text))
+
+        if not any(block.type == "paragraph" for block in blocks):
+            for paragraph in re.split(r"\n\s*\n", extracted_text):
+                text = self._normalize_text(paragraph)
+                if text:
+                    blocks.append(ReaderBlock(type="paragraph", text=text))
+
+        return blocks[:300]
 
     def _extract_with_trafilatura(self, html: str) -> str | None:
         trafilatura_module = self._load_trafilatura()

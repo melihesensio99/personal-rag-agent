@@ -20,14 +20,15 @@ public sealed class ContentCreationWorkflow(
     {
         var contentId = Guid.NewGuid();
         var extraction = await TryExtractAsync(contentId, command, cancellationToken);
-        EnsureExtractionIsSaveable(extraction);
+        EnsureExtractionIsSaveable(command, extraction);
         var summaryText = ContentInputPolicy.ResolveSummaryInputText(command, extraction);
         var chunkText = ContentInputPolicy.ResolveChunkInputText(command, extraction, summaryText);
         var summary = await aiServiceClient.CreateSummaryAsync(new CreateSummaryInput(contentId.ToString("N"), summaryText), cancellationToken);
         var item = ContentItem.Create(contentId, ContentInputPolicy.ResolveSourceType(command, extraction), ContentInputPolicy.ResolveContentKind(command, extraction), command.Text,
             ContentSummary.Create(summary.Title, summary.ShortSummary, summary.KeyPoints, summary.Tags, summary.Language, summary.Provider),
             extraction?.OriginalUrl,
-            ResolveImageUrl(extraction));
+            ResolveImageUrl(extraction),
+            extraction?.ReaderBlocks.Select(block => new ReaderBlock(block.Type, block.Text, block.Level, block.Url, block.Caption)).ToList());
         await repository.AddAsync(item, cancellationToken);
         await TryCreateChunksAsync(item.Id, chunkText, cancellationToken);
         return item;
@@ -61,11 +62,22 @@ public sealed class ContentCreationWorkflow(
         catch (Exception ex) { logger.LogWarning(ex, "Chunk creation failed for content {ContentId}.", id); }
     }
 
-    private static void EnsureExtractionIsSaveable(CreateExtractionResult? extraction)
+    private static void EnsureExtractionIsSaveable(CreateContentCommand command, CreateExtractionResult? extraction)
     {
-        if (extraction is null || !extraction.ExtractionStatus.Equals("unsupported", StringComparison.OrdinalIgnoreCase)) return;
-        if (extraction.Metadata.Extra.TryGetValue("reason", out var value) && string.Equals(value?.ToString(), "search_result_page", StringComparison.OrdinalIgnoreCase))
+        var url = ContentInputPolicy.TryExtractUrl(command.Text);
+        if (url is not null && extraction is null)
+            throw new UnsupportedContentInputException("İçerik servisine ulaşılamadı; bağlantı kaydedilmedi. Lütfen tekrar dene.");
+
+        if (extraction is null) return;
+        if (extraction.ExtractionStatus.Equals("unsupported", StringComparison.OrdinalIgnoreCase)
+            && extraction.Metadata.Extra.TryGetValue("reason", out var value)
+            && string.Equals(value?.ToString(), "search_result_page", StringComparison.OrdinalIgnoreCase))
             throw new UnsupportedContentInputException("Bu Google arama sonucu linki. Gerçek içerik linkini gönder.");
+
+        if (url is not null
+            && !extraction.ExtractionStatus.Equals("completed", StringComparison.OrdinalIgnoreCase)
+            && string.IsNullOrWhiteSpace(extraction.ExtractedText))
+            throw new UnsupportedContentInputException("İçerik bu bağlantıdan okunamadı; yalnızca URL kaydedilmedi. Lütfen tekrar dene.");
     }
 
     private static string? ResolveImageUrl(CreateExtractionResult? extraction)

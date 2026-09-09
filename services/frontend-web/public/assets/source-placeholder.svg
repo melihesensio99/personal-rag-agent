@@ -1,0 +1,17 @@
+<svg width="1200" height="675" viewBox="0 0 1200 675" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="675" fill="#151518"/>
+  <circle cx="1000" cy="80" r="310" fill="url(#a)" opacity=".55"/>
+  <circle cx="130" cy="650" r="340" fill="url(#b)" opacity=".28"/>
+  <path d="M0 522C205 442 339 588 531 505C723 422 916 449 1200 326V675H0V522Z" fill="#1F1F23"/>
+  <path d="M0 555C213 475 349 614 543 537C746 456 939 474 1200 373" stroke="#FFB77D" stroke-opacity=".18" stroke-width="2"/>
+  <rect x="441" y="188" width="318" height="251" rx="24" fill="#1B1B1F" stroke="#FFB77D" stroke-opacity=".34" stroke-width="3"/>
+  <path d="M501 250H584C610 250 632 272 632 298V387H549C522 387 501 366 501 339V250Z" stroke="#FFB77D" stroke-width="12" stroke-linejoin="round"/>
+  <path d="M699 250H616C590 250 568 272 568 298V387H651C678 387 699 366 699 339V250Z" stroke="#FFB77D" stroke-width="12" stroke-linejoin="round"/>
+  <path d="M600 280V405" stroke="#FFB77D" stroke-width="12" stroke-linecap="round"/>
+  <text x="600" y="500" text-anchor="middle" fill="#DBC2B0" font-family="Arial, sans-serif" font-size="23" font-weight="700" letter-spacing="6">HAFIZA</text>
+  <text x="600" y="536" text-anchor="middle" fill="#A38C7C" font-family="Arial, sans-serif" font-size="14" letter-spacing="4">ARAŞTIRMA KAYNAĞI</text>
+  <defs>
+    <radialGradient id="a"><stop stop-color="#D97707" stop-opacity=".35"/><stop offset="1" stop-color="#D97707" stop-opacity="0"/></radialGradient>
+    <radialGradient id="b"><stop stop-color="#FFB77D" stop-opacity=".28"/><stop offset="1" stop-color="#FFB77D" stop-opacity="0"/></radialGradient>
+  </defs>
+</svg>

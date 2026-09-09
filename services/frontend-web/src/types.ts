@@ -24,10 +24,12 @@ export interface TranscriptLine {
 
 export interface ChunkItem {
   id: string;
+  index: number;
   text: string;
   tokens: number;
-  dimension: number;
-  similarity: number;
+  charStart: number;
+  charEnd: number;
+  hasEmbedding: boolean;
   category: string;
 }
 
@@ -50,6 +52,13 @@ export interface SourceItem {
   synthesisNumber: string;
   category: string;
   heroImage: string;
+  readerBlocks: Array<{
+    type: 'heading' | 'paragraph' | 'image';
+    text?: string;
+    level?: number;
+    url?: string;
+    caption?: string;
+  }>;
   author: Author;
   executiveSummary: string[];
   findings: Finding[];

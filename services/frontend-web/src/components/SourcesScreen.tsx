@@ -13,6 +13,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { SourceItem, NavigationTab } from '../types';
+import { FALLBACK_SOURCE_IMAGE, useFallbackSourceImage } from '../shared/sourceImage';
 
 interface SourcesScreenProps {
   sources: SourceItem[];
@@ -26,9 +27,12 @@ export const SourcesScreen: React.FC<SourcesScreenProps> = ({
   onNavigate,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedTag, setSelectedTag] = useState<string>('Tümü');
-
-  const allTags = ['Tümü', 'Yapay Zeka', 'LLM', 'Dünya Modelleri', 'AGI', 'Transformer', 'Hizalama'];
+  const [selectedType, setSelectedType] = useState<'all' | 'web' | 'youtube'>('all');
+  const sourceTypeFilters = [
+    { value: 'all', label: 'Tümü' },
+    { value: 'web', label: 'Makaleler' },
+    { value: 'youtube', label: 'YouTube' },
+  ] as const;
 
   const filteredSources = sources.filter((source) => {
     const matchesSearch =
@@ -36,11 +40,9 @@ export const SourcesScreen: React.FC<SourcesScreenProps> = ({
       source.author.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       source.category.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesTag =
-      selectedTag === 'Tümü' ||
-      source.tags.some((t) => t.toLowerCase() === selectedTag.toLowerCase());
+    const matchesType = selectedType === 'all' || source.type === selectedType;
 
-    return matchesSearch && matchesTag;
+    return matchesSearch && matchesType;
   });
 
   return (
@@ -85,17 +87,17 @@ export const SourcesScreen: React.FC<SourcesScreenProps> = ({
         </div>
 
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
-          {allTags.map((tag) => (
+          {sourceTypeFilters.map((filter) => (
             <button
-              key={tag}
-              onClick={() => setSelectedTag(tag)}
+              key={filter.value}
+              onClick={() => setSelectedType(filter.value)}
               className={`px-3 py-1 rounded-lg font-sans text-xs transition-colors whitespace-nowrap cursor-pointer ${
-                selectedTag === tag
+                selectedType === filter.value
                   ? 'bg-[#292a2d] text-[#ffb77d] font-semibold border border-[#ffb77d]/30'
                   : 'text-[#dbc2b0] hover:bg-[#1f1f23] hover:text-[#e3e2e6]'
               }`}
             >
-              {tag}
+              {filter.label}
             </button>
           ))}
         </div>
@@ -112,7 +114,8 @@ export const SourcesScreen: React.FC<SourcesScreenProps> = ({
               {/* Header Image with Overlays */}
               <div className="relative h-48 w-full bg-[#0d0e11] overflow-hidden">
                 <img
-                  src={source.heroImage}
+                  src={source.heroImage || FALLBACK_SOURCE_IMAGE}
+                  onError={useFallbackSourceImage}
                   alt={source.title}
                   className="w-full h-full object-cover opacity-85 group-hover:scale-105 transition-transform duration-500"
                 />
@@ -174,7 +177,7 @@ export const SourcesScreen: React.FC<SourcesScreenProps> = ({
                 }}
                 className="px-3.5 py-1.5 bg-[#1f1f23] hover:bg-[#292a2d] text-[#e3e2e6] hover:text-[#ffb77d] rounded-lg font-sans text-xs font-medium transition-colors cursor-pointer border border-[#292a2d]"
               >
-                Transkript & Vektör
+                Kaynağı İncele
               </button>
 
               <button
@@ -190,6 +193,13 @@ export const SourcesScreen: React.FC<SourcesScreenProps> = ({
           </div>
         ))}
       </div>
+      {filteredSources.length === 0 && (
+        <div className="rounded-2xl border border-dashed border-[#343538] bg-[#1b1b1f] px-6 py-14 text-center">
+          <BookOpen className="mx-auto h-8 w-8 text-[#a38c7c]"/>
+          <h2 className="mt-4 font-serif text-xl text-[#e3e2e6]">{sources.length === 0 ? 'Arşivin henüz boş' : 'Eşleşen kaynak bulunamadı'}</h2>
+          <p className="mt-2 text-sm text-[#a38c7c]">{sources.length === 0 ? 'Eklediğin gerçek kaynaklar burada görünecek.' : 'Arama veya etiket filtresini değiştirmeyi dene.'}</p>
+        </div>
+      )}
     </div>
   );
 };

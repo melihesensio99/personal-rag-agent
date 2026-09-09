@@ -96,6 +96,8 @@ public sealed class AiServiceClient(HttpClient httpClient) : IAiServiceClient
             Title: extraction.Title,
             ExtractedText: extraction.ExtractedText,
             OriginalUrl: extraction.OriginalUrl,
+            ReaderBlocks: extraction.ReaderBlocks.Select(block => new ReaderBlockResult(
+                block.Type, block.Text, block.Level, block.Url, block.Caption)).ToList(),
             Metadata: new ExtractionMetadataResult(
                 Domain: extraction.Metadata.Domain,
                 ContentType: extraction.Metadata.ContentType,

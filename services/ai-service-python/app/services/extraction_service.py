@@ -24,7 +24,17 @@ class ExtractionService:
         normalized_request = request.model_copy(update={"source_type": detected_source_type})
 
         if detected_source_type == "article" and normalized_request.url is not None and self._is_pmc_url(str(normalized_request.url)):
-            return self._pmc_article_extractor.extract(normalized_request)
+            pmc_result = self._pmc_article_extractor.extract(normalized_request)
+            if pmc_result.extraction_status == "completed" and pmc_result.extracted_text.strip():
+                return pmc_result
+
+            html_result = self._article_extractor.extract(normalized_request)
+            if html_result.extraction_status == "completed" and html_result.extracted_text.strip():
+                html_result.metadata.extra["fallback_from"] = "europe_pmc_xml"
+                html_result.metadata.extra["pmc_failure_reason"] = pmc_result.metadata.extra.get("reason")
+                return html_result
+
+            return pmc_result
 
         if detected_source_type == "article" and normalized_request.url is not None and self._is_pubmed_url(str(normalized_request.url)):
             return self._pubmed_article_extractor.extract(normalized_request)

@@ -50,6 +50,8 @@ def test_create_article_extraction_returns_cleaned_text(monkeypatch) -> None:
     assert "Retrieval augmented generation combines search and generation." in body["extracted_text"]
     assert body["metadata"]["domain"] == "example.com"
     assert body["metadata"]["extra"]["image_url"] == "https://example.com/images/rag-cover.jpg"
+    assert any(block["type"] == "paragraph" and "Retrieval augmented" in block["text"] for block in body["reader_blocks"])
+    assert any(block["type"] == "image" for block in body["reader_blocks"])
 
 
 def test_create_article_extraction_prefers_trafilatura_when_available(monkeypatch) -> None:
@@ -149,6 +151,37 @@ def test_create_pmc_extraction_uses_full_text_xml(monkeypatch) -> None:
     assert "low carbohydrate diets" in body["extracted_text"]
     assert body["metadata"]["extra"]["pmc_id"] == "PMC6566854"
     assert body["metadata"]["extra"]["image_url"].endswith("/bin/study-figure.jpg")
+    assert any(block["type"] == "heading" and block["text"] == "Results" for block in body["reader_blocks"])
+    assert any(block["type"] == "paragraph" and "full text body" in block["text"] for block in body["reader_blocks"])
+
+
+def test_create_pmc_extraction_falls_back_to_article_html_when_xml_is_unavailable(monkeypatch) -> None:
+    def fail_xml(self: PmcArticleExtractor, pmc_id: str) -> str:
+        raise ValueError("HTTP Error 404: Not Found")
+
+    def fake_fetch_html(self: ArticleExtractor, url: str) -> dict[str, str | None]:
+        return {
+            "html": """<html><head><title>Respiratory Muscle Plasticity</title></head>
+                <body><article><p>Respiratory muscle adapts to mechanical load, activity, and innervation.</p></article></body></html>""",
+            "content_type": "text/html",
+            "final_url": url,
+        }
+
+    monkeypatch.setattr(PmcArticleExtractor, "_fetch_xml", fail_xml)
+    monkeypatch.setattr(ArticleExtractor, "_fetch_html", fake_fetch_html)
+
+    response = client.post(
+        "/api/v1/extractions",
+        json={"content_id": "content-pmc-fallback", "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC3962767/"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["extraction_status"] == "completed"
+    assert body["title"] == "Respiratory Muscle Plasticity"
+    assert "mechanical load" in body["extracted_text"]
+    assert body["metadata"]["extra"]["fallback_from"] == "europe_pmc_xml"
+    assert body["metadata"]["extra"]["pmc_failure_reason"] == "HTTP Error 404: Not Found"
 
 
 def test_create_pubmed_extraction_uses_ncbi_xml(monkeypatch) -> None:

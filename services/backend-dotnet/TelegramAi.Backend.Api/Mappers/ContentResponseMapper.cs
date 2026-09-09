@@ -14,6 +14,8 @@ public static class ContentResponseMapper
             CreatedAtUtc: contentItem.CreatedAtUtc,
             OriginalUrl: contentItem.OriginalUrl,
             ImageUrl: contentItem.ImageUrl,
+            ReaderBlocks: contentItem.ReaderBlocks.Select(block => new ReaderBlockResponse(
+                block.Type, block.Text, block.Level, block.Url, block.Caption)).ToList(),
             Summary: new ContentSummaryResponse(
                 Title: contentItem.Summary.Title,
                 ShortSummary: contentItem.Summary.ShortSummary,

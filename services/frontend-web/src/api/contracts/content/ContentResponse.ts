@@ -5,6 +5,13 @@ export interface ContentResponse {
   createdAtUtc: string;
   originalUrl?: string | null;
   imageUrl?: string | null;
+  readerBlocks: Array<{
+    type: 'heading' | 'paragraph' | 'image';
+    text?: string | null;
+    level?: number | null;
+    url?: string | null;
+    caption?: string | null;
+  }>;
   summary: {
     title: string;
     shortSummary: string;

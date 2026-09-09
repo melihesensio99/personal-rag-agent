@@ -7,6 +7,7 @@ public sealed class ContentItem
         RawText = string.Empty;
         ContentKind = ContentKind.Text;
         Summary = null!;
+        ReaderBlocks = [];
     }
 
     private ContentItem(
@@ -17,7 +18,8 @@ public sealed class ContentItem
         ContentSummary summary,
         DateTimeOffset createdAtUtc,
         string? originalUrl,
-        string? imageUrl)
+        string? imageUrl,
+        IReadOnlyList<ReaderBlock> readerBlocks)
     {
         Id = id;
         SourceType = sourceType;
@@ -27,6 +29,7 @@ public sealed class ContentItem
         CreatedAtUtc = createdAtUtc;
         OriginalUrl = originalUrl;
         ImageUrl = imageUrl;
+        ReaderBlocks = readerBlocks;
     }
 
     public Guid Id { get; private set; }
@@ -37,6 +40,7 @@ public sealed class ContentItem
     public DateTimeOffset CreatedAtUtc { get; private set; }
     public string? OriginalUrl { get; private set; }
     public string? ImageUrl { get; private set; }
+    public IReadOnlyList<ReaderBlock> ReaderBlocks { get; private set; }
 
     public static ContentItem Create(
         Guid id,
@@ -45,7 +49,8 @@ public sealed class ContentItem
         string rawText,
         ContentSummary summary,
         string? originalUrl = null,
-        string? imageUrl = null)
+        string? imageUrl = null,
+        IReadOnlyList<ReaderBlock>? readerBlocks = null)
     {
         return new ContentItem(
             id,
@@ -55,6 +60,7 @@ public sealed class ContentItem
             summary,
             DateTimeOffset.UtcNow,
             string.IsNullOrWhiteSpace(originalUrl) ? null : originalUrl.Trim(),
-            string.IsNullOrWhiteSpace(imageUrl) ? null : imageUrl.Trim());
+            string.IsNullOrWhiteSpace(imageUrl) ? null : imageUrl.Trim(),
+            readerBlocks?.ToList() ?? []);
     }
 }

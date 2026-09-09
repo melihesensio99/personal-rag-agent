@@ -21,6 +21,16 @@ class ExtractionMetadata(BaseModel):
     extra: dict[str, Any] = Field(default_factory=dict)
 
 
+class ReaderBlock(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal["heading", "paragraph", "image"]
+    text: str | None = None
+    level: int | None = Field(default=None, ge=1, le=6)
+    url: str | None = None
+    caption: str | None = None
+
+
 class ExtractionResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -31,4 +41,5 @@ class ExtractionResponse(BaseModel):
     title: str | None = None
     extracted_text: str = ""
     original_url: str | None = None
+    reader_blocks: list[ReaderBlock] = Field(default_factory=list)
     metadata: ExtractionMetadata = Field(default_factory=ExtractionMetadata)

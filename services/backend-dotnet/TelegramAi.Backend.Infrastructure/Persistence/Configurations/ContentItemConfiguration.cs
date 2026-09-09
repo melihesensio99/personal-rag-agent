@@ -43,6 +43,16 @@ public sealed class ContentItemConfiguration : IEntityTypeConfiguration<ContentI
         builder.Property(content => content.ImageUrl)
             .HasMaxLength(2048);
 
+        builder.Property(content => content.ReaderBlocks)
+            .HasColumnType("jsonb")
+            .HasConversion(
+                value => JsonSerializer.Serialize(value, JsonOptions),
+                value => JsonSerializer.Deserialize<List<ReaderBlock>>(value, JsonOptions) ?? new List<ReaderBlock>())
+            .Metadata.SetValueComparer(new ValueComparer<IReadOnlyList<ReaderBlock>>(
+                (left, right) => left != null && right != null && left.SequenceEqual(right),
+                value => value.Aggregate(0, (current, item) => HashCode.Combine(current, item.GetHashCode())),
+                value => value.ToList()));
+
         builder.OwnsOne(content => content.Summary, summary =>
         {
             summary.Property(value => value.Title)
