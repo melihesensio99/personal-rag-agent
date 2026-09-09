@@ -56,7 +56,7 @@ class GeminiSummaryProvider(SummaryProvider):
                         {
                             "text": (
                                 f"{self._prompt_loader.load()}\n\n"
-                                "Summarize the saved content below. "
+                                "Summarize the saved content below. Keep title exactly as supplied in the source language; write the other fields in Turkish. "
                                 "Return only a JSON object with these exact fields: "
                                 "title, short_summary, key_points, tags, language. "
                                 "key_points and tags must be arrays of strings. "

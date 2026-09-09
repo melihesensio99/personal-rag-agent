@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import re
+
+from app.services.summary_input_preparer import SummaryInputPreparer
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from xml.etree import ElementTree
@@ -37,7 +39,7 @@ class PmcArticleExtractor:
                 detected_content_kind="text",
                 extraction_status="completed",
                 title=title,
-                extracted_text=text[: self.TEXT_LIMIT],
+                extracted_text=SummaryInputPreparer.prepare(text, max_chars=self.TEXT_LIMIT),
                 original_url=url,
                 reader_blocks=reader_blocks,
                 metadata=ExtractionMetadata(
@@ -82,16 +84,41 @@ class PmcArticleExtractor:
     @staticmethod
     def _article_text(root: ElementTree.Element) -> str:
         parts: list[str] = []
+
+        def visit(node: ElementTree.Element) -> None:
+            tag = node.tag.rsplit("}", 1)[-1]
+            if tag in {"ref-list", "ack"}:
+                return
+            if tag in {"title", "p", "table", "list-item", "disp-quote"}:
+                value = " ".join("".join(node.itertext()).split())
+                if value:
+                    parts.append(f"## {value}" if tag == "title" else value)
+                return
+            if node.text and node.text.strip():
+                parts.append(" ".join(node.text.split()))
+            for child in node:
+                visit(child)
+                if child.tail and child.tail.strip():
+                    parts.append(" ".join(child.tail.split()))
+
         for node in root.findall(".//abstract") + root.findall(".//body"):
-            text = " ".join("".join(node.itertext()).split())
-            if text:
-                parts.append(text)
+            if node.tag == "abstract":
+                parts.append("## Abstract")
+            visit(node)
         if parts:
             return "\n\n".join(parts)
+        current_section = ""
         for passage in root.findall(".//passage"):
+            section = next(((infon.text or "").strip() for infon in passage.findall("infon")
+                            if infon.attrib.get("key") == "section_type"), "")
+            if section.upper() in {"REF", "REFERENCES", "ACK", "ACK_FUND"}:
+                continue
             text_node = passage.find("text")
             text = " ".join((text_node.text or "").split()) if text_node is not None else ""
             if text:
+                if section and section != current_section:
+                    parts.append(f"## {section}")
+                    current_section = section
                 parts.append(text)
         return "\n\n".join(parts)
 

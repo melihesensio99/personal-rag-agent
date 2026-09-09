@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import re
+
+from app.services.summary_input_preparer import SummaryInputPreparer
 from html import unescape
 from importlib import import_module
 from typing import Any
@@ -17,7 +19,7 @@ from app.contracts.extractions import (
 
 
 class ArticleExtractor:
-    TEXT_LIMIT = 20_000
+    TEXT_LIMIT = 40_000
 
     def extract(self, request: ExtractionRequest) -> ExtractionResponse:
         source_type = request.source_type or "article"
@@ -144,7 +146,7 @@ class ArticleExtractor:
     def _extract_text(self, html: str) -> str:
         trafilatura_text = self._extract_with_trafilatura(html)
         if trafilatura_text:
-            return trafilatura_text[: self.TEXT_LIMIT]
+            return SummaryInputPreparer.prepare(trafilatura_text, max_chars=self.TEXT_LIMIT)
 
         without_scripts = re.sub(
             r"<(script|style)[^>]*>.*?</\1>",
@@ -152,13 +154,14 @@ class ArticleExtractor:
             html,
             flags=re.IGNORECASE | re.DOTALL,
         )
+        without_scripts = re.sub(r"</(?:h[1-6]|p|li|div|section|article|blockquote)\s*>", "\n\n", without_scripts, flags=re.IGNORECASE)
         without_tags = re.sub(r"<[^>]+>", " ", without_scripts)
-        normalized = self._normalize_text(without_tags)
+        normalized = SummaryInputPreparer.normalize_whitespace(unescape(without_tags)) if without_tags.strip() else ""
 
         if not normalized:
             raise ValueError("article_text_empty")
 
-        return normalized[: self.TEXT_LIMIT]
+        return SummaryInputPreparer.prepare(normalized, max_chars=self.TEXT_LIMIT)
 
     def _extract_image_url(self, html: str, base_url: str) -> str | None:
         patterns = (
@@ -367,7 +370,7 @@ class ArticleExtractor:
         if not isinstance(extracted, str):
             return None
 
-        normalized = self._normalize_text(extracted)
+        normalized = SummaryInputPreparer.normalize_whitespace(extracted) if extracted.strip() else ""
         return normalized or None
 
     def _load_trafilatura(self) -> Any | None:

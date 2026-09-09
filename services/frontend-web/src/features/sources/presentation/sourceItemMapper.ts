@@ -21,14 +21,13 @@ export function mapContentToSourceItem(content: Content, chunks: ContentChunk[] 
     heroImage: content.imageUrl?.trim() || FALLBACK_SOURCE_IMAGE,
     readerBlocks: content.readerBlocks,
     author: { name: 'Hafıza', role: 'Kaynak tabanlı analiz', avatarUrl: '' },
-    executiveSummary: [content.summary],
+    executiveSummary: splitSummary(content.summary),
     findings: content.keyPoints.map((point, index) => ({
       id: `${content.id}-${index}`,
       phase: `${String(index + 1).padStart(2, '0')} / BULGU`,
       timestamp: '[Kaynak]',
       timeSeconds: 0,
-      title: `Kritik bulgu ${index + 1}`,
-      description: point,
+      ...splitFinding(point),
       confidence: 'Kaynak metninden sentezlendi',
     })),
     qaPairs: [],
@@ -61,4 +60,21 @@ export function mapContentToSourceItem(content: Content, chunks: ContentChunk[] 
     tags: content.tags,
     dateAdded: content.createdAt.toISOString().split('T')[0],
   };
+}
+
+function splitFinding(point: string): { title: string; description: string } {
+  const separator = point.indexOf(':');
+  if (separator > 0 && separator <= 100 && point.slice(separator + 1).trim()) {
+    return { title: point.slice(0, separator).trim(), description: point.slice(separator + 1).trim() };
+  }
+  // Older summaries have no heading; show their original text without inventing one.
+  return { title: '', description: point };
+}
+
+function splitSummary(summary: string): string[] {
+  const lines = summary.split(/\n+/).map(line => line.replace(/^\s*[-•]\s*/, '').trim()).filter(Boolean);
+  if (lines.length !== 1) return lines;
+  // Make saved paragraph summaries readable too, without regenerating their content.
+  const segmenter = new Intl.Segmenter('tr', { granularity: 'sentence' });
+  return Array.from(segmenter.segment(lines[0]), part => part.segment.trim()).filter(Boolean);
 }

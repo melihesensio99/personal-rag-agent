@@ -37,9 +37,9 @@ export const SourceDetailScreen: React.FC<SourceDetailScreenProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<DetailTab>('summary');
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedFindingId, setExpandedFindingId] = useState<string | null>(null);
   const [showChunksDrawer, setShowChunksDrawer] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copyError, setCopyError] = useState<string | null>(null);
 
   const normalizedSearch = searchQuery.trim().toLocaleLowerCase('tr');
 
@@ -60,10 +60,15 @@ export const SourceDetailScreen: React.FC<SourceDetailScreenProps> = ({
 
   const isIndexed = source.chunks.length > 0 && source.chunks.every((chunk) => chunk.hasEmbedding);
 
-  const handleCopyText = (id: string, text: string) => {
-    void navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
+  const handleCopyText = async (id: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyError(null);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      setCopyError('Kopyalama yapılamadı. Metni seçerek kopyalayabilirsin.');
+    }
   };
 
   return (
@@ -139,8 +144,8 @@ export const SourceDetailScreen: React.FC<SourceDetailScreenProps> = ({
           <div className="flex items-center gap-3 rounded-xl border border-[#2d2e33]/60 bg-[#141518]/70 px-3.5 py-2.5">
             <BarChart3 className="h-4 w-4 text-[#ffb77d]" />
             <div>
-              <div className="text-[10px] font-medium uppercase tracking-wider text-[#938275]">Güven Skoru</div>
-              <div className="font-mono text-xs font-semibold text-emerald-400">%{source.reliability} Doğrulanmış</div>
+              <div className="text-[10px] font-medium uppercase tracking-wider text-[#938275]">Analiz Türü</div>
+              <div className="font-mono text-xs font-semibold text-emerald-400">AI özeti</div>
             </div>
           </div>
         </div>
@@ -152,12 +157,13 @@ export const SourceDetailScreen: React.FC<SourceDetailScreenProps> = ({
         </div>
       )}
       {error && <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{error}</div>}
+      {copyError && <p role="status" className="text-sm text-amber-200">{copyError}</p>}
 
       {/* Navigation Bar */}
       <nav className="flex items-center justify-between border-b border-[#292a2d] pb-3">
         <div className="flex items-center gap-2">
           <TabButton active={activeTab === 'summary'} onClick={() => setActiveTab('summary')} icon={<Sparkles className="h-3.5 w-3.5 text-[#ffb77d]" />}>
-            Sentez & Derin Bulgular
+            Özet ve bulgular
           </TabButton>
           <TabButton active={activeTab === 'original'} onClick={() => setActiveTab('original')} icon={<Globe2 className="h-3.5 w-3.5 text-[#a38c7c]" />}>
             Orijinal Kaynak Metni
@@ -188,16 +194,26 @@ export const SourceDetailScreen: React.FC<SourceDetailScreenProps> = ({
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#ffb77d]/15 border border-[#ffb77d]/30 text-[#ffb77d]">
                   <Quote className="h-3.5 w-3.5" />
                 </div>
-                <h2 className="font-serif text-xl font-bold text-[#f3f2f6]">Sentez Özeti & Ana Çıkarım</h2>
+                <h2 className="font-serif text-xl font-bold text-[#f3f2f6]">Bir bakışta</h2>
               </div>
-              <span className="font-mono text-[10px] font-semibold text-[#a38c7c]">AI ÖZETİ</span>
+              <button
+                onClick={() => handleCopyText('summary', [source.title, ...source.executiveSummary.map(point => `• ${point}`), ...source.findings.map(finding => [finding.title, finding.description].filter(Boolean).join(': '))].join('\n\n'))}
+                className="flex items-center gap-2 rounded-lg border border-[#34353a] px-3 py-2 text-xs text-[#dbc2b0] hover:text-[#ffb77d]"
+              >
+                {copiedId === 'summary' ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                {copiedId === 'summary' ? 'Kopyalandı' : 'Özeti kopyala'}
+              </button>
             </div>
 
             {/* High Impact Highlight Box */}
-            <div className="relative rounded-xl border-l-4 border-[#ffb77d] bg-[#101114] p-5 shadow-inner">
-              <p className="font-serif text-[16px] leading-8 text-[#e3d7cd] tracking-wide">
-                {source.executiveSummary[0] || 'Bu kaynak için henüz özet oluşturulmadı.'}
-              </p>
+            <div className="rounded-xl border border-[#2d2e33] bg-[#101114]/80 p-3 md:p-4">
+              {source.executiveSummary.length > 0 ? (
+                <ul className="grid gap-3 text-base leading-7 text-[#e3d7cd] md:grid-cols-2">
+                  {source.executiveSummary.map((point, index) => (
+                    <li key={index}><OverviewPoint text={point} index={index} /></li>
+                  ))}
+                </ul>
+              ) : <p className="text-base text-[#e3d7cd]">Bu kaynak için henüz özet oluşturulmadı.</p>}
             </div>
 
             {/* Tags Showcase */}
@@ -221,13 +237,13 @@ export const SourceDetailScreen: React.FC<SourceDetailScreenProps> = ({
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="font-serif text-2xl font-bold text-[#f3f2f6]">Detaylı Önemli Bulgular</h2>
-                  <span className="rounded-full bg-[#ffb77d]/15 border border-[#ffb77d]/30 px-2.5 py-0.5 font-mono text-xs font-bold text-[#ffb77d]">
+                  <h2 className="font-serif text-2xl font-bold text-[#f3f2f6]">Ayrıntılı bulgular</h2>
+                  <span aria-live="polite" className="rounded-full bg-[#ffb77d]/15 border border-[#ffb77d]/30 px-2.5 py-0.5 font-mono text-xs font-bold text-[#ffb77d]">
                     {filteredFindings.length} Çıkarım
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-[#a38c7c]">
-                  Kaynaktan yapay zeka tarafından çıkarılan kritik bulgular ve derinlikli analizler.
+                  Her madde tek bir noktayı açıklar. Yöntem, sonuç ve sınırlılıkları birlikte değerlendirin.
                 </p>
               </div>
 
@@ -246,13 +262,11 @@ export const SourceDetailScreen: React.FC<SourceDetailScreenProps> = ({
             {filteredFindings.length > 0 ? (
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 {filteredFindings.map((finding, index) => {
-                  const isExpanded = expandedFindingId === finding.id;
-                  const matchingChunk = source.chunks[index % (source.chunks.length || 1)];
 
                   return (
                     <article
                       key={finding.id}
-                      className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-[#2d2e33] bg-[#16171b] p-5 shadow-lg transition-all duration-300 hover:border-[#ffb77d]/40 hover:bg-[#1a1b20]"
+                      className="group relative flex min-h-[260px] flex-col justify-between overflow-hidden rounded-2xl border border-[#2d2e33] bg-[#16171b] p-5 shadow-lg transition-all duration-300 hover:border-[#ffb77d]/40 hover:bg-[#1a1b20]"
                     >
                       {/* Top Meta Bar */}
                       <div>
@@ -265,7 +279,7 @@ export const SourceDetailScreen: React.FC<SourceDetailScreenProps> = ({
 
                           <div className="flex items-center gap-1">
                             <button
-                              onClick={() => handleCopyText(finding.id, finding.description)}
+                              onClick={() => handleCopyText(finding.id, [finding.title, finding.description].filter(Boolean).join(': '))}
                               title="Bulguyu Kopyala"
                               className="flex h-7 w-7 items-center justify-center rounded-lg border border-[#2d2e33] bg-[#101114] text-[#a38c7c] transition-colors hover:border-[#ffb77d]/30 hover:text-[#ffb77d]"
                             >
@@ -276,10 +290,10 @@ export const SourceDetailScreen: React.FC<SourceDetailScreenProps> = ({
 
                         {/* Finding Content */}
                         <div className="mt-3.5">
-                          <h3 className="font-serif text-base font-bold text-[#f3f2f6] leading-snug group-hover:text-[#ffb77d] transition-colors">
-                            {finding.title || `Bulgu #${index + 1}`}
+                          <h3 className="font-sans text-lg font-bold text-[#f3f2f6] leading-snug group-hover:text-[#ffb77d] transition-colors">
+                            {finding.title}
                           </h3>
-                          <p className="mt-2 text-sm leading-7 text-[#d1c2b5]">
+                          <p className="mt-2 whitespace-pre-line text-base leading-8 text-[#d1c2b5]">
                             {finding.description}
                           </p>
                         </div>
@@ -289,11 +303,10 @@ export const SourceDetailScreen: React.FC<SourceDetailScreenProps> = ({
                       <div className="mt-4 border-t border-[#25262a] pt-3">
                         <div className="flex items-center justify-between">
                           <button
-                            onClick={() => setExpandedFindingId(isExpanded ? null : finding.id)}
-                            className="flex items-center gap-1.5 font-mono text-[11px] font-semibold text-[#a38c7c] hover:text-[#ffb77d] transition-colors"
+                            onClick={() => setActiveTab('original')}
+                            className="text-xs font-semibold text-[#c5b5a8] hover:text-[#ffb77d]"
                           >
-                            <span>{isExpanded ? 'Kaynak Metnini Gizle' : 'İlgili Kaynak Metni'}</span>
-                            {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                            Kaynağı oku
                           </button>
 
                           <button
@@ -305,16 +318,7 @@ export const SourceDetailScreen: React.FC<SourceDetailScreenProps> = ({
                           </button>
                         </div>
 
-                        {/* Accordion / Expanded Chunk text */}
-                        {isExpanded && matchingChunk && (
-                          <div className="mt-3 rounded-xl border border-[#ffb77d]/20 bg-[#101114] p-3.5 font-mono text-xs leading-6 text-[#bdaea1]">
-                            <div className="mb-1.5 flex items-center justify-between text-[10px] text-[#ffb77d]">
-                              <span>BÖLÜM #{matchingChunk.index + 1} KESİTİ</span>
-                              <span>{matchingChunk.tokens} jeton</span>
-                            </div>
-                            <p className="font-sans text-xs italic leading-6 text-[#c2b2a4]">"{matchingChunk.text}"</p>
-                          </div>
-                        )}
+
                       </div>
                     </article>
                   );
@@ -428,6 +432,21 @@ function EmptyState({ message }: { message: string }) {
     <div className="rounded-2xl border border-dashed border-[#343538] bg-[#1b1b1f] px-6 py-12 text-center">
       <Sparkles className="mx-auto h-8 w-8 text-[#a38c7c]" />
       <p className="mt-3 text-sm text-[#dbc2b0]">{message}</p>
+    </div>
+  );
+}
+
+function OverviewPoint({ text, index }: { text: string; index: number }) {
+  const separator = text.indexOf(':');
+  const hasLabel = separator > 0 && separator < 45 && Boolean(text.slice(separator + 1).trim());
+  const label = hasLabel ? text.slice(0, separator).trim() : `Öne çıkan nokta ${index + 1}`;
+  const body = hasLabel ? text.slice(separator + 1).trim() : text;
+  return (
+    <div className="h-full rounded-xl border border-[#35302b] bg-[#101114] p-5">
+      <p className="mb-2 flex items-center gap-2 text-xs font-semibold text-[#ffb77d]">
+        <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-[#ffb77d]" />{label}
+      </p>
+      <p className="whitespace-pre-line">{body}</p>
     </div>
   );
 }

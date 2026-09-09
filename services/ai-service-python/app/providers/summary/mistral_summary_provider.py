@@ -63,7 +63,7 @@ class MistralSummaryProvider(SummaryProvider):
         system_prompt = (
             f"{self._prompt_loader.load()}\n\n"
             "You summarize saved personal content. "
-            "Always answer in Turkish. "
+            "Write short_summary, key_points and tags in Turkish, but preserve title exactly in the source language. "
             "Return only a JSON object with these exact fields: "
             "title, short_summary, key_points, tags, language. "
             "key_points and tags must be arrays of strings. "

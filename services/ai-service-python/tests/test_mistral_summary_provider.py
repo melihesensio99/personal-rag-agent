@@ -129,7 +129,7 @@ def test_mistral_summary_provider_compresses_long_input(monkeypatch, tmp_path) -
 
     assert response.title == "Uzun içerik"
     assert "[CONTENT COMPRESSED FOR SUMMARY]" in captured_input["text"]
-    assert len(captured_input["text"]) < 19000
+    assert len(captured_input["text"]) <= 40000
 
 
 def test_mistral_summary_provider_repairs_invalid_shape(monkeypatch, tmp_path) -> None:

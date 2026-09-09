@@ -40,7 +40,7 @@ class PubMedArticleExtractor:
                 detected_content_kind="text",
                 extraction_status="completed",
                 title=title,
-                extracted_text=abstract,
+                extracted_text=f"[SOURCE SCOPE: Abstract only; full article not supplied.]\n\n{abstract}",
                 original_url=url,
                 reader_blocks=reader_blocks,
                 metadata=ExtractionMetadata(
