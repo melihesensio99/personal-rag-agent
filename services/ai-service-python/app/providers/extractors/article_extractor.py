@@ -146,12 +146,13 @@ class ArticleExtractor:
     def _extract_text(self, html: str) -> str:
         trafilatura_text = self._extract_with_trafilatura(html)
         if trafilatura_text:
-            return SummaryInputPreparer.prepare(trafilatura_text, max_chars=self.TEXT_LIMIT)
+            return SummaryInputPreparer.normalize_whitespace(trafilatura_text)
 
+        content_html = self._select_content_region(html)
         without_scripts = re.sub(
             r"<(script|style)[^>]*>.*?</\1>",
             " ",
-            html,
+            content_html,
             flags=re.IGNORECASE | re.DOTALL,
         )
         without_scripts = re.sub(r"</(?:h[1-6]|p|li|div|section|article|blockquote)\s*>", "\n\n", without_scripts, flags=re.IGNORECASE)
@@ -161,7 +162,23 @@ class ArticleExtractor:
         if not normalized:
             raise ValueError("article_text_empty")
 
-        return SummaryInputPreparer.prepare(normalized, max_chars=self.TEXT_LIMIT)
+        return normalized
+
+    @staticmethod
+    def _select_content_region(html: str) -> str:
+        # Keep the fallback parser from turning site navigation into article text.
+        # Prefer semantic containers; otherwise remove common non-content regions.
+        for tag in ("article", "main"):
+            match = re.search(rf"<{tag}\b[^>]*>(.*?)</{tag}\s*>", html, flags=re.IGNORECASE | re.DOTALL)
+            if match and re.search(r"\S", match.group(1)):
+                return match.group(1)
+
+        return re.sub(
+            r"<(nav|header|footer|aside|form|script|style|noscript|template)\b[^>]*>.*?</\1\s*>",
+            " ",
+            html,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
 
     def _extract_image_url(self, html: str, base_url: str) -> str | None:
         patterns = (

@@ -21,7 +21,7 @@ public sealed class SemanticAnswerService(
         if (selection.Sources.Count == 0)
             return new(query, "Kayıtlı kaynaklarımda bu soruya cevap verecek yeterli bilgi bulunamadı.", "backend", [], []);
         var answer = await aiServiceClient.CreateAnswerAsync(new CreateAnswerInput("semantic-answer-query", query, context.Chunks), cancellationToken);
-        return new(query, answer.Answer, answer.Provider, answer.UsedChunkIndexes, selection.Sources);
+        return new(query, answer.Answer, answer.Provider, NormalizeUsedIndexes(answer.UsedChunkIndexes, context.Chunks.Count), selection.Sources);
     }
 
     public async Task<SemanticAnswerDebugResult> AnswerDebugAsync(string query, int maxResults, Guid? contentId, CancellationToken cancellationToken)
@@ -35,7 +35,7 @@ public sealed class SemanticAnswerService(
                 selection.Candidates, new(0, 0, 0, timer.ElapsedMilliseconds));
         var answer = await aiServiceClient.CreateAnswerAsync(new CreateAnswerInput("semantic-answer-query", query, context.Chunks), cancellationToken);
         return new(query, context.Search.EmbeddingModel, context.Search.EmbeddingDimension, context.Search.QueryEmbeddingPreview, answer.Provider, answer.Answer,
-            answer.UsedChunkIndexes, context.Chunks, selection.Sources, options.Value.MinimumRerankScore, selection.Candidates, new(0, 0, 0, timer.ElapsedMilliseconds));
+            NormalizeUsedIndexes(answer.UsedChunkIndexes, context.Chunks.Count), context.Chunks, selection.Sources, options.Value.MinimumRerankScore, selection.Candidates, new(0, 0, 0, timer.ElapsedMilliseconds));
     }
 
     private async Task<RagContext> RetrieveAsync(string query, int maxResults, Guid? contentId, CancellationToken cancellationToken, string? retrievalQuery = null)
@@ -51,6 +51,9 @@ public sealed class SemanticAnswerService(
         sources.Select((source, index) => new AnswerChunkInput(index, source.ContentId.ToString("N"), source.ChunkId.ToString("N"), source.ContentTitle,
             source.ContentUrl, source.SourceType.ToString(), source.ContentKind.ToString(), source.ChunkIndex, source.ChunkText,
             source.Distance, Math.Max(0, 1 - source.Distance))).ToList();
+
+    private static IReadOnlyList<int> NormalizeUsedIndexes(IReadOnlyList<int> indexes, int contextCount) =>
+        indexes.Where(index => index >= 0 && index < contextCount).Distinct().OrderBy(index => index).ToList();
 
     private sealed record RagContext(
         SemanticSearchDebugResult Search,

@@ -40,13 +40,13 @@ class PubMedArticleExtractor:
                 detected_content_kind="text",
                 extraction_status="completed",
                 title=title,
-                extracted_text=f"[SOURCE SCOPE: Abstract only; full article not supplied.]\n\n{abstract}",
+                extracted_text=abstract,
                 original_url=url,
                 reader_blocks=reader_blocks,
                 metadata=ExtractionMetadata(
                     domain="pubmed.ncbi.nlm.nih.gov",
                     content_type="application/xml",
-                    extra={"pmid": pmid, "published": published, "extractor": "ncbi_pubmed_xml"},
+                    extra={"pmid": pmid, "published": published, "extractor": "ncbi_pubmed_xml", "scope": "abstract_only"},
                 ),
             )
         except (HTTPError, URLError, TimeoutError, ValueError, ElementTree.ParseError) as error:

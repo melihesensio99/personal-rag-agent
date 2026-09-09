@@ -14,6 +14,7 @@ from app.schemas.mistral_response_schemas import SUMMARY_SCHEMA, response_format
 
 class MistralSummaryProvider(SummaryProvider):
     MAX_ATTEMPTS = 3
+    SUMMARY_MAX_TOKENS = 3200
 
     def __init__(
         self,
@@ -42,23 +43,28 @@ class MistralSummaryProvider(SummaryProvider):
             return SummaryResponse(
                 content_id=request.content_id,
                 title=self._read_text(parsed, "title"),
-                short_summary=self._finish_at_sentence(self._read_text(parsed, "short_summary")),
+                short_summary=self._clean_markdown(
+                    self._finish_at_sentence(self._read_text(parsed, "short_summary"))
+                ),
                 key_points=[
-                    self._finish_at_sentence(point)
-                    for point in self._read_text_list(parsed, "key_points", minimum=3, maximum=6)
+                    self._clean_markdown(self._finish_at_sentence(point))
+                    for point in self._read_text_list(parsed, "key_points", minimum=1, maximum=3)
                 ],
-                tags=self._read_text_list(parsed, "tags"),
+                tags=[self._clean_markdown(tag) for tag in self._read_text_list(parsed, "tags")],
                 language=self._read_text(parsed, "language"),
                 provider="mistral",
             )
 
-        return run_with_retries(
-            operation,
-            self._build_repair_hint,
-            max_attempts=self.MAX_ATTEMPTS,
-            failure_message="Mistral summary failed after retries.",
-            retryable_errors=(json.JSONDecodeError, RuntimeError, ValueError),
-        )
+        try:
+            return run_with_retries(
+                operation,
+                self._build_repair_hint,
+                max_attempts=self.MAX_ATTEMPTS,
+                failure_message="Mistral summary failed after retries.",
+                retryable_errors=(json.JSONDecodeError, RuntimeError, ValueError),
+            )
+        except RuntimeError:
+            return self._build_fallback_summary(request, prepared_text)
 
     def _send_request(self, prepared_text: str, repair_hint: str | None = None) -> dict[str, object]:
         endpoint = f"{self._base_url}/chat/completions"
@@ -66,6 +72,7 @@ class MistralSummaryProvider(SummaryProvider):
         system_prompt = (
             f"{self._prompt_loader.load()}\n\n"
             "You summarize saved personal content. "
+            "Keep the response compact: short_summary must contain 3 bullet lines, and key_points must contain 3 concise items of 1-2 sentences each. "
             "Write short_summary, key_points and tags in Turkish, but preserve title exactly in the source language. "
             "Return only a JSON object with these exact fields: "
             "title, short_summary, key_points, tags, language. "
@@ -94,7 +101,7 @@ class MistralSummaryProvider(SummaryProvider):
                 {"role": "user", "content": user_content},
             ],
             "temperature": 0.2,
-            "max_tokens": 7000,
+            "max_tokens": self.SUMMARY_MAX_TOKENS,
             "response_format": response_format("summary_response", SUMMARY_SCHEMA),
         }
 
@@ -224,10 +231,46 @@ class MistralSummaryProvider(SummaryProvider):
         return value
 
     @staticmethod
+    def _clean_markdown(value: str) -> str:
+        """Keep provider formatting from leaking into plain-text UI fields."""
+        return value.replace("**", "").replace("__", "").replace("`", "").strip()
+
+    @staticmethod
     def _build_repair_hint(error: Exception) -> str:
         return (
-            "The previous summary JSON did not match the required schema. "
-            f"Error: {error}. "
-            "Use non-empty strings for title, short_summary and language; "
-            "use 3-6 distinct non-empty strings for key_points and a non-empty string array for tags; language must be 'tr'."
+            "Return a compact valid JSON object now. Do not explain anything outside JSON. "
+            f"Previous error: {error}. "
+            "Use exactly 3 short key_points, 3 short_summary bullet lines, 3-5 tags, and language 'tr'."
         )
+
+    @classmethod
+    def _build_fallback_summary(cls, request: SummaryRequest, prepared_text: str) -> SummaryResponse:
+        """Create safe metadata without another model call when summary fails."""
+        text = prepared_text.strip()
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        title = next((line.lstrip("# ").strip() for line in lines if line.startswith("#")), "")
+        if not title:
+            title = cls._first_sentence(text) or "Kayıt özeti"
+
+        sentences = [part.strip() for part in text.replace("\n", " ").split(".") if part.strip()]
+        points = [cls._finish_at_sentence(sentence + ".") for sentence in sentences[:3]]
+        while len(points) < 3:
+            points.append("Kaynak metin, otomatik özet üretimi başarısız olduğu için ayrıntılı olarak işlenemedi.")
+
+        return SummaryResponse(
+            content_id=request.content_id,
+            title=title[:500],
+            short_summary=(
+                "- Konu: Kaynak metinden otomatik özet üretilemedi.\n"
+                "- Kapsam: İçerik kaydedildi; bu özet yalnızca güvenli bir yedek bilgidir.\n"
+                "- Not: Ayrıntılı özet için daha sonra yeniden denenebilir."
+            ),
+            key_points=points,
+            tags=[],
+            language="tr",
+            provider="mistral",
+        )
+
+    @staticmethod
+    def _first_sentence(text: str) -> str:
+        return next((part.strip() for part in text.replace("\n", " ").split(".") if part.strip()), "")

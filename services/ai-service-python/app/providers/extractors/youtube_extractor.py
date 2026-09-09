@@ -15,8 +15,6 @@ from app.providers.extractors.youtube_transcript_provider import YouTubeTranscri
 
 class YouTubeExtractor:
     OEMBED_ENDPOINT = "https://www.youtube.com/oembed"
-    SUMMARY_TEXT_LIMIT = 18_000
-
     def __init__(self, transcript_provider: YouTubeTranscriptProvider | None = None) -> None:
         self._transcript_provider = transcript_provider or YouTubeTranscriptProvider()
 
@@ -151,7 +149,7 @@ class YouTubeExtractor:
         transcript_text: str,
     ) -> str:
         if transcript_text.strip():
-            return transcript_text[: self.SUMMARY_TEXT_LIMIT].strip()
+            return transcript_text.strip()
 
         segments = []
 
@@ -164,4 +162,4 @@ class YouTubeExtractor:
         segments.append(f"Video id: {video_id}.")
         segments.append(f"Original URL: {url}")
 
-        return " ".join(segments)[: self.SUMMARY_TEXT_LIMIT].strip()
+        return " ".join(segments).strip()

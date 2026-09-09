@@ -134,12 +134,12 @@ class MistralAnswerProvider(AnswerProvider):
             lines.append(
                 "\n".join(
                     [
-                        f"Index: {chunk.index}",
+                        f"Context ID: {chunk.index}",
                         f"Content title: {chunk.content_title}",
                         f"Content URL: {chunk.content_url}",
                         f"Source type: {chunk.source_type}",
                         f"Content kind: {chunk.content_kind}",
-                        f"Chunk index: {chunk.chunk_index}",
+                        f"Original chunk number: {chunk.chunk_index}",
                         f"Distance: {chunk.distance}",
                         f"Similarity: {chunk.similarity}",
                         f"Text: {chunk.text}",

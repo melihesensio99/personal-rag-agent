@@ -39,7 +39,7 @@ class PmcArticleExtractor:
                 detected_content_kind="text",
                 extraction_status="completed",
                 title=title,
-                extracted_text=SummaryInputPreparer.prepare(text, max_chars=self.TEXT_LIMIT),
+                extracted_text=SummaryInputPreparer.normalize_whitespace(text),
                 original_url=url,
                 reader_blocks=reader_blocks,
                 metadata=ExtractionMetadata(

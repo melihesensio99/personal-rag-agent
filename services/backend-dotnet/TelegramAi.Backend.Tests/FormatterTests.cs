@@ -50,7 +50,7 @@ public sealed class FormatterTests
             "soru",
             "**Kalp** etkisi ve [kaynak](https://example.com)",
             "test",
-            [0, 1],
+            [0, 1, 2],
             [
                 Result(firstContentId, "Kahve", "https://example.com/coffee", 0),
                 Result(firstContentId, "Kahve", "https://example.com/coffee", 2),
@@ -67,6 +67,26 @@ public sealed class FormatterTests
         Assert.Contains("🧩 <b>Kullanılan chunklar:</b> 0, 2", sources[0]);
         Assert.Contains("<a href=\"https://example.com/coffee\">Kaynağı aç</a>", sources[0]);
         Assert.DoesNotContain("not-a-url", sources[1]);
+    }
+
+    [Fact]
+    public void AnswerFormatter_CleansEscapedMarkdownMarkers()
+    {
+        var formatter = new TelegramResponseFormatter();
+        var result = new SemanticAnswerResult(
+            "soru",
+            @"1. \*\*RAG-Sequence\*\*: aynı passage kullanılır.
+\*\*Pratik fark\*\: daha tutarlı cevap üretir.",
+            "test",
+            [0],
+            []);
+
+        var answer = formatter.FormatAnswer(result);
+
+        Assert.Contains("1. RAG-Sequence: aynı passage kullanılır.", answer);
+        Assert.Contains("Pratik fark: daha tutarlı cevap üretir.", answer);
+        Assert.DoesNotContain(@"\*", answer);
+        Assert.DoesNotContain("**", answer);
     }
 
     private static SemanticSearchChunkResult Result(Guid contentId, string title, string url, int chunkIndex)

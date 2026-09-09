@@ -47,6 +47,34 @@ def test_mistral_summary_provider_parses_structured_output(monkeypatch, tmp_path
     assert response.tags == ["rag", "llm"]
 
 
+def test_mistral_summary_provider_removes_markdown_markers(monkeypatch, tmp_path) -> None:
+    prompt_file = tmp_path / "prompt.txt"
+    prompt_file.write_text("Summarize content.", encoding="utf-8")
+    provider = MistralSummaryProvider(
+        prompt_loader=PromptLoader(str(prompt_file)),
+        api_key="test-key",
+        model="ministral-8b-2512",
+        base_url="https://api.mistral.ai/v1",
+        timeout_seconds=5,
+    )
+
+    def fake_send_request(self: MistralSummaryProvider, normalized_text: str, repair_hint: str | None = None) -> dict[str, object]:
+        return {"choices": [{"message": {"content": json.dumps({
+            "title": "Başlık",
+            "short_summary": "- **Konu:** Kısa özet.",
+            "key_points": ["**Bulgu:** İlk bulgu."],
+            "tags": ["`rag`"],
+            "language": "tr",
+        })}}]}
+
+    monkeypatch.setattr(MistralSummaryProvider, "_send_request", fake_send_request)
+    response = provider.create_summary(SummaryRequest(content_id="summary-markdown-1", text="Test."))
+
+    assert "**" not in response.short_summary
+    assert response.key_points == ["Bulgu: İlk bulgu."]
+    assert response.tags == ["rag"]
+
+
 def test_mistral_summary_provider_extracts_json_from_wrapped_output(monkeypatch, tmp_path) -> None:
     prompt_file = tmp_path / "prompt.txt"
     prompt_file.write_text("Summarize content.", encoding="utf-8")
@@ -181,3 +209,35 @@ def test_mistral_summary_provider_repairs_invalid_shape(monkeypatch, tmp_path) -
 
     assert response.title == "Düzeltilmiş"
     assert attempts == {"count": 2, "repair_seen": True}
+
+
+def test_mistral_summary_provider_falls_back_after_provider_failure(monkeypatch, tmp_path) -> None:
+    prompt_file = tmp_path / "prompt.txt"
+    prompt_file.write_text("Summarize content.", encoding="utf-8")
+    provider = MistralSummaryProvider(
+        prompt_loader=PromptLoader(str(prompt_file)),
+        api_key="test-key",
+        model="ministral-8b-2512",
+        base_url="https://api.mistral.ai/v1",
+        timeout_seconds=5,
+    )
+
+    def failing_send_request(
+        self: MistralSummaryProvider,
+        normalized_text: str,
+        repair_hint: str | None = None,
+    ) -> dict[str, object]:
+        raise RuntimeError("provider timeout")
+
+    monkeypatch.setattr(MistralSummaryProvider, "_send_request", failing_send_request)
+    response = provider.create_summary(
+        SummaryRequest(
+            content_id="summary-fallback-1",
+            text="Birinci cümle. İkinci cümle. Üçüncü cümle.",
+        )
+    )
+
+    assert response.provider == "mistral"
+    assert response.content_id == "summary-fallback-1"
+    assert len(response.key_points) == 3
+    assert "otomatik özet üretilemedi" in response.short_summary

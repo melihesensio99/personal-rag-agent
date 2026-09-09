@@ -135,6 +135,10 @@ Bu dosya projede neleri bitirdigimizi, her adimin hangi konuya denk geldigini ve
   - Konu: structured output reliability
 - [x] Mistral provider'larında JSON Schema response formatı eklendi.
   - Konu: constrained structured output
+- [x] Mistral summary çıktısı kompaktlaştırıldı ve bozuk JSON/timeout fallback'i eklendi.
+  - Konu: structured output reliability, graceful degradation
+- [x] Summary alanlarında provider Markdown işaretleri temizleniyor.
+  - Konu: output sanitization, Telegram UX
 
 ## 10. Postman ve Manuel Test
 
@@ -186,8 +190,10 @@ Bu dosya projede neleri bitirdigimizi, her adimin hangi konuya denk geldigini ve
   - Konu: retrieval optimization
 - [ ] Chunking'i paragraph/sentence-aware hale getir.
   - Konu: chunk quality
-- [ ] Article extraction temizligini artir.
+- [x] Article extraction temizligini artir.
   - Konu: trafilatura/readability tuning
+- [x] RAG grounding için context/original chunk ayrımı ve canlı canary doğrulaması eklendi.
+  - Konu: citation traceability, retrieval observability
 - [ ] YouTube transcript olmayan videolar icin fallback stratejisi belirle.
   - Konu: media fallback
 - [ ] PDF upload destegi ekle.

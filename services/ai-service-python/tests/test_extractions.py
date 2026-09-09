@@ -107,6 +107,34 @@ def test_create_article_extraction_prefers_trafilatura_when_available(monkeypatc
     assert body["metadata"]["extra"]["article_parser"] == "trafilatura"
 
 
+def test_article_fallback_ignores_navigation_and_prefers_article_region(monkeypatch) -> None:
+    def fake_fetch_html(self: ArticleExtractor, url: str) -> dict[str, str | None]:
+        return {
+            "html": """
+                <html><body>
+                    <nav>Login View PDF Related articles</nav>
+                    <article><h1>Temiz başlık</h1><p>Asıl makale metni burada.</p></article>
+                    <footer>Cookie policy</footer>
+                </body></html>
+            """,
+            "content_type": "text/html",
+            "final_url": url,
+        }
+
+    monkeypatch.setattr(ArticleExtractor, "_fetch_html", fake_fetch_html)
+    monkeypatch.setattr(ArticleExtractor, "_load_trafilatura", lambda self: None)
+
+    response = client.post(
+        "/api/v1/extractions",
+        json={"content_id": "fallback-1", "url": "https://example.com/article"},
+    )
+
+    body = response.json()
+    assert body["extracted_text"] == "Temiz başlık\n\nAsıl makale metni burada."
+    assert "View PDF" not in body["extracted_text"]
+    assert "Cookie policy" not in body["extracted_text"]
+
+
 def test_create_article_extraction_rejects_google_search_page() -> None:
     response = client.post(
         "/api/v1/extractions",
@@ -206,6 +234,8 @@ def test_create_pubmed_extraction_uses_ncbi_xml(monkeypatch) -> None:
     assert body["extraction_status"] == "completed"
     assert body["title"] == "PubMed Study"
     assert "BACKGROUND: Abstract about nutrition" in body["extracted_text"]
+    assert "SOURCE SCOPE" not in body["extracted_text"]
+    assert body["metadata"]["extra"]["scope"] == "abstract_only"
     assert body["metadata"]["extra"]["pmid"] == "19049813"
 
 

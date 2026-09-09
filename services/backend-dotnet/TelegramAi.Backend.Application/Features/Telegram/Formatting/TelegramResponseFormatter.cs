@@ -74,19 +74,47 @@ public sealed class TelegramResponseFormatter : ITelegramResponseFormatter
         return Truncate(b.ToString().Trim());
     }
 
-    public IReadOnlyList<string> FormatAnswerSources(SemanticAnswerResult result) => result.Sources.GroupBy(x => x.ContentId).Select(group =>
+    public IReadOnlyList<string> FormatAnswerSources(SemanticAnswerResult result)
+    {
+        if (result.UsedChunkIndexes.Count == 0) return [];
+
+        var usedIndexes = result.UsedChunkIndexes.ToHashSet();
+        var sources = result.Sources
+            .Select((source, contextIndex) => (source, contextIndex))
+            .Where(item => usedIndexes.Contains(item.contextIndex))
+            .Select(item => item.source)
+            .ToList();
+
+        return sources.GroupBy(x => x.ContentId).Select(group =>
     {
         var source = group.First(); var indexes = group.Select(x => x.ChunkIndex).Distinct().OrderBy(x => x);
         var b = new StringBuilder("────────────────\n"); b.AppendLine($"📌 <b>{Encode(source.ContentTitle)}</b>"); b.AppendLine($"📎 <b>Tür:</b> {Encode(source.SourceType.ToString())}");
         if (IsHttpUrl(source.ContentUrl)) b.AppendLine($"🔗 <a href=\"{Encode(source.ContentUrl)}\">Kaynağı aç</a>");
         b.AppendLine($"🧩 <b>Kullanılan chunklar:</b> {string.Join(", ", indexes)}"); return Truncate(b.ToString().Trim());
-    }).ToList();
+        }).ToList();
+    }
 
     private static string RawPreview(string text) { var value = text.Trim(); return value.Length <= 160 || LooksLikeUrl(value) ? value : $"{value[..157]}..."; }
     private static bool LooksLikeUrl(string value) => Regex.IsMatch(value, @"^https?://", RegexOptions.IgnoreCase);
     private static bool IsHttpUrl(string value) => Uri.TryCreate(value, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
     private static string Encode(string value) => WebUtility.HtmlEncode(value);
-    private static string CleanAnswer(string answer) { var value = Regex.Replace(answer.Trim(), @"\*\*|__|`", string.Empty); value = Regex.Replace(value, @"(?m)^\s*#{1,6}\s*", string.Empty); return Regex.Replace(value, @"\[([^\]]+)\]\((https?://[^)]+)\)", "$1 ($2)"); }
-    private static string CleanGeneratedText(string value) => Regex.Replace(Regex.Replace(value.Trim(), @"\*\*|__|`", string.Empty), @"(?m)^\s*#{1,6}\s*", string.Empty);
+    private static string CleanAnswer(string answer)
+    {
+        var value = NormalizeMarkdown(answer);
+        value = Regex.Replace(value, @"\[([^\]]+)\]\((https?://[^)]+)\)", "$1 ($2)");
+        return value;
+    }
+
+    private static string CleanGeneratedText(string value) => NormalizeMarkdown(value);
+
+    private static string NormalizeMarkdown(string value)
+    {
+        // Some providers return Markdown that was escaped before it reached the JSON payload
+        // (for example, \"\\**başlık\\**\"). Normalize those markers before removing styling.
+        var normalized = Regex.Replace(value.Trim(), @"\\([\\`*_{}\[\]()#+\-.!>])", "$1");
+        normalized = Regex.Replace(normalized, @"\*\*|__|`", string.Empty);
+        normalized = Regex.Replace(normalized, @"(?m)^\s*#{1,6}\s*", string.Empty);
+        return Regex.Replace(normalized, @"(?m)^\s*[•*]\s*", "• ");
+    }
     private static string Truncate(string value) => value.Length <= MaxLength ? value : $"{value[..MaxLength]}\n\n…";
 }

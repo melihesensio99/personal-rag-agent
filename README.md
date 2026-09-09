@@ -2,6 +2,10 @@
 
 A learning-oriented product that combines a .NET application backend with a Python AI/RAG service.
 
+The current pipeline separates source extraction, summary generation and RAG
+grounding. The original extracted text is retained for chunking and retrieval;
+summary-specific compression is applied only to the Mistral summary request.
+
 ## Services
 
 - `services/backend-dotnet/TelegramAi.Backend.Api`: product API and orchestration
@@ -46,3 +50,35 @@ Alternatively, run both services with:
 ```powershell
 docker compose up --build
 ```
+
+## Current reliability behavior
+
+- Article, PMC, PubMed and YouTube extractors keep the usable source text for
+  chunking; web-page noise and source-scope markers are removed where possible.
+- Mistral summaries use compact structured JSON: at most three concise key
+  points and a 3,200-token output budget. Short content may contain fewer key
+  points.
+- If Mistral returns truncated/invalid JSON or times out after retries, a
+  deterministic fallback summary is returned so ingestion can continue. This
+  fallback does not affect chunking, embeddings or RAG retrieval.
+- Summary fields are sanitized before reaching the UI, so provider Markdown
+  markers such as `**` do not leak into Telegram output.
+- RAG answers expose both the context index sent to the answer model and the
+  original stored chunk index. Invalid model-reported citation indexes are
+  discarded by the backend.
+
+For the end-to-end grounding procedure and the live canary result, see
+[docs/RAG_GROUNDING_TEST_GUIDE.md](docs/RAG_GROUNDING_TEST_GUIDE.md).
+
+## Verification
+
+Run the Python service tests with:
+
+```powershell
+cd services/ai-service-python
+python -m pytest -q -p no:cacheprovider
+```
+
+The summary provider has tests for valid structured output, wrapped JSON,
+long-input compression, repair retries, provider-failure fallback and
+Markdown cleanup.
