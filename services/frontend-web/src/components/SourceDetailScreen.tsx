@@ -138,7 +138,7 @@ export const SourceDetailScreen: React.FC<SourceDetailScreenProps> = ({
             <Zap className="h-4 w-4 text-[#ffb77d]" />
             <div>
               <div className="text-[10px] font-medium uppercase tracking-wider text-[#938275]">İndeksleme</div>
-              <div className="font-mono text-xs font-semibold text-[#e3e2e6]">%{source.telemetry.matchPercentage} Tamamlandı</div>
+              <div className="font-mono text-xs font-semibold text-[#e3e2e6]">%{source.telemetry.embeddingCoveragePercentage} Embedding hazır</div>
             </div>
           </div>
           <div className="flex items-center gap-3 rounded-xl border border-[#2d2e33]/60 bg-[#141518]/70 px-3.5 py-2.5">

@@ -15,7 +15,6 @@ export function mapContentToSourceItem(content: Content, chunks: ContentChunk[] 
     title: content.title,
     originalUrl: sourceUrl,
     duration: isYouTube ? 'Video' : 'Web makalesi',
-    reliability: 100,
     synthesisNumber: `#${content.id.slice(0, 8).toUpperCase()}`,
     category: content.tags.join(' & ').toLocaleUpperCase('tr') || 'GENEL ARAŞTIRMA',
     heroImage: content.imageUrl?.trim() || FALLBACK_SOURCE_IMAGE,
@@ -50,11 +49,9 @@ export function mapContentToSourceItem(content: Content, chunks: ContentChunk[] 
     })),
     telemetry: {
       chunksCount: sortedChunks.length,
-      referencedNamesCount: 0,
       wordsCount: String(wordsCount),
-      vectorDimensions: 0,
-      matchPercentage: sortedChunks.length === 0
-        ? 0
+      embeddingCoveragePercentage: sortedChunks.length === 0
+        ? null
         : Math.round((sortedChunks.filter((chunk) => chunk.hasEmbedding).length / sortedChunks.length) * 100),
     },
     tags: content.tags,

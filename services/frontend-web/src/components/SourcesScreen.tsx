@@ -134,7 +134,9 @@ export const SourcesScreen: React.FC<SourcesScreenProps> = ({
                 </div>
                 <div className="absolute top-3 right-3 flex items-center gap-1 font-mono text-[10px] bg-[#0d0e11]/80 px-2 py-0.5 rounded text-[#ffb77d] border border-[#292a2d]">
                   <ShieldCheck className="w-3 h-3 text-[#d97707]" />
-                  <span>%{source.reliability}</span>
+                  <span>{source.telemetry.embeddingCoveragePercentage == null
+                    ? 'Vektör durumu bilinmiyor'
+                    : `%${source.telemetry.embeddingCoveragePercentage} vektörlü`}</span>
                 </div>
               </div>
 

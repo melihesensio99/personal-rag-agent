@@ -323,7 +323,9 @@ export const QuickCaptureScreen: React.FC<QuickCaptureScreenProps> = ({
               </span>
               <span className="text-xs text-[#a38c7c]">•</span>
               <span className="font-mono text-[11px] font-medium text-[#432100]">
-                Doğrulanmış Güvenilirlik: %{displayedSource.reliability}
+                {displayedSource.telemetry.embeddingCoveragePercentage == null
+                  ? 'İndeks durumu detay ekranında görüntülenebilir'
+                  : `Embedding kapsamı: %${displayedSource.telemetry.embeddingCoveragePercentage}`}
               </span>
             </div>
 

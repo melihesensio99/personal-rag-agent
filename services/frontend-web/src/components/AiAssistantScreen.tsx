@@ -27,6 +27,7 @@ interface Message {
     sourceTitle: string;
     timeOrSection: string;
     snippet: string;
+    similarity: number;
   }>;
 }
 
@@ -71,6 +72,7 @@ export const AiAssistantScreen: React.FC<AiAssistantScreenProps> = ({
         sourceTitle: source.contentTitle,
         timeOrSection: `Chunk ${source.chunkIndex + 1}`,
         snippet: source.chunkText.length > 140 ? `${source.chunkText.slice(0, 140)}...` : source.chunkText,
+        similarity: source.similarity,
       }));
 
       setMessages((prev) => [...prev, {
@@ -253,6 +255,9 @@ export const AiAssistantScreen: React.FC<AiAssistantScreenProps> = ({
                           {c.timeOrSection}
                         </span>
                       </div>
+                      <span className="font-mono text-[10px] text-emerald-300/80">
+                        Benzerlik: %{Math.round(Math.max(0, Math.min(1, c.similarity)) * 100)}
+                      </span>
                       <p className="font-sans text-[11px] text-[#dbc2b0]/70 italic line-clamp-1">
                         "{c.snippet}"
                       </p>

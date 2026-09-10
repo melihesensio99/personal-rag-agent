@@ -48,7 +48,6 @@ export interface SourceItem {
   title: string;
   originalUrl: string;
   duration: string;
-  reliability: number;
   synthesisNumber: string;
   category: string;
   heroImage: string;
@@ -68,10 +67,8 @@ export interface SourceItem {
   chunks: ChunkItem[];
   telemetry: {
     chunksCount: number;
-    referencedNamesCount: number;
     wordsCount: string;
-    vectorDimensions: number;
-    matchPercentage: number;
+    embeddingCoveragePercentage: number | null;
   };
   tags: string[];
   dateAdded: string;
